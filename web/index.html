@@ -66,6 +66,8 @@ main{padding:12px;overflow:auto}
 .tile .avatar{display:none;position:absolute;inset:0;place-items:center;font-size:44px;font-weight:700;color:var(--muted);background:var(--panel)}
 .tile.novideo .avatar{display:grid}
 .tile.novideo video{visibility:hidden}
+.tile .kick{display:none;position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6)}
+#studio.host .tile:not(.me) .kick{display:block}
 .tile .tag{position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.6);padding:3px 9px;border-radius:7px;font-size:12.5px;font-weight:500}
 aside{border-left:1px solid var(--line);overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
 .box{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;flex:none}
@@ -219,6 +221,10 @@ function toast(msg, good, ms){ const t=$('#toast'); t.textContent=msg; t.classNa
 
 if (!window.isSecureContext) $('#secure').hidden = false;
 $('#room').value = new URLSearchParams(location.search).get('sala') || '';
+if (new URLSearchParams(location.search).has('expulsado')) {
+  history.replaceState(null, '', location.pathname);
+  setTimeout(() => toast('Quien creó la sala te ha sacado de ella.', false, 8000), 300);
+}
 try { $('#name').value = localStorage.getItem('cabina-name') || ''; } catch {}
 
 // Últimos dispositivos y calidad usados, guardados solo en este navegador
@@ -341,7 +347,7 @@ $('#enter').onclick = async () => {
 function connect(){
   setStatus('Conectando…');
   const p = new Peer(PREFIX + S.room, { debug: 1 });
-  p.on('open', () => { S.isHost = true; S.peer = p; wirePeer(p); updateCount(); });
+  p.on('open', () => { S.isHost = true; S.peer = p; wirePeer(p); updateCount(); $('#studio').classList.add('host'); });
   p.on('error', e => {
     if (S.peer !== p) {
       if (e.type === 'unavailable-id') { p.destroy(); joinGuest(); }
@@ -351,12 +357,15 @@ function connect(){
 }
 function joinGuest(){
   const p = new Peer(PREFIX + S.room + '-' + rid(), { debug: 1 });
-  p.on('open', () => { S.isHost = false; S.peer = p; wirePeer(p); connectTo(PREFIX + S.room); updateCount(); });
+  p.on('open', () => { S.isHost = false; S.peer = p; wirePeer(p); connectTo(PREFIX + S.room); updateCount(); $('#studio').classList.remove('host'); });
   p.on('error', handleErr);
 }
 function wirePeer(p){
-  p.on('connection', c => (c.metadata && c.metadata.kind === 'pcm') ? wirePcmIn(c) : wireConn(c));
-  p.on('call', onCall);
+  p.on('connection', c => {
+    if (banned.has(c.peer)) { c.on('open', () => c.close()); return; }
+    (c.metadata && c.metadata.kind === 'pcm') ? wirePcmIn(c) : wireConn(c);
+  });
+  p.on('call', call => { if (banned.has(call.peer)) { call.close(); return; } onCall(call); });
   p.on('disconnected', () => { setStatus('Reconectando…'); try { p.reconnect(); } catch {} });
 }
 function handleErr(e){
@@ -377,7 +386,7 @@ function ensurePeer(id){
   return p;
 }
 function connectTo(id){
-  if (!S.peer || id === S.peer.id || peers.has(id)) return;
+  if (!S.peer || id === S.peer.id || peers.has(id) || banned.has(id)) return;
   ensurePeer(id);
   wireConn(S.peer.connect(id, { reliable: true, metadata: { name: S.name } }));
   const call = S.peer.call(id, S.talk, { metadata: { kind: 'talk' } });
@@ -387,6 +396,7 @@ function wireConn(c){
   const p = ensurePeer(c.peer); p.dc = c;
   if (c.metadata && c.metadata.name) setName(p, c.metadata.name);
   c.on('open', () => {
+    p.lastSeen = Date.now();
     send(c, { type: 'hello', name: S.name, cam: camOn() });
     if (S.isHost) send(c, { type: 'roster', ids: [...peers.keys()].filter(id => id !== c.peer) });
     if (S.daw) callDaw(c.peer);
@@ -399,7 +409,12 @@ function wireConn(c){
 function send(c, obj){ try { if (c && c.open) c.send(obj); } catch {} }
 function onData(p, d){
   if (!d || typeof d !== 'object') return;
-  if (d.type === 'hello') { setName(p, d.name); setCam(p, d.cam !== false); }
+  p.lastSeen = Date.now();
+  const fromHost = p.id === PREFIX + S.room;
+  if (d.type === 'ping') p.pings = true;
+  else if (d.type === 'kick') { if (fromHost) kicked(); }
+  else if (d.type === 'kicked') { if (fromHost && typeof d.id === 'string' && d.id !== S.peer.id) { banned.add(d.id); removePeer(d.id); } }
+  else if (d.type === 'hello') { setName(p, d.name); setCam(p, d.cam !== false); }
   else if (d.type === 'roster' && Array.isArray(d.ids)) d.ids.filter(x => typeof x === 'string' && x.startsWith(PREFIX + S.room)).forEach(connectTo);
   else if (d.type === 'chat' && typeof d.text === 'string') addMsg(p.name, d.text.slice(0,500), d.t);
   else if (d.type === 'cam') setCam(p, !!d.on);
@@ -423,8 +438,31 @@ function removePeer(id){
   const p = peers.get(id); if (!p) return;
   removeDawIn(p);
   [p.talkCall, p.dawOut, p.pcmOut, p.dawCallIn].forEach(c => { try { c && c.close(); } catch {} });
+  try { p.dc && p.dc.close(); } catch {}
   p.tile && p.tile.remove();
   peers.delete(id); updateCount();
+}
+
+/* ---------- presencia y expulsar ---------- */
+const banned = new Set();
+// Señal de vida cada 3 s; quien lleve 15 s sin dar señales (conexión caída) sale de la sala
+setInterval(() => peers.forEach((p, id) => {
+  if (p.dc && p.dc.open) send(p.dc, { type: 'ping' });
+  if (p.pings && Date.now() - p.lastSeen > 15000) removePeer(id);
+}), 3000);
+// Solo quien creó la sala (el anfitrión) puede echar a alguien
+function kick(id){
+  const p = peers.get(id); if (!p || !S.isHost) return;
+  if (!confirm(`¿Sacar a ${p.name} de la sala?`)) return;
+  send(p.dc, { type: 'kick' });
+  peers.forEach((o, oid) => { if (oid !== id) send(o.dc, { type: 'kicked', id }); });
+  banned.add(id);
+  setTimeout(() => removePeer(id), 500);
+  toast(`${p.name} ya no está en la sala.`, true);
+}
+function kicked(){
+  try { S.peer && S.peer.destroy(); } catch {}
+  location.href = location.pathname + '?expulsado=1';
 }
 function setStatus(t, ok){ const s = $('#status'); s.textContent = t; s.classList.toggle('ok', !!ok); }
 function updateCount(){ if (S.peer) setStatus(`${peers.size + 1} en la sala`, true); }
@@ -951,7 +989,8 @@ function addLocalTile(){
 }
 function addTile(p){
   const t = document.createElement('div'); t.className = 'tile novideo';
-  t.innerHTML = '<video autoplay playsinline></video><div class="avatar"></div><span class="tag"></span>';
+  t.innerHTML = '<video autoplay playsinline></video><div class="avatar"></div><span class="tag"></span><button class="btn sm danger kick">Echar</button>';
+  t.querySelector('.kick').onclick = () => kick(p.id);
   p.tile = t; setName(p, p.name); $('#grid').append(t);
 }
 function setName(p, n){

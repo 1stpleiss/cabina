@@ -82,6 +82,8 @@ Un único archivo HTML, sin build ni dependencias, salvo PeerJS desde CDN.
 - La sala es el parámetro `?sala=nombre` de la URL. "Copiar enlace" lo pone en el portapapeles.
 - El primero en entrar reserva el ID `cabina-v1-<sala>` en PeerJS y hace de **anfitrión**. Los demás se conectan a él, reciben la lista de quién hay y se conectan con todos (**malla**).
 - Si el anfitrión se va, los que ya están siguen conectados entre ellos. Si un recién llegado no encuentra al anfitrión, pasa a serlo él.
+- **Presencia**: cada participante manda una señal de vida (`ping`) cada 3 s por el canal de datos. Quien lleve 15 s sin darla (conexión caída, móvil bloqueado) sale de la sala para los demás.
+- **Echar**: el anfitrión ve un botón *Echar* en cada vídeo. Manda `kick` a esa persona (su web sale de la sala) y `kicked` al resto, que la quitan y no vuelven a conectar con ella. Solo se obedecen si vienen del ID del anfitrión. Si la persona vuelve a entrar con el enlace, puede hacerlo (no es un bloqueo permanente).
 
 ### Conexiones por cada pareja de personas
 
