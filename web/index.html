@@ -9,7 +9,7 @@
 <style>
 :root{
   --bg:#0d0e10;--panel:#16181b;--panel2:#1d2024;--line:#2a2e34;--text:#ebe8e3;--muted:#8d929a;
-  --accent:#f2a33a;--accent-ink:#1a1206;--red:#e5484d;--green:#3ecf8e;
+  --accent:#213ACE;--accent-hover:#2D48E0;--accent-glow:#4A66F0;--accent-text:#8C9EF7;--accent-ink:#fff;--amber:#f2a33a;--red:#e5484d;--green:#3ecf8e;
   --r:12px;
 }
 *{box-sizing:border-box}
@@ -22,20 +22,22 @@ button,input,select{font:inherit;color:inherit}
 .btn:hover{border-color:#3b4048}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+a.btn{display:inline-block;text-align:center;text-decoration:none;color:var(--text)}
 .btn.danger{background:transparent;border-color:#4a2426;color:#ff8a8d}
-.btn.on{background:#2a1d0b;border-color:var(--accent);color:var(--accent)}
+.btn.on{background:#121a40;border-color:var(--accent);color:var(--accent-text)}
 .btn.off{background:#2b1416;border-color:#5a2a2d;color:#ff8a8d}
 .btn.sm{padding:5px 10px;font-size:12.5px;border-radius:7px}
 label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px;font-weight:500;letter-spacing:.02em}
 input[type=text],select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;outline:none}
-input[type=text]:focus,select:focus{border-color:var(--accent)}
-input[type=range]{accent-color:var(--accent);flex:1;min-width:60px}
+input[type=text]:focus,select:focus{border-color:var(--accent-glow);box-shadow:0 0 0 2px rgba(33,58,206,.35)}
+input[type=range]{accent-color:var(--accent-glow);flex:1;min-width:60px}
 
 /* Join */
 #join{min-height:100%;display:grid;place-items:center;padding:16px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px 22px;width:100%;max-width:640px}
 .brand{display:flex;align-items:center;gap:10px;margin-bottom:6px}
-.dot{width:12px;height:12px;border-radius:50%;background:var(--red);box-shadow:0 0 12px var(--red)}
+.dot{width:12px;height:12px;border-radius:50%;background:var(--accent-glow);box-shadow:0 0 12px var(--accent-glow)}
 h1{font-size:22px;margin:0;letter-spacing:-.01em}
 .sub{color:var(--muted);margin:0 0 4px;font-size:13px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -74,7 +76,7 @@ aside{border-left:1px solid var(--line);overflow:auto;padding:12px;display:flex;
 .box h3 .info{float:right;margin:0;text-transform:none;letter-spacing:0;font-weight:500}
 .meter{display:grid;gap:3px;margin-top:8px}
 .meter i{display:block;height:6px;border-radius:3px;background:var(--panel2);position:relative;overflow:hidden}
-.meter i::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,var(--green) 0 70%,var(--accent) 70% 90%,var(--red) 90%);transform-origin:left;transform:scaleX(var(--v,0));transition:transform 60ms linear}
+.meter i::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,var(--green) 0 70%,var(--amber) 70% 90%,var(--red) 90%);transform-origin:left;transform:scaleX(var(--v,0));transition:transform 60ms linear}
 .info{color:var(--muted);margin-top:6px}
 #dawList{max-height:34vh;overflow:auto}
 .dawin{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
@@ -91,6 +93,10 @@ aside{border-left:1px solid var(--line);overflow:auto;padding:12px;display:flex;
 .msg .who{font-weight:600;margin-right:6px}
 .msg .t{color:var(--muted);font-size:11px;margin-left:4px}
 #chatForm{display:flex;gap:8px}
+.modal{position:fixed;inset:0;z-index:8;display:grid;place-items:center;padding:16px;background:rgba(5,6,8,.72)}
+.modal h2{font-size:18px;margin:0 0 4px}
+.modal .actions{margin-top:14px}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent-text);cursor:pointer;font-size:12.5px;text-decoration:underline}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#2b1416;border:1px solid #5a2a2d;color:#ffd0d1;padding:10px 16px;border-radius:10px;max-width:calc(100% - 32px);opacity:0;pointer-events:none;transition:opacity .2s;z-index:9}
 #toast.show{opacity:1}
 #toast.good{background:#10261d;border-color:#1f4a3a;color:#c6f3df}
@@ -131,6 +137,7 @@ aside{border-left:1px solid var(--line);overflow:auto;padding:12px;display:flex;
     <div class="tips">
       <p><b>Emitir:</b> plugin <b>Cabina Send</b> en el máster, o <b>BlackHole</b> (Mac) / <b>VB-Cable</b> (Windows). Para escuchar no hace falta nada.</p>
       <p>Usad <b>Chrome</b> o Edge y <b>auriculares</b>.</p>
+      <p><button class="linkbtn" type="button" id="plugOpen1">Descargar el plugin Cabina</button></p>
       <p id="secure" class="warn" hidden>Esta página tiene que abrirse por https para poder usar micro y cámara.</p>
     </div>
   </div>
@@ -139,6 +146,7 @@ aside{border-left:1px solid var(--line);overflow:auto;padding:12px;display:flex;
 <section id="studio" hidden>
   <header>
     <div class="room"><span class="dot"></span><h2 id="roomName"></h2><span class="pill" id="status">Conectando…</span></div>
+    <button class="btn sm" id="plugOpen2">Plugins</button>
     <button class="btn sm" id="copy">Copiar enlace</button>
     <button class="btn sm on" id="micBtn">Micro</button>
     <button class="btn sm on" id="camBtn">Cámara</button>
@@ -151,6 +159,11 @@ aside{border-left:1px solid var(--line);overflow:auto;padding:12px;display:flex;
         <h3>Tu DAW <span class="info mono" id="dawInfo"></span></h3>
         <div class="line" style="margin:0"><select id="dawIn2" aria-label="Entrada del DAW"></select><button class="btn primary sm" id="dawBtn">Emitir DAW</button></div>
         <div class="meter" id="dawMeter"><i></i><i></i></div>
+        <div class="line"><span class="lbl">Calidad</span><select id="quality" aria-label="Calidad de emisión">
+          <option value="opus">Opus 510 kbps</option>
+          <option value="16">Sin pérdidas 16 bit</option>
+          <option value="24">Sin pérdidas 24 bit</option></select></div>
+        <div class="info" id="qInfo" hidden></div>
         <div class="line"><span class="lbl">Escuchar</span><select id="out" aria-label="Escuchar por"></select></div>
       </div>
       <div class="box">
@@ -166,6 +179,23 @@ aside{border-left:1px solid var(--line);overflow:auto;padding:12px;display:flex;
     </aside>
   </div>
 </section>
+
+<div id="plug" class="modal" hidden>
+  <div class="card">
+    <h2>Plugin Cabina para tu DAW</h2>
+    <p class="sub">Para emitir tu DAW sin BlackHole ni VB-Cable. Instala <b>Cabina Send</b> (va en el máster) y <b>Cabina Retorno</b> (recibe el DAW de un colega en una pista). VST3 en Mac y Windows, y AU en Mac.</p>
+    <div class="actions" id="dlBtns">
+      <a class="btn primary" id="dlMac" href="https://github.com/1stpleiss/cabina/releases/download/plugins/Cabina-Mac.pkg">Descargar para Mac</a>
+      <a class="btn" id="dlWin" href="https://github.com/1stpleiss/cabina/releases/download/plugins/Cabina-Windows.exe">Descargar para Windows</a>
+    </div>
+    <div class="tips">
+      <p><b>Mac:</b> si dice que no puede comprobar el desarrollador, ve a <i>Ajustes del Sistema → Privacidad y seguridad</i> y pulsa <i>Abrir igualmente</i>.</p>
+      <p><b>Windows:</b> si sale <i>Windows protegió su PC</i>, pulsa <i>Más información → Ejecutar de todas formas</i>.</p>
+      <p>Después, vuelve a escanear los plugins en tu DAW. Para solo escuchar no hace falta instalar nada.</p>
+    </div>
+    <div class="actions"><button class="btn" id="plugHave">Ya lo tengo</button><button class="btn" id="plugSkip">Solo voy a escuchar</button></div>
+  </div>
+</div>
 
 <div id="toast"></div>
 
@@ -188,15 +218,45 @@ if (!window.isSecureContext) $('#secure').hidden = false;
 $('#room').value = new URLSearchParams(location.search).get('sala') || '';
 try { $('#name').value = localStorage.getItem('cabina-name') || ''; } catch {}
 
+// Últimos dispositivos y calidad usados, guardados solo en este navegador
+let prefs = {};
+try { prefs = JSON.parse(localStorage.getItem('cabina-prefs')) || {}; } catch {}
+function savePrefs(){ try { localStorage.setItem('cabina-prefs', JSON.stringify(prefs)); } catch {} }
+S.quality = ['opus', '16', '24'].includes(prefs.quality) ? prefs.quality : 'opus';
+$('#quality').value = S.quality;
+function qInfo(){
+  const q = S.quality;
+  $('#qInfo').hidden = q === 'opus';
+  $('#qInfo').textContent = q === 'opus' ? '' : `Necesita ~${q === '16' ? '1,5' : '2,3'} Mbps de subida por cada oyente. Unos 0,3 s más de retardo.`;
+}
+qInfo();
+
+/* ---------- aviso del plugin ---------- */
+const isWin = /windows/i.test(navigator.userAgent);
+if (isWin) { $('#dlBtns').prepend($('#dlWin')); $('#dlWin').classList.add('primary'); $('#dlMac').classList.remove('primary'); }
+function plugModal(show){
+  $('#plug').hidden = !show;
+  if (!show) try { localStorage.setItem('cabina-plugin-visto', '1'); } catch {}
+}
+let plugSeen = false; try { plugSeen = !!localStorage.getItem('cabina-plugin-visto'); } catch {}
+if (!plugSeen) plugModal(true);
+['#plugOpen1', '#plugOpen2'].forEach(id => $(id).onclick = () => plugModal(true));
+['#plugHave', '#plugSkip'].forEach(id => $(id).onclick = () => plugModal(false));
+['#dlMac', '#dlWin'].forEach(id => $(id).addEventListener('click', () => setTimeout(() => plugModal(false), 300)));
+$('#plug').onclick = e => { if (e.target === e.currentTarget) plugModal(false); };
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#plug').hidden) plugModal(false); });
+
 /* ---------- dispositivos ---------- */
 const LOOPBACK = /blackhole|vb-?audio|cable output|loopback|soundflower|voicemeeter/i;
 const PLUGIN_OPT = ['Plugin Cabina Send (sin cable virtual)', 'plugin'];
-function fill(sel, list, noneLabel, pick, extra){
+function fill(sel, list, noneLabel, pick, extra, saved){
   const prev = sel.value; sel.innerHTML = '';
   if (noneLabel) sel.add(new Option(noneLabel, ''));
   (extra || []).forEach(([label, value]) => sel.add(new Option(label, value)));
   list.forEach((d,i) => sel.add(new Option(d.label || `Dispositivo ${i+1}`, d.deviceId)));
-  if (prev && [...sel.options].some(o => o.value === prev)) { sel.value = prev; return; }
+  const has = v => [...sel.options].some(o => o.value === v);
+  if (prev && has(prev)) { sel.value = prev; return; }
+  if (saved != null && has(saved)) { sel.value = saved; return; }
   const m = pick && list.find(pick); if (m) sel.value = m.deviceId;
 }
 async function fillDevices(){
@@ -204,11 +264,11 @@ async function fillDevices(){
   const ins = devs.filter(d => d.kind==='audioinput' && d.deviceId!=='communications');
   const cams = devs.filter(d => d.kind==='videoinput');
   const outs = devs.filter(d => d.kind==='audiooutput' && d.deviceId!=='communications');
-  fill($('#cam'), cams, 'Sin cámara', () => true);
-  fill($('#mic'), ins, null, d => !LOOPBACK.test(d.label));
-  fill($('#dawIn'), ins, 'Ninguna (solo escuchar)', d => LOOPBACK.test(d.label), [PLUGIN_OPT]);
-  fill($('#dawIn2'), ins, 'Elige la entrada…', d => LOOPBACK.test(d.label), [PLUGIN_OPT]);
-  if ('setSinkId' in HTMLMediaElement.prototype && outs.length) fill($('#out'), outs, null, () => true);
+  fill($('#cam'), cams, 'Sin cámara', () => true, null, prefs.cam);
+  fill($('#mic'), ins, null, d => !LOOPBACK.test(d.label), null, prefs.mic);
+  fill($('#dawIn'), ins, 'Ninguna (solo escuchar)', d => LOOPBACK.test(d.label), [PLUGIN_OPT], prefs.dawIn);
+  fill($('#dawIn2'), ins, 'Elige la entrada…', d => LOOPBACK.test(d.label), [PLUGIN_OPT], prefs.dawIn);
+  if ('setSinkId' in HTMLMediaElement.prototype && outs.length) fill($('#out'), outs, null, () => true, null, prefs.out);
   else { $('#out').innerHTML = '<option value="">Salida del sistema</option>'; $('#out').disabled = true; }
 }
 $('#detect').onclick = async () => {
@@ -220,6 +280,16 @@ $('#detect').onclick = async () => {
   await fillDevices();
   $('#devs').hidden = false; $('#enter').disabled = false;
 };
+// Si ya diste permiso a micro y cámara antes, rellena los dispositivos sin pulsar nada
+(async () => {
+  try {
+    const q = name => navigator.permissions.query({ name }).then(r => r.state);
+    const [mic, cam] = await Promise.all([q('microphone'), q('camera')]);
+    if (mic !== 'granted' || cam === 'prompt') return;
+    await fillDevices();
+    $('#devs').hidden = false; $('#enter').disabled = false;
+  } catch {}
+})();
 navigator.mediaDevices?.addEventListener?.('devicechange', () => fillDevices().catch(()=>{}));
 
 /* ---------- entrar ---------- */
@@ -239,6 +309,8 @@ $('#enter').onclick = async () => {
   S.name = $('#name').value.trim() || 'Anónimo';
   S.room = slug($('#room').value) || rid();
   try { localStorage.setItem('cabina-name', S.name); } catch {}
+  prefs.cam = $('#cam').value; prefs.mic = $('#mic').value; prefs.dawIn = $('#dawIn').value; prefs.out = $('#out').value;
+  savePrefs();
   history.replaceState(null, '', '?sala=' + S.room);
   S.ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
   await S.ctx.resume();
@@ -271,7 +343,7 @@ function joinGuest(){
   p.on('error', handleErr);
 }
 function wirePeer(p){
-  p.on('connection', wireConn);
+  p.on('connection', c => (c.metadata && c.metadata.kind === 'pcm') ? wirePcmIn(c) : wireConn(c));
   p.on('call', onCall);
   p.on('disconnected', () => { setStatus('Reconectando…'); try { p.reconnect(); } catch {} });
 }
@@ -319,15 +391,16 @@ function onData(p, d){
   else if (d.type === 'roster' && Array.isArray(d.ids)) d.ids.filter(x => typeof x === 'string' && x.startsWith(PREFIX + S.room)).forEach(connectTo);
   else if (d.type === 'chat' && typeof d.text === 'string') addMsg(p.name, d.text.slice(0,500), d.t);
   else if (d.type === 'cam') setCam(p, !!d.on);
-  else if (d.type === 'daw-stop') removeDawIn(p);
+  else if (d.type === 'daw-stop') { if (p.dawIn && !(d.gen < p.dawIn.gen)) removeDawIn(p); }
 }
 function onCall(call){
   const p = ensurePeer(call.peer);
   if (call.metadata && call.metadata.kind === 'daw') {
+    const gen = call.metadata.gen;
     call.answer(undefined, { sdpTransform: hqOpus });
     p.dawCallIn = call;
-    call.on('stream', s => attachDaw(p, s, call));
-    call.on('close', () => { if (p.dawCallIn === call) removeDawIn(p); });
+    call.on('stream', s => attachDaw(p, s, call, gen));
+    call.on('close', () => { if (p.dawIn && p.dawIn.call === call) removeDawIn(p); });
   } else {
     call.answer(S.talk);
     wireTalk(p, call);
@@ -337,7 +410,7 @@ function wireTalk(p, call){ p.talkCall = call; call.on('stream', s => attachTalk
 function removePeer(id){
   const p = peers.get(id); if (!p) return;
   removeDawIn(p);
-  [p.talkCall, p.dawOut, p.dawCallIn].forEach(c => { try { c && c.close(); } catch {} });
+  [p.talkCall, p.dawOut, p.pcmOut, p.dawCallIn].forEach(c => { try { c && c.close(); } catch {} });
   p.tile && p.tile.remove();
   peers.delete(id); updateCount();
 }
@@ -368,9 +441,79 @@ function boostBitrate(call){
 }
 function callDaw(id){
   const p = peers.get(id); if (!p || !S.daw || !S.peer) return;
-  try { p.dawOut && p.dawOut.close(); } catch {}
-  const call = S.peer.call(id, S.daw, { metadata: { kind: 'daw' }, sdpTransform: hqOpus });
-  p.dawOut = call; boostBitrate(call);
+  closeOuts(p);
+  if (S.quality === 'opus') {
+    const call = S.peer.call(id, S.daw, { metadata: { kind: 'daw', gen: S.dawGen }, sdpTransform: hqOpus });
+    p.dawOut = call; boostBitrate(call);
+  } else {
+    // Sin pérdidas: PCM por un canal de datos fiable y ordenado
+    p.pcmOut = S.peer.connect(id, { reliable: true, serialization: 'raw',
+      metadata: { kind: 'pcm', bits: +S.quality, sr: S.ctx.sampleRate, gen: S.dawGen } });
+  }
+}
+function closeOuts(p){ [p.dawOut, p.pcmOut].forEach(c => { try { c && c.close(); } catch {} }); p.dawOut = p.pcmOut = null; }
+
+/* ---------- modo sin pérdidas ---------- */
+async function startCap(){
+  await ensureWorklet();
+  const src = S.ctx.createMediaStreamSource(S.daw);
+  const node = new AudioWorkletNode(S.ctx, 'cabina-cap', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2, channelCountMode: 'explicit' });
+  node.port.postMessage({ bits: +S.quality });
+  src.connect(node);
+  const g = silentSink(node);
+  // Si la subida no da abasto, se descartan bloques en vez de acumular retraso
+  node.port.onmessage = e => peers.forEach(p => {
+    const c = p.pcmOut; if (!c || !c.open) return;
+    if (c.bufferSize > 0 || c.dataChannel.bufferedAmount > 192000) {
+      if (!S.lagWarned) { S.lagWarned = true; toast('Tu subida no da para sin pérdidas con todos: se pierden trozos. Prueba 16 bit u Opus.'); }
+      return;
+    }
+    c.send(e.data);
+  });
+  S.cap = { src, node, g };
+}
+function stopCap(){
+  if (!S.cap) return;
+  const x = S.cap; S.cap = null;
+  x.node.port.onmessage = null; x.src.disconnect(); x.node.disconnect(); x.g.disconnect();
+}
+function decodePcm(buf, bits){
+  if (bits === 16) {
+    const a = new Int16Array(buf), f = new Float32Array(a.length);
+    for (let i = 0; i < a.length; i++) f[i] = a[i] / 32768;
+    return f;
+  }
+  const b = new Uint8Array(buf), n = (b.length / 3) | 0, f = new Float32Array(n);
+  for (let i = 0, k = 0; i < n; i++, k += 3) {
+    let v = b[k] | (b[k+1] << 8) | (b[k+2] << 16);
+    if (v & 0x800000) v -= 0x1000000;
+    f[i] = v / 0x800000;
+  }
+  return f;
+}
+function wirePcmIn(c){
+  const p = ensurePeer(c.peer), m = c.metadata || {};
+  const bits = m.bits === 16 ? 16 : 24;
+  c.on('open', async () => {
+    if (!S.ctx) return;
+    await ensureWorklet();
+    const node = new AudioWorkletNode(S.ctx, 'cabina-in', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2] });
+    node.port.postMessage({ sr: m.sr || 48000, buf: 0.25 });
+    const dest = S.ctx.createMediaStreamDestination(); dest.channelCount = 2;
+    node.connect(dest);
+    const pcm = { conn: c, node, g: silentSink(node), bits, bytes: 0, ms: 0, under: 0 };
+    node.port.onmessage = e => { pcm.ms = e.data.ms; pcm.under = e.data.u; };
+    if (!attachDaw(p, dest.stream, null, m.gen, pcm)) { node.disconnect(); pcm.g.disconnect(); c.close(); }
+  });
+  c.on('data', d => {
+    const x = p.dawIn && p.dawIn.pcm;
+    if (!x || x.conn !== c || !(d instanceof ArrayBuffer)) return;
+    x.bytes += d.byteLength;
+    const f = decodePcm(d, x.bits);
+    x.node.port.postMessage(f, [f.buffer]);
+  });
+  c.on('close', () => { if (p.dawIn && p.dawIn.pcm && p.dawIn.pcm.conn === c) removeDawIn(p); });
+  c.on('error', () => {});
 }
 async function startDaw(){
   const id = $('#dawIn2').value;
@@ -386,6 +529,8 @@ async function startDaw(){
         channelCount: { ideal: 2 }, sampleRate: { ideal: 48000 } } });
     } catch (e) { toast('No se pudo abrir la entrada del DAW: ' + e.message); return; }
   }
+  S.dawGen = (S.dawGen || 0) + 1; S.lagWarned = false;
+  if (S.quality !== 'opus') { try { await startCap(); } catch (e) { toast('No se pudo preparar el modo sin pérdidas: ' + e.message); } }
   const tr = S.daw.getAudioTracks()[0];
   try { tr.contentHint = 'music'; } catch {}
   if (id !== 'plugin') {
@@ -399,7 +544,8 @@ async function startDaw(){
 }
 function stopDaw(){
   if (!S.daw) return;
-  peers.forEach(p => { try { p.dawOut && p.dawOut.close(); } catch {} p.dawOut = null; send(p.dc, { type: 'daw-stop' }); });
+  peers.forEach(p => { closeOuts(p); send(p.dc, { type: 'daw-stop', gen: S.dawGen }); });
+  stopCap();
   S.daw.getTracks().forEach(t => t.stop()); S.daw = null;
   if (S.pluginSrc) { const x = S.pluginSrc; S.pluginSrc = null; try { x.ws.close(); } catch {} x.node.disconnect(); x.g.disconnect(); }
   S.dawMeter && S.dawMeter.dispose(); S.dawMeter = null;
@@ -415,21 +561,22 @@ $('#dawBtn').onclick = () => S.daw ? stopDaw() : startDaw();
 const WORKLET = `
 class CabinaIn extends AudioWorkletProcessor {
   constructor(){ super(); this.cap = 1 << 16; this.buf = new Float32Array(this.cap * 2);
-    this.w = 0; this.r = 0; this.ratio = 1; this.target = 2880; this.on = false;
+    this.w = 0; this.r = 0; this.ratio = 1; this.target = 2880; this.on = false; this.under = 0; this.blk = 0;
     this.port.onmessage = e => { const d = e.data;
-      if (d && d.sr) { this.ratio = d.sr / sampleRate; this.target = Math.round(d.sr * 0.06); return; }
+      if (d && d.sr) { this.ratio = d.sr / sampleRate; this.target = Math.round(d.sr * (d.buf || 0.06)); return; }
       this.push(d); }; }
   push(f){ const n = f.length >> 1, c = this.cap;
     for (let i = 0; i < n; i++) { const k = (this.w % c) * 2; this.buf[k] = f[2*i]; this.buf[k+1] = f[2*i+1]; this.w++; }
     if (this.w - this.r > c - 4096) this.r = this.w - this.target; }
   process(_i, outs){ const L = outs[0][0], R = outs[0][1] || L, N = L.length, c = this.cap;
     let avail = this.w - this.r;
+    if (++this.blk % 94 === 0) this.port.postMessage({ ms: avail / (this.ratio * sampleRate) * 1000, u: this.under });
     if (!this.on) { if (avail >= this.target) this.on = true; else { L.fill(0); R.fill(0); return true; } }
     if (avail > this.target * 4) { this.r = this.w - this.target; avail = this.target; }
     const corr = Math.max(-0.003, Math.min(0.003, (avail - this.target) / this.target * 0.003));
     const step = this.ratio * (1 + corr);
     for (let i = 0; i < N; i++) {
-      if (this.w - this.r < 2) { this.on = false; L[i] = 0; R[i] = 0; continue; }
+      if (this.w - this.r < 2) { if (this.on) this.under++; this.on = false; L[i] = 0; R[i] = 0; continue; }
       const i0 = Math.floor(this.r), fr = this.r - i0, a = (i0 % c) * 2, b = ((i0 + 1) % c) * 2;
       L[i] = this.buf[a] + (this.buf[b] - this.buf[a]) * fr;
       R[i] = this.buf[a+1] + (this.buf[b+1] - this.buf[a+1]) * fr;
@@ -445,7 +592,27 @@ class CabinaOut extends AudioWorkletProcessor {
       while (this.ph < 1) { this.emit(this.pl + (l - this.pl) * this.ph, this.pr + (r - this.pr) * this.ph); this.ph += this.step; }
       this.ph -= 1; this.pl = l; this.pr = r; }
     return true; } }
+// Captura el DAW en bloques de 20 ms y los convierte a PCM entero (16 bit con dither, o 24 bit)
+class CabinaCap extends AudioWorkletProcessor {
+  constructor(){ super(); this.bits = 24; this.n = 0; this.F = 960; this.L = new Float32Array(960); this.R = new Float32Array(960);
+    this.port.onmessage = e => { if (e.data && e.data.bits) this.bits = e.data.bits; }; }
+  process(ins){ const inp = ins[0]; if (!inp || !inp.length) return true; const L = inp[0], R = inp[1] || inp[0];
+    for (let i = 0; i < L.length; i++) { this.L[this.n] = L[i]; this.R[this.n] = R[i]; if (++this.n === this.F) { this.flush(); this.n = 0; } }
+    return true; }
+  flush(){ const F = this.F, L = this.L, R = this.R;
+    if (this.bits === 16) { const o = new Int16Array(F * 2);
+      for (let i = 0; i < F; i++) for (let c = 0; c < 2; c++) {
+        const x = (c ? R : L)[i] * 32767 + Math.random() - Math.random();
+        o[2*i+c] = x > 32767 ? 32767 : x < -32768 ? -32768 : Math.round(x); }
+      this.port.postMessage(o.buffer, [o.buffer]); return; }
+    const o = new Uint8Array(F * 6); let k = 0;
+    for (let i = 0; i < F; i++) for (let c = 0; c < 2; c++) {
+      const s = Math.max(-1, Math.min(1, (c ? R : L)[i]));
+      const v = Math.round(s < 0 ? s * 0x800000 : s * 0x7FFFFF);
+      o[k++] = v & 255; o[k++] = (v >> 8) & 255; o[k++] = (v >> 16) & 255; }
+    this.port.postMessage(o.buffer, [o.buffer]); } }
 registerProcessor('cabina-in', CabinaIn);
+registerProcessor('cabina-cap', CabinaCap);
 registerProcessor('cabina-out', CabinaOut);`;
 const SEND_PORT = 47800, RETURN_PORTS = [47801,47802,47803,47804,47805,47806,47807,47808];
 let workletReady = null;
@@ -540,7 +707,8 @@ function detachReturn(r){
   r.node = null; r.peer = null; r.src = null;
 }
 $('#scanRet').onclick = () => scanReturns().catch(e => toast('No se pudo buscar: ' + e.message));
-$('#dawIn2').onchange = () => { if (S.daw) startDaw(); };
+$('#dawIn2').onchange = e => { prefs.dawIn = e.target.value; savePrefs(); if (S.daw) startDaw(); };
+$('#quality').onchange = e => { S.quality = e.target.value; prefs.quality = S.quality; savePrefs(); qInfo(); if (S.daw) startDaw(); };
 
 /* ---------- medidores L/R ---------- */
 function makeMeter(stream, box){
@@ -569,8 +737,9 @@ function drawMeters(){
 }
 
 /* ---------- DAW entrante ---------- */
-function attachDaw(p, stream, call){
-  if (p.dawIn && p.dawIn.stream === stream) return;
+function attachDaw(p, stream, call, gen, pcm){
+  if (p.dawIn && p.dawIn.stream === stream) return false;
+  if (p.dawIn && gen != null && p.dawIn.gen > gen) return false;
   removeDawIn(p);
   const el = document.createElement('div'); el.className = 'dawin';
   el.innerHTML = `<div class="head"><b></b><span class="live">EN DIRECTO</span></div>
@@ -583,7 +752,7 @@ function attachDaw(p, stream, call){
   const audio = new Audio(); audio.autoplay = true; audio.srcObject = stream; setSink(audio);
   audio.play().catch(() => toast('Pulsa en la página para activar el sonido.'));
   const meter = makeMeter(stream, el.querySelector('.meter'));
-  p.dawIn = { stream, el, audio, meter, call, rec: null, lastBytes: 0, lastT: 0 };
+  p.dawIn = { stream, el, audio, meter, call, gen, pcm, rec: null, lastBytes: 0, lastT: 0 };
   el.querySelector('input').oninput = e => { audio.volume = +e.target.value; };
   const mute = el.querySelector('.mute');
   mute.onclick = () => { audio.muted = !audio.muted; mute.textContent = audio.muted ? 'Activar' : 'Silenciar'; mute.classList.toggle('off', audio.muted); };
@@ -591,17 +760,29 @@ function attachDaw(p, stream, call){
   el.querySelector('.ret').onchange = e => assignReturn(p, e.target.value);
   $('#dawEmpty').hidden = true; $('#dawList').append(el);
   refreshReturnSelects();
+  return true;
 }
 function removeDawIn(p){
   if (!p.dawIn) return;
   returns.forEach(r => { if (r.peer === p) detachReturn(r); });
   if (p.dawIn.rec) stopRec(p);
+  const x = p.dawIn.pcm;
+  if (x) { x.node.port.onmessage = null; x.node.disconnect(); x.g.disconnect(); }
   p.dawIn.meter.dispose(); p.dawIn.audio.srcObject = null; p.dawIn.el.remove(); p.dawIn = null;
+  if (x) try { x.conn.close(); } catch {}
   if (![...peers.values()].some(x => x.dawIn)) $('#dawEmpty').hidden = false;
 }
 // kbps y canales reales de lo que llega
 setInterval(() => peers.forEach(async p => {
-  const d = p.dawIn; if (!d || !d.call.peerConnection) return;
+  const d = p.dawIn; if (!d) return;
+  if (d.pcm) {
+    const x = d.pcm, now = performance.now();
+    if (d.lastT) d.el.querySelector('.stats').textContent =
+      `${Math.round((x.bytes - d.lastBytes) * 8 / (now - d.lastT))} kbps · PCM ${x.bits} bit · colchón ${Math.round(x.ms)} ms · ${x.under} cortes`;
+    d.lastBytes = x.bytes; d.lastT = now;
+    return;
+  }
+  if (!d.call || !d.call.peerConnection) return;
   try {
     const stats = await d.call.peerConnection.getStats();
     let inb, codec;
@@ -706,7 +887,7 @@ $('#camBtn').onclick = e => {
   peers.forEach(p => send(p.dc, { type: 'cam', on: t.enabled }));
 };
 $('#out').onchange = e => {
-  S.sinkId = e.target.value;
+  S.sinkId = e.target.value; prefs.out = S.sinkId; savePrefs();
   document.querySelectorAll('.tile:not(.me) video').forEach(setSink);
   peers.forEach(p => p.dawIn && setSink(p.dawIn.audio));
 };

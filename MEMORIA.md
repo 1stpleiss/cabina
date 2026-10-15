@@ -89,11 +89,14 @@ Un único archivo HTML, sin build ni dependencias, salvo PeerJS desde CDN.
 |---|---|---|
 | Datos | nombres, chat, cámara on/off, aviso de fin de emisión | fiable |
 | Llamada "talk" | micro + cámara | cancelación de eco y supresión de ruido activadas |
-| Llamada "daw" | audio del DAW | Opus estéreo 510 kbps, FEC, sin DTX, sin procesado de voz |
+| Llamada "daw" | audio del DAW (modo Opus) | Opus estéreo 510 kbps, FEC, sin DTX, sin procesado de voz |
+| Datos "pcm" | audio del DAW (modo sin pérdidas) | PCM 16 bit con dither o 24 bit, bloques de 20 ms, canal fiable y ordenado |
 
 ### Funciones
 
-- Selector de cámara, micro, entrada del DAW y salida de escucha.
+- Selector de cámara, micro, entrada del DAW y salida de escucha. Se recuerdan en el navegador de cada persona (`localStorage`, clave `cabina-prefs`). Si ya dio permiso de micro y cámara, se rellenan solos al abrir la página.
+- **Calidad de emisión**: Opus 510 kbps (por defecto) o sin pérdidas a 16 o 24 bit (ver §7).
+- Aviso la primera vez que se abre la web con los enlaces de descarga de los plugins (botón *Plugins* para volver a verlo).
 - Medidores de pico L/R (−60 a 0 dBFS) del DAW propio y de cada DAW entrante.
 - Por cada DAW entrante: volumen, silenciar, kbps reales, estéreo/mono y paquetes perdidos.
 - **Grabar**: graba lo que llega en WAV estéreo de 24 bits a 48 kHz y lo descarga.
@@ -154,10 +157,13 @@ Todo el remuestreo se hace en la web, en un `AudioWorklet` con interpolación li
 | Tramo | Formato | Notas |
 |---|---|---|
 | DAW → plugin → web | float32 sin pérdidas | localhost, ~3 MB/s |
-| Web → web (internet) | **Opus estéreo 510 kbps** | el máximo que permite WebRTC; transparente para escuchas de mezcla |
+| Web → web (internet), modo Opus | **Opus estéreo 510 kbps** | el máximo que permite WebRTC; transparente para escuchas de mezcla |
+| Web → web (internet), modo sin pérdidas | **PCM 16 bit (1,5 Mbps) o 24 bit (2,3 Mbps)** por oyente | canal de datos fiable; colchón de 250 ms en el receptor |
 | Web → Retorno | float32 sin pérdidas | localhost |
 
-**Latencia orientativa** de extremo a extremo (DAW de A → oídos de B): 150–300 ms según la red. Sirve para revisar mezclas y tomas, no para tocar a la vez.
+**Latencia orientativa** de extremo a extremo (DAW de A → oídos de B): 150–300 ms según la red con Opus; unos 300 ms más en modo sin pérdidas.
+
+**Modo sin pérdidas**: un `AudioWorklet` (`cabina-cap`) corta el DAW en bloques de 20 ms y los pasa a entero (16 bit con dither TPDF, o 24 bit). Se envían por una conexión de datos de PeerJS (`serialization: 'raw'`, fiable y ordenada). El receptor los vuelve a float y los mete en el mismo `cabina-in` que usa el plugin, con un colchón de 250 ms. Si la subida no da abasto, se descartan bloques en lugar de acumular retraso y sale un aviso. En malla, la subida se multiplica por el número de oyentes: con 3 oyentes a 24 bit, unos 7 Mbps. Sirve para revisar mezclas y tomas, no para tocar a la vez.
 
 Para valorar una mezcla con criterio, pide al otro un bounce WAV. Cabina es para trabajar en directo, no para la escucha final.
 
@@ -189,13 +195,19 @@ Para probar en local desde VS Code: extensión *Live Server* → clic derecho en
 
 ### 8.3 Instalar los plugins
 
+Lo más fácil: los **instaladores** de la release `plugins` del repositorio. La web los enlaza en su aviso inicial y en el botón *Plugins*.
+
+- **Mac**: `Cabina-Mac.pkg` instala VST3 y AU en `/Library/Audio/Plug-Ins/`. No está firmado: macOS pedirá ir a *Ajustes del Sistema → Privacidad y seguridad → Abrir igualmente*. Al instalar con `.pkg` no hace falta quitar la cuarentena.
+- **Windows**: `Cabina-Windows.exe` instala los VST3 en `C:\Program Files\Common Files\VST3\`. Sin firmar: *Más información → Ejecutar de todas formas*.
+- También hay `.zip` con los plugins sueltos para instalarlos a mano:
+
 | Sistema | Formato | Carpeta |
 |---|---|---|
 | Mac | VST3 | `~/Library/Audio/Plug-Ins/VST3/` |
 | Mac | AU | `~/Library/Audio/Plug-Ins/Components/` |
 | Windows | VST3 | `C:\Program Files\Common Files\VST3\` |
 
-En Mac, si los plugins vienen de GitHub o te los ha pasado alguien, quita la cuarentena:
+En Mac, si instalas a mano desde el `.zip`, quita la cuarentena:
 
 ```bash
 xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/Cabina*.vst3 ~/Library/Audio/Plug-Ins/Components/Cabina*.component
@@ -223,8 +235,8 @@ Después, en Reaper: *Options → Preferences → Plug-ins → VST → Re-scan*.
 ### 10.1 Automático con GitHub (recomendado, sin instalar nada)
 
 1. Crea un repositorio en GitHub y sube esta carpeta.
-2. En la pestaña **Actions** se compilan solos para **Mac (universal, VST3 + AU)** y **Windows (VST3)**.
-3. Descarga los ZIP desde *Artifacts* en la ejecución.
+2. Cada cambio en `plugin/` los compila para **Mac (universal, VST3 + AU)** y **Windows (VST3)**.
+3. Genera los instaladores (`.pkg` con `pkgbuild`, `.exe` con Inno Setup) y los sube a la release `plugins`: `https://github.com/<usuario>/<repositorio>/releases/download/plugins/Cabina-Mac.pkg` (y `Cabina-Windows.exe`). Esas URL no cambian, así que la web siempre enlaza a la última versión.
 
 Así no necesitas un PC con Windows para tus colegas de Windows.
 
@@ -257,7 +269,7 @@ cabina/
 │   ├── extensions.json         ← CMake Tools, C/C++, Live Server
 │   └── settings.json
 ├── .github/workflows/
-│   ├── compilar.yml            ← compilación Mac + Windows en GitHub
+│   ├── compilar.yml            ← compila los plugins, crea instaladores y los publica
 │   └── web.yml                 ← publica web/ en GitHub Pages
 ├── web/
 │   └── index.html              ← toda la web en un archivo

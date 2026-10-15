@@ -1,10 +1,11 @@
-# Compila Cabina Send y Cabina Retorno para Mac (VST3 + AU, universal) y Windows (VST3)
-# cada vez que subes cambios a GitHub. Los plugins aparecen en la pestaña "Actions",
-# dentro de cada ejecución, en "Artifacts".
+# Compila Cabina Send y Cabina Retorno para Mac (VST3 + AU, universal) y Windows (VST3),
+# genera los instaladores (.pkg y .exe) y los publica en la release "plugins", que es de donde
+# los descarga la web. También quedan en la pestaña "Actions", en "Artifacts".
 name: Compilar plugins
 
 on:
   push:
+    paths: ["plugin/**", ".github/workflows/compilar.yml"]
   workflow_dispatch:
 
 jobs:
@@ -39,12 +40,98 @@ jobs:
 
       - name: Reunir plugins
         run: |
-          mkdir -p dist
+          mkdir -p dist paquetes
           find build -path "*Release*" \( -name "*.vst3" -o -name "*.component" \) -maxdepth 5 -type d \
             -exec cp -R {} dist/ \;
           ls -la dist
+
+      # Instalador .pkg: copia los plugins a /Library/Audio/Plug-Ins. Lo instalado con un .pkg
+      # no lleva la marca de cuarentena, así que no hace falta el comando xattr.
+      - name: Instalador para Mac (.pkg)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p root/Library/Audio/Plug-Ins/VST3 root/Library/Audio/Plug-Ins/Components scripts
+          cp -R dist/*.vst3 root/Library/Audio/Plug-Ins/VST3/
+          cp -R dist/*.component root/Library/Audio/Plug-Ins/Components/
+          # que macOS no "reubique" los plugins si ya hay una copia en otra carpeta
+          pkgbuild --analyze --root root comp.plist
+          i=0
+          while plutil -extract $i xml1 -o /dev/null comp.plist 2>/dev/null; do
+            plutil -replace $i.BundleIsRelocatable -bool NO comp.plist; i=$((i+1))
+          done
+          # refrescar la caché de Audio Units para que el DAW vea el AU nuevo
+          printf '#!/bin/sh\nkillall -9 AudioComponentRegistrar 2>/dev/null\nexit 0\n' > scripts/postinstall
+          chmod +x scripts/postinstall
+          pkgbuild --root root --component-plist comp.plist --scripts scripts \
+            --identifier com.cabina.plugins --version 0.1.0 --install-location / paquetes/Cabina-Mac.pkg
+          (cd dist && zip -qry ../paquetes/Cabina-Mac.zip .)
+
+      # Instalador .exe (Inno Setup): copia los plugins a C:\Program Files\Common Files\VST3
+      - name: Instalador para Windows (.exe)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $iss = @'
+          [Setup]
+          AppName=Cabina
+          AppVersion=0.1.0
+          AppPublisher=Cabina
+          DefaultDirName={commoncf64}\VST3
+          DisableDirPage=yes
+          DisableProgramGroupPage=yes
+          PrivilegesRequired=admin
+          ArchitecturesAllowed=x64compatible
+          ArchitecturesInstallIn64BitMode=x64compatible
+          UninstallFilesDir={commonappdata}\Cabina
+          UninstallDisplayName=Cabina (plugins VST3)
+          OutputDir=paquetes
+          OutputBaseFilename=Cabina-Windows
+          Compression=lzma2
+          SolidCompression=yes
+
+          [Languages]
+          Name: "es"; MessagesFile: "compiler:Languages\Spanish.isl"
+
+          [Files]
+          Source: "dist\*"; DestDir: "{commoncf64}\VST3"; Flags: recursesubdirs createallsubdirs ignoreversion
+          '@
+          Set-Content -Path cabina.iss -Value $iss -Encoding UTF8
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          & $iscc cabina.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Compress-Archive -Path dist\* -DestinationPath paquetes\Cabina-Windows.zip
 
       - uses: actions/upload-artifact@v4
         with:
           name: cabina-plugins-${{ runner.os }}
           path: dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cabina-instaladores-${{ runner.os }}
+          path: paquetes/
+
+  publicar:
+    needs: compilar
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cabina-instaladores-*
+          merge-multiple: true
+          path: paquetes
+
+      - name: Publicar en la release "plugins"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          ls -la paquetes
+          gh release view plugins >/dev/null 2>&1 || gh release create plugins \
+            --title "Plugins Cabina" --target "${{ github.sha }}" --latest \
+            --notes "Instaladores de Cabina Send y Cabina Retorno. Se actualizan solos con cada cambio en los plugins."
+          gh release upload plugins paquetes/* --clobber
