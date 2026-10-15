@@ -1,0 +1,8 @@
+{
+  "folders": [
+    { "name": "Cabina", "path": "." }
+  ],
+  "settings": {
+    "workbench.startupEditor": "readme"
+  }
+}

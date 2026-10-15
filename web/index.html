@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cabina</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d0e10;--panel:#16181b;--panel2:#1d2024;--line:#2a2e34;--text:#ebe8e3;--muted:#8d929a;
+  --accent:#f2a33a;--accent-ink:#1a1206;--red:#e5484d;--green:#3ecf8e;
+  --r:12px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font:14px/1.45 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px}
+button,input,select{font:inherit;color:inherit}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:#3b4048}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.btn.danger{background:transparent;border-color:#4a2426;color:#ff8a8d}
+.btn.on{background:#2a1d0b;border-color:var(--accent);color:var(--accent)}
+.btn.off{background:#2b1416;border-color:#5a2a2d;color:#ff8a8d}
+.btn.sm{padding:5px 10px;font-size:12.5px;border-radius:7px}
+label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px;font-weight:500;letter-spacing:.02em}
+input[type=text],select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;outline:none}
+input[type=text]:focus,select:focus{border-color:var(--accent)}
+input[type=range]{accent-color:var(--accent);flex:1;min-width:60px}
+
+/* Join */
+#join{min-height:100%;display:grid;place-items:center;padding:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px 22px;width:100%;max-width:640px}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.dot{width:12px;height:12px;border-radius:50%;background:var(--red);box-shadow:0 0 12px var(--red)}
+h1{font-size:22px;margin:0;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:0 0 4px;font-size:13px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.actions{display:flex;gap:10px;margin-top:16px}
+.actions .btn{flex:1}
+.tips{margin-top:14px;padding:9px 12px;border-radius:10px;background:var(--panel2);color:var(--muted);font-size:12.5px}
+.tips b{color:var(--text);font-weight:600}
+.tips p{margin:2px 0}
+.warn{color:#ffb4a0}
+
+/* Studio */
+#studio{height:100%;display:grid;grid-template-rows:auto 1fr}
+header{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header .room{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:0}
+header .room h2{font-size:16px;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill{font-size:12px;padding:3px 9px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+.pill.ok{color:var(--green);border-color:#1f4a3a}
+.layout{display:grid;grid-template-columns:1fr 340px;min-height:0}
+main{padding:12px;overflow:auto}
+#grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.tile{position:relative;aspect-ratio:16/9;max-height:calc(100vh - 80px);background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.tile video{width:100%;height:100%;object-fit:cover;display:block;background:#000}
+.tile.me video{transform:scaleX(-1)}
+.tile .avatar{display:none;position:absolute;inset:0;place-items:center;font-size:44px;font-weight:700;color:var(--muted);background:var(--panel)}
+.tile.novideo .avatar{display:grid}
+.tile.novideo video{visibility:hidden}
+.tile .tag{position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.6);padding:3px 9px;border-radius:7px;font-size:12.5px;font-weight:500}
+aside{border-left:1px solid var(--line);overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;flex:none}
+.box h3{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.box label{margin-top:0}
+.line{display:flex;align-items:center;gap:8px;margin-top:8px}
+.line select{flex:1;min-width:0}
+.line .lbl{font-size:12px;color:var(--muted);width:52px;flex:none}
+.box h3 .info{float:right;margin:0;text-transform:none;letter-spacing:0;font-weight:500}
+.meter{display:grid;gap:3px;margin-top:8px}
+.meter i{display:block;height:6px;border-radius:3px;background:var(--panel2);position:relative;overflow:hidden}
+.meter i::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,var(--green) 0 70%,var(--accent) 70% 90%,var(--red) 90%);transform-origin:left;transform:scaleX(var(--v,0));transition:transform 60ms linear}
+.info{color:var(--muted);margin-top:6px}
+#dawList{max-height:34vh;overflow:auto}
+.dawin{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
+.dawin:first-child{border-top:0;padding-top:0;margin-top:0}
+.dawin .head{display:flex;align-items:center;gap:8px}
+.dawin .head b{margin-right:auto}
+.live{font-size:10.5px;font-weight:700;letter-spacing:.08em;color:var(--red)}
+.btn.rec.on{background:#3a1416;border-color:var(--red);color:#ff8a8d}
+.empty{color:var(--muted);font-size:13px}
+.dawin select.ret{margin-top:6px;padding:5px 8px;font-size:12.5px}
+.box.chat{flex:1;min-height:180px;display:flex;flex-direction:column}
+#chatLog{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:5px;margin-bottom:8px}
+.msg{font-size:13px;word-wrap:break-word}
+.msg .who{font-weight:600;margin-right:6px}
+.msg .t{color:var(--muted);font-size:11px;margin-left:4px}
+#chatForm{display:flex;gap:8px}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#2b1416;border:1px solid #5a2a2d;color:#ffd0d1;padding:10px 16px;border-radius:10px;max-width:calc(100% - 32px);opacity:0;pointer-events:none;transition:opacity .2s;z-index:9}
+#toast.show{opacity:1}
+#toast.good{background:#10261d;border-color:#1f4a3a;color:#c6f3df}
+@media (max-width:860px){
+  #studio{height:auto;min-height:100%}
+  .layout{grid-template-columns:1fr}
+  aside{border-left:0;border-top:1px solid var(--line)}
+  #grid{grid-template-columns:1fr}
+  .box.chat{min-height:280px}
+  #dawList{max-height:none}
+}
+@media (max-width:560px){.row3{grid-template-columns:1fr;gap:0}}
+</style>
+</head>
+<body>
+
+<section id="join">
+  <div class="card">
+    <div class="brand"><span class="dot"></span><h1>Cabina</h1></div>
+    <p class="sub">Sala privada para escuchar el DAW en calidad alta, hablar y verse.</p>
+
+    <div class="row2">
+      <div><label for="name">Tu nombre</label><input id="name" type="text" maxlength="40" placeholder="Fran"></div>
+      <div><label for="room">Sala</label><input id="room" type="text" maxlength="40" placeholder="mezcla-ep"></div>
+    </div>
+
+    <div id="devs" class="row3" hidden>
+      <div><label for="cam">Cámara</label><select id="cam"></select></div>
+      <div><label for="mic">Micro para hablar</label><select id="mic"></select></div>
+      <div><label for="dawIn">Entrada del DAW</label><select id="dawIn"></select></div>
+    </div>
+
+    <div class="actions">
+      <button class="btn" id="detect">Detectar dispositivos</button>
+      <button class="btn primary" id="enter" disabled>Entrar en la sala</button>
+    </div>
+
+    <div class="tips">
+      <p><b>Emitir:</b> plugin <b>Cabina Send</b> en el máster, o <b>BlackHole</b> (Mac) / <b>VB-Cable</b> (Windows). Para escuchar no hace falta nada.</p>
+      <p>Usad <b>Chrome</b> o Edge y <b>auriculares</b>.</p>
+      <p id="secure" class="warn" hidden>Esta página tiene que abrirse por https para poder usar micro y cámara.</p>
+    </div>
+  </div>
+</section>
+
+<section id="studio" hidden>
+  <header>
+    <div class="room"><span class="dot"></span><h2 id="roomName"></h2><span class="pill" id="status">Conectando…</span></div>
+    <button class="btn sm" id="copy">Copiar enlace</button>
+    <button class="btn sm on" id="micBtn">Micro</button>
+    <button class="btn sm on" id="camBtn">Cámara</button>
+    <button class="btn sm danger" id="leave">Salir</button>
+  </header>
+  <div class="layout">
+    <main><div id="grid"></div></main>
+    <aside>
+      <div class="box">
+        <h3>Tu DAW <span class="info mono" id="dawInfo"></span></h3>
+        <div class="line" style="margin:0"><select id="dawIn2" aria-label="Entrada del DAW"></select><button class="btn primary sm" id="dawBtn">Emitir DAW</button></div>
+        <div class="meter" id="dawMeter"><i></i><i></i></div>
+        <div class="line"><span class="lbl">Escuchar</span><select id="out" aria-label="Escuchar por"></select></div>
+      </div>
+      <div class="box">
+        <h3>DAW entrante</h3>
+        <div class="line" style="margin:0 0 8px"><button class="btn sm" id="scanRet">Buscar retornos</button><span class="info mono" id="retInfo" style="margin:0"></span></div>
+        <div id="dawList"><p class="empty" id="dawEmpty">Nadie está emitiendo ahora mismo.</p></div>
+      </div>
+      <div class="box chat">
+        <h3>Chat</h3>
+        <div id="chatLog"></div>
+        <form id="chatForm"><input type="text" id="chatIn" maxlength="500" placeholder="Ej.: 1:42 baja la voz 1 dB" autocomplete="off"><button class="btn">Enviar</button></form>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<div id="toast"></div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const PREFIX = 'cabina-v1-';
+const S = { peer:null, isHost:false, room:'', name:'', talk:null, daw:null, dawMeter:null, ctx:null, sinkId:'', hostRetries:0 };
+const peers = new Map();
+const meters = new Set();
+
+/* ---------- utilidades ---------- */
+const slug = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40);
+const rid = () => Math.random().toString(36).slice(2,8);
+const hhmm = t => new Date(t).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+let toastT;
+function toast(msg, good){ const t=$('#toast'); t.textContent=msg; t.className='show'+(good?' good':''); clearTimeout(toastT); toastT=setTimeout(()=>t.className='',4500); }
+
+if (!window.isSecureContext) $('#secure').hidden = false;
+$('#room').value = new URLSearchParams(location.search).get('sala') || '';
+try { $('#name').value = localStorage.getItem('cabina-name') || ''; } catch {}
+
+/* ---------- dispositivos ---------- */
+const LOOPBACK = /blackhole|vb-?audio|cable output|loopback|soundflower|voicemeeter/i;
+const PLUGIN_OPT = ['Plugin Cabina Send (sin cable virtual)', 'plugin'];
+function fill(sel, list, noneLabel, pick, extra){
+  const prev = sel.value; sel.innerHTML = '';
+  if (noneLabel) sel.add(new Option(noneLabel, ''));
+  (extra || []).forEach(([label, value]) => sel.add(new Option(label, value)));
+  list.forEach((d,i) => sel.add(new Option(d.label || `Dispositivo ${i+1}`, d.deviceId)));
+  if (prev && [...sel.options].some(o => o.value === prev)) { sel.value = prev; return; }
+  const m = pick && list.find(pick); if (m) sel.value = m.deviceId;
+}
+async function fillDevices(){
+  const devs = await navigator.mediaDevices.enumerateDevices();
+  const ins = devs.filter(d => d.kind==='audioinput' && d.deviceId!=='communications');
+  const cams = devs.filter(d => d.kind==='videoinput');
+  const outs = devs.filter(d => d.kind==='audiooutput' && d.deviceId!=='communications');
+  fill($('#cam'), cams, 'Sin cámara', () => true);
+  fill($('#mic'), ins, null, d => !LOOPBACK.test(d.label));
+  fill($('#dawIn'), ins, 'Ninguna (solo escuchar)', d => LOOPBACK.test(d.label), [PLUGIN_OPT]);
+  fill($('#dawIn2'), ins, 'Elige la entrada…', d => LOOPBACK.test(d.label), [PLUGIN_OPT]);
+  if ('setSinkId' in HTMLMediaElement.prototype && outs.length) fill($('#out'), outs, null, () => true);
+  else { $('#out').innerHTML = '<option value="">Salida del sistema</option>'; $('#out').disabled = true; }
+}
+$('#detect').onclick = async () => {
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({audio:true, video:true})
+      .catch(() => navigator.mediaDevices.getUserMedia({audio:true}));
+    s.getTracks().forEach(t => t.stop());
+  } catch (e) { toast('Sin permiso para el micro: ' + e.message); return; }
+  await fillDevices();
+  $('#devs').hidden = false; $('#enter').disabled = false;
+};
+navigator.mediaDevices?.addEventListener?.('devicechange', () => fillDevices().catch(()=>{}));
+
+/* ---------- entrar ---------- */
+async function getTalk(){
+  const cam = $('#cam').value, mic = $('#mic').value;
+  const audio = { echoCancellation:true, noiseSuppression:true, autoGainControl:true };
+  if (mic) audio.deviceId = { exact: mic };
+  try {
+    return await navigator.mediaDevices.getUserMedia({ audio,
+      video: cam ? { deviceId:{exact:cam}, width:{ideal:640}, height:{ideal:360} } : false });
+  } catch (e) {
+    if (cam) return navigator.mediaDevices.getUserMedia({ audio });
+    throw e;
+  }
+}
+$('#enter').onclick = async () => {
+  S.name = $('#name').value.trim() || 'Anónimo';
+  S.room = slug($('#room').value) || rid();
+  try { localStorage.setItem('cabina-name', S.name); } catch {}
+  history.replaceState(null, '', '?sala=' + S.room);
+  S.ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+  await S.ctx.resume();
+  try { S.talk = await getTalk(); } catch (e) { toast('No se pudo abrir el micro: ' + e.message); return; }
+  $('#join').hidden = true; $('#studio').hidden = false;
+  $('#roomName').textContent = S.room;
+  $('#dawIn2').value = $('#dawIn').value;
+  S.sinkId = $('#out').value;
+  addLocalTile();
+  connect();
+  if ($('#dawIn').value) startDaw();
+  requestAnimationFrame(drawMeters);
+};
+
+/* ---------- red (PeerJS) ---------- */
+function connect(){
+  setStatus('Conectando…');
+  const p = new Peer(PREFIX + S.room, { debug: 1 });
+  p.on('open', () => { S.isHost = true; S.peer = p; wirePeer(p); updateCount(); });
+  p.on('error', e => {
+    if (S.peer !== p) {
+      if (e.type === 'unavailable-id') { p.destroy(); joinGuest(); }
+      else { setStatus('Sin conexión'); toast('No se pudo conectar: ' + (e.type || e.message)); }
+    } else handleErr(e);
+  });
+}
+function joinGuest(){
+  const p = new Peer(PREFIX + S.room + '-' + rid(), { debug: 1 });
+  p.on('open', () => { S.isHost = false; S.peer = p; wirePeer(p); connectTo(PREFIX + S.room); updateCount(); });
+  p.on('error', handleErr);
+}
+function wirePeer(p){
+  p.on('connection', wireConn);
+  p.on('call', onCall);
+  p.on('disconnected', () => { setStatus('Reconectando…'); try { p.reconnect(); } catch {} });
+}
+function handleErr(e){
+  if (e.type === 'peer-unavailable') {
+    // el anfitrión de la sala se ha ido: si estamos solos, pasamos a ser anfitrión
+    if (!S.isHost && peers.size <= 1 && S.hostRetries < 2) {
+      S.hostRetries++; peers.forEach((_, id) => removePeer(id));
+      try { S.peer.destroy(); } catch {} S.peer = null;
+      setTimeout(connect, 1500); return;
+    }
+    return;
+  }
+  toast('Error de conexión: ' + (e.type || e.message));
+}
+function ensurePeer(id){
+  let p = peers.get(id);
+  if (!p) { p = { id, name: '…' }; peers.set(id, p); addTile(p); updateCount(); }
+  return p;
+}
+function connectTo(id){
+  if (!S.peer || id === S.peer.id || peers.has(id)) return;
+  ensurePeer(id);
+  wireConn(S.peer.connect(id, { reliable: true, metadata: { name: S.name } }));
+  const call = S.peer.call(id, S.talk, { metadata: { kind: 'talk' } });
+  wireTalk(peers.get(id), call);
+}
+function wireConn(c){
+  const p = ensurePeer(c.peer); p.dc = c;
+  if (c.metadata && c.metadata.name) setName(p, c.metadata.name);
+  c.on('open', () => {
+    send(c, { type: 'hello', name: S.name, cam: camOn() });
+    if (S.isHost) send(c, { type: 'roster', ids: [...peers.keys()].filter(id => id !== c.peer) });
+    if (S.daw) callDaw(c.peer);
+    updateCount();
+  });
+  c.on('data', d => onData(p, d));
+  c.on('close', () => removePeer(c.peer));
+  c.on('error', () => {});
+}
+function send(c, obj){ try { if (c && c.open) c.send(obj); } catch {} }
+function onData(p, d){
+  if (!d || typeof d !== 'object') return;
+  if (d.type === 'hello') { setName(p, d.name); setCam(p, d.cam !== false); }
+  else if (d.type === 'roster' && Array.isArray(d.ids)) d.ids.filter(x => typeof x === 'string' && x.startsWith(PREFIX + S.room)).forEach(connectTo);
+  else if (d.type === 'chat' && typeof d.text === 'string') addMsg(p.name, d.text.slice(0,500), d.t);
+  else if (d.type === 'cam') setCam(p, !!d.on);
+  else if (d.type === 'daw-stop') removeDawIn(p);
+}
+function onCall(call){
+  const p = ensurePeer(call.peer);
+  if (call.metadata && call.metadata.kind === 'daw') {
+    call.answer(undefined, { sdpTransform: hqOpus });
+    p.dawCallIn = call;
+    call.on('stream', s => attachDaw(p, s, call));
+    call.on('close', () => { if (p.dawCallIn === call) removeDawIn(p); });
+  } else {
+    call.answer(S.talk);
+    wireTalk(p, call);
+  }
+}
+function wireTalk(p, call){ p.talkCall = call; call.on('stream', s => attachTalk(p, s)); call.on('error', () => {}); }
+function removePeer(id){
+  const p = peers.get(id); if (!p) return;
+  removeDawIn(p);
+  [p.talkCall, p.dawOut, p.dawCallIn].forEach(c => { try { c && c.close(); } catch {} });
+  p.tile && p.tile.remove();
+  peers.delete(id); updateCount();
+}
+function setStatus(t, ok){ const s = $('#status'); s.textContent = t; s.classList.toggle('ok', !!ok); }
+function updateCount(){ if (S.peer) setStatus(`${peers.size + 1} en la sala`, true); }
+
+/* ---------- audio de alta calidad ---------- */
+// Opus estéreo a 510 kbps con FEC: lo máximo que permite WebRTC
+function hqOpus(sdp){
+  return sdp.replace(/a=fmtp:(\d+) ([^\r\n]*)\r\n/g, (m, pt, params) => {
+    if (!new RegExp('a=rtpmap:' + pt + ' opus/48000', 'i').test(sdp)) return m;
+    const keep = params.split(';').map(s => s.trim()).filter(s => s && !/^(stereo|sprop-stereo|maxaveragebitrate|maxplaybackrate|useinbandfec|usedtx)=/.test(s));
+    keep.push('stereo=1', 'sprop-stereo=1', 'maxaveragebitrate=510000', 'maxplaybackrate=48000', 'useinbandfec=1', 'usedtx=0');
+    return 'a=fmtp:' + pt + ' ' + keep.join(';') + '\r\n';
+  });
+}
+function boostBitrate(call){
+  const pc = call.peerConnection; if (!pc) return;
+  const go = () => pc.getSenders().forEach(s => {
+    if (!s.track || s.track.kind !== 'audio') return;
+    const prm = s.getParameters();
+    if (!prm.encodings || !prm.encodings.length) prm.encodings = [{}];
+    prm.encodings[0].maxBitrate = 510000;
+    prm.encodings[0].priority = 'high';
+    s.setParameters(prm).catch(() => {});
+  });
+  pc.addEventListener('connectionstatechange', () => { if (pc.connectionState === 'connected') go(); });
+}
+function callDaw(id){
+  const p = peers.get(id); if (!p || !S.daw || !S.peer) return;
+  try { p.dawOut && p.dawOut.close(); } catch {}
+  const call = S.peer.call(id, S.daw, { metadata: { kind: 'daw' }, sdpTransform: hqOpus });
+  p.dawOut = call; boostBitrate(call);
+}
+async function startDaw(){
+  const id = $('#dawIn2').value;
+  if (!id) { toast('Elige la entrada del DAW: el plugin Cabina Send, BlackHole o VB-Cable.'); return; }
+  if (id === $('#mic').value) toast('Ojo: la entrada del DAW es la misma que tu micro.');
+  stopDaw();
+  if (id === 'plugin') {
+    try { S.daw = await pluginStream(); } catch (e) { toast(e.message); return; }
+  } else {
+    try {
+      S.daw = await navigator.mediaDevices.getUserMedia({ audio: {
+        deviceId: { exact: id }, echoCancellation: false, noiseSuppression: false, autoGainControl: false,
+        channelCount: { ideal: 2 }, sampleRate: { ideal: 48000 } } });
+    } catch (e) { toast('No se pudo abrir la entrada del DAW: ' + e.message); return; }
+  }
+  const tr = S.daw.getAudioTracks()[0];
+  try { tr.contentHint = 'music'; } catch {}
+  if (id !== 'plugin') {
+    const st = tr.getSettings ? tr.getSettings() : {};
+    $('#dawInfo').textContent = `${st.channelCount || '?'} ch · ${st.sampleRate ? st.sampleRate/1000 + ' kHz' : '?'}`;
+    if (st.channelCount === 1) toast('La entrada llega en mono. En Safari pasa a menudo: usa Chrome.');
+  }
+  S.dawMeter = makeMeter(S.daw, $('#dawMeter'));
+  peers.forEach((p, pid) => { if (p.dc && p.dc.open) callDaw(pid); });
+  const b = $('#dawBtn'); b.textContent = 'Parar emisión'; b.classList.remove('primary'); b.classList.add('off');
+}
+function stopDaw(){
+  if (!S.daw) return;
+  peers.forEach(p => { try { p.dawOut && p.dawOut.close(); } catch {} p.dawOut = null; send(p.dc, { type: 'daw-stop' }); });
+  S.daw.getTracks().forEach(t => t.stop()); S.daw = null;
+  if (S.pluginSrc) { const x = S.pluginSrc; S.pluginSrc = null; try { x.ws.close(); } catch {} x.node.disconnect(); x.g.disconnect(); }
+  S.dawMeter && S.dawMeter.dispose(); S.dawMeter = null;
+  $('#dawInfo').textContent = '';
+  const b = $('#dawBtn'); b.textContent = 'Emitir DAW'; b.classList.add('primary'); b.classList.remove('off');
+}
+$('#dawBtn').onclick = () => S.daw ? stopDaw() : startDaw();
+
+/* ---------- puente con los plugins (ws://127.0.0.1) ---------- */
+// Dos procesadores de audio: "cabina-in" convierte lo que manda Cabina Send en una pista
+// de audio (remuestreando a 48 kHz y absorbiendo jitter); "cabina-out" captura el DAW de un
+// colega y lo remuestrea al sample rate del plugin Cabina Retorno.
+const WORKLET = `
+class CabinaIn extends AudioWorkletProcessor {
+  constructor(){ super(); this.cap = 1 << 16; this.buf = new Float32Array(this.cap * 2);
+    this.w = 0; this.r = 0; this.ratio = 1; this.target = 2880; this.on = false;
+    this.port.onmessage = e => { const d = e.data;
+      if (d && d.sr) { this.ratio = d.sr / sampleRate; this.target = Math.round(d.sr * 0.06); return; }
+      this.push(d); }; }
+  push(f){ const n = f.length >> 1, c = this.cap;
+    for (let i = 0; i < n; i++) { const k = (this.w % c) * 2; this.buf[k] = f[2*i]; this.buf[k+1] = f[2*i+1]; this.w++; }
+    if (this.w - this.r > c - 4096) this.r = this.w - this.target; }
+  process(_i, outs){ const L = outs[0][0], R = outs[0][1] || L, N = L.length, c = this.cap;
+    let avail = this.w - this.r;
+    if (!this.on) { if (avail >= this.target) this.on = true; else { L.fill(0); R.fill(0); return true; } }
+    if (avail > this.target * 4) { this.r = this.w - this.target; avail = this.target; }
+    const corr = Math.max(-0.003, Math.min(0.003, (avail - this.target) / this.target * 0.003));
+    const step = this.ratio * (1 + corr);
+    for (let i = 0; i < N; i++) {
+      if (this.w - this.r < 2) { this.on = false; L[i] = 0; R[i] = 0; continue; }
+      const i0 = Math.floor(this.r), fr = this.r - i0, a = (i0 % c) * 2, b = ((i0 + 1) % c) * 2;
+      L[i] = this.buf[a] + (this.buf[b] - this.buf[a]) * fr;
+      R[i] = this.buf[a+1] + (this.buf[b+1] - this.buf[a+1]) * fr;
+      this.r += step; }
+    return true; } }
+class CabinaOut extends AudioWorkletProcessor {
+  constructor(){ super(); this.step = 1; this.ph = 0; this.pl = 0; this.pr = 0; this.chunk = new Float32Array(2048); this.n = 0;
+    this.port.onmessage = e => { if (e.data && e.data.sr) this.step = sampleRate / e.data.sr; }; }
+  emit(l, r){ this.chunk[this.n++] = l; this.chunk[this.n++] = r;
+    if (this.n === this.chunk.length) { this.port.postMessage(this.chunk, [this.chunk.buffer]); this.chunk = new Float32Array(2048); this.n = 0; } }
+  process(ins){ const inp = ins[0]; if (!inp || !inp.length) return true; const L = inp[0], R = inp[1] || inp[0];
+    for (let i = 0; i < L.length; i++) { const l = L[i], r = R[i];
+      while (this.ph < 1) { this.emit(this.pl + (l - this.pl) * this.ph, this.pr + (r - this.pr) * this.ph); this.ph += this.step; }
+      this.ph -= 1; this.pl = l; this.pr = r; }
+    return true; } }
+registerProcessor('cabina-in', CabinaIn);
+registerProcessor('cabina-out', CabinaOut);`;
+const SEND_PORT = 47800, RETURN_PORTS = [47801,47802,47803,47804,47805,47806,47807,47808];
+let workletReady = null;
+function ensureWorklet(){
+  if (!workletReady) workletReady = S.ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET], { type: 'application/javascript' })));
+  return workletReady;
+}
+function openWs(port, timeout){
+  return new Promise((res, rej) => {
+    let ws; try { ws = new WebSocket('ws://127.0.0.1:' + port); } catch (e) { rej(e); return; }
+    ws.binaryType = 'arraybuffer';
+    const t = setTimeout(() => { try { ws.close(); } catch {} rej(new Error('timeout')); }, timeout || 1500);
+    ws.onopen = () => { clearTimeout(t); res(ws); };
+    ws.onerror = () => { clearTimeout(t); rej(new Error('closed')); };
+  });
+}
+function silentSink(node){ const g = S.ctx.createGain(); g.gain.value = 0; node.connect(g); g.connect(S.ctx.destination); return g; }
+
+async function pluginStream(){
+  await ensureWorklet();
+  let ws;
+  try { ws = await openWs(SEND_PORT, 4000); }
+  catch { throw new Error('No encuentro el plugin Cabina Send. Ponlo en el máster del DAW (y si Chrome pide acceso a la red local, acepta).'); }
+  const node = new AudioWorkletNode(S.ctx, 'cabina-in', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2] });
+  const dest = S.ctx.createMediaStreamDestination(); dest.channelCount = 2;
+  node.connect(dest);
+  const g = silentSink(node);
+  ws.onmessage = e => {
+    if (typeof e.data === 'string') {
+      try { const m = JSON.parse(e.data);
+        if (m.role !== 'send') return;
+        if (m.sr) { node.port.postMessage({ sr: m.sr }); $('#dawInfo').textContent = `plugin · DAW a ${m.sr / 1000} kHz`; }
+      } catch {}
+    } else { const f = new Float32Array(e.data); node.port.postMessage(f, [f.buffer]); }
+  };
+  ws.onclose = () => { if (S.pluginSrc && S.pluginSrc.ws === ws) { toast('Se ha cortado la conexión con Cabina Send.'); stopDaw(); } };
+  S.pluginSrc = { ws, node, g };
+  return dest.stream;
+}
+
+const returns = new Map(); // puerto -> { ws, sr, name, peer, node }
+async function scanReturns(){
+  await ensureWorklet();
+  $('#retInfo').textContent = 'Buscando…';
+  await Promise.all(RETURN_PORTS.filter(port => !returns.has(port)).map(async port => {
+    let ws; try { ws = await openWs(port, 1500); } catch { return; }
+    const r = { port, ws, sr: 48000, name: 'Retorno ' + (port - SEND_PORT), peer: null, node: null };
+    returns.set(port, r);
+    ws.onmessage = e => {
+      if (typeof e.data !== 'string') return;
+      try { const m = JSON.parse(e.data);
+        if (m.role !== 'return') { ws.close(); return; }
+        if (m.sr) r.sr = m.sr;
+        if (m.name) r.name = String(m.name).slice(0, 40);
+        if (r.node) r.node.port.postMessage({ sr: r.sr });
+        refreshReturnSelects();
+      } catch {}
+    };
+    ws.onclose = () => { detachReturn(r); returns.delete(port); refreshReturnSelects(); };
+  }));
+  refreshReturnSelects();
+  $('#retInfo').textContent = returns.size ? `${returns.size} retorno${returns.size > 1 ? 's' : ''} listo${returns.size > 1 ? 's' : ''}` : 'No hay ningún Cabina Retorno abierto';
+}
+function refreshReturnSelects(){
+  peers.forEach(p => {
+    if (!p.dawIn) return;
+    const sel = p.dawIn.el.querySelector('.ret');
+    const cur = [...returns.values()].find(r => r.peer === p);
+    sel.innerHTML = '';
+    sel.add(new Option('Mandar a mi DAW: no', ''));
+    returns.forEach(r => sel.add(new Option(`Mandar a mi DAW: ${r.name} (:${r.port})`, String(r.port))));
+    sel.value = cur ? String(cur.port) : '';
+    sel.hidden = returns.size === 0;
+  });
+}
+function assignReturn(p, port){
+  returns.forEach(r => { if (r.peer === p) detachReturn(r); });
+  const r = returns.get(+port);
+  if (!r || !p.dawIn) { refreshReturnSelects(); return; }
+  detachReturn(r);
+  const node = new AudioWorkletNode(S.ctx, 'cabina-out', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2, channelCountMode: 'explicit' });
+  node.port.postMessage({ sr: r.sr });
+  node.port.onmessage = e => { if (r.ws.readyState === 1 && r.ws.bufferedAmount < 2e6) r.ws.send(e.data); };
+  p.dawIn.meter.src.connect(node);
+  r.g = silentSink(node); r.node = node; r.src = p.dawIn.meter.src; r.peer = p;
+  refreshReturnSelects();
+}
+function detachReturn(r){
+  if (!r.node) return;
+  try { r.src.disconnect(r.node); } catch {}
+  r.node.port.onmessage = null; r.node.disconnect(); r.g.disconnect();
+  r.node = null; r.peer = null; r.src = null;
+}
+$('#scanRet').onclick = () => scanReturns().catch(e => toast('No se pudo buscar: ' + e.message));
+$('#dawIn2').onchange = () => { if (S.daw) startDaw(); };
+
+/* ---------- medidores L/R ---------- */
+function makeMeter(stream, box){
+  const ctx = S.ctx;
+  const src = ctx.createMediaStreamSource(stream);
+  const split = ctx.createChannelSplitter(2);
+  const a = [ctx.createAnalyser(), ctx.createAnalyser()];
+  a.forEach((x, i) => { x.fftSize = 1024; split.connect(x, i); });
+  src.connect(split);
+  const bars = box.querySelectorAll('i');
+  const buf = new Float32Array(1024);
+  const m = { src, a, bars, buf, hold: [0, 0],
+    dispose(){ try { src.disconnect(); } catch {} bars.forEach(b => b.style.setProperty('--v', 0)); meters.delete(m); } };
+  meters.add(m); return m;
+}
+function drawMeters(){
+  meters.forEach(m => m.a.forEach((an, i) => {
+    an.getFloatTimeDomainData(m.buf);
+    let pk = 0; for (let j = 0; j < m.buf.length; j++) { const v = Math.abs(m.buf[j]); if (v > pk) pk = v; }
+    const db = pk > 0 ? 20 * Math.log10(pk) : -90;
+    const v = Math.max(0, Math.min(1, (db + 60) / 60));
+    m.hold[i] = Math.max(v, m.hold[i] - 0.02);
+    m.bars[i].style.setProperty('--v', m.hold[i].toFixed(3));
+  }));
+  requestAnimationFrame(drawMeters);
+}
+
+/* ---------- DAW entrante ---------- */
+function attachDaw(p, stream, call){
+  if (p.dawIn && p.dawIn.stream === stream) return;
+  removeDawIn(p);
+  const el = document.createElement('div'); el.className = 'dawin';
+  el.innerHTML = `<div class="head"><b></b><span class="live">EN DIRECTO</span></div>
+    <div class="meter"><i></i><i></i></div>
+    <div class="line"><input type="range" min="0" max="1" step="0.01" value="1" aria-label="Volumen">
+      <button class="btn sm mute">Silenciar</button><button class="btn sm rec">● Grabar</button></div>
+    <select class="ret" hidden aria-label="Mandar a mi DAW"></select>
+    <div class="info mono stats">—</div>`;
+  el.querySelector('b').textContent = p.name;
+  const audio = new Audio(); audio.autoplay = true; audio.srcObject = stream; setSink(audio);
+  audio.play().catch(() => toast('Pulsa en la página para activar el sonido.'));
+  const meter = makeMeter(stream, el.querySelector('.meter'));
+  p.dawIn = { stream, el, audio, meter, call, rec: null, lastBytes: 0, lastT: 0 };
+  el.querySelector('input').oninput = e => { audio.volume = +e.target.value; };
+  const mute = el.querySelector('.mute');
+  mute.onclick = () => { audio.muted = !audio.muted; mute.textContent = audio.muted ? 'Activar' : 'Silenciar'; mute.classList.toggle('off', audio.muted); };
+  el.querySelector('.rec').onclick = () => p.dawIn.rec ? stopRec(p) : startRec(p);
+  el.querySelector('.ret').onchange = e => assignReturn(p, e.target.value);
+  $('#dawEmpty').hidden = true; $('#dawList').append(el);
+  refreshReturnSelects();
+}
+function removeDawIn(p){
+  if (!p.dawIn) return;
+  returns.forEach(r => { if (r.peer === p) detachReturn(r); });
+  if (p.dawIn.rec) stopRec(p);
+  p.dawIn.meter.dispose(); p.dawIn.audio.srcObject = null; p.dawIn.el.remove(); p.dawIn = null;
+  if (![...peers.values()].some(x => x.dawIn)) $('#dawEmpty').hidden = false;
+}
+// kbps y canales reales de lo que llega
+setInterval(() => peers.forEach(async p => {
+  const d = p.dawIn; if (!d || !d.call.peerConnection) return;
+  try {
+    const stats = await d.call.peerConnection.getStats();
+    let inb, codec;
+    stats.forEach(r => { if (r.type === 'inbound-rtp' && r.kind === 'audio') inb = r; });
+    if (!inb) return;
+    if (inb.codecId) codec = stats.get(inb.codecId);
+    const now = inb.timestamp, bytes = inb.bytesReceived;
+    if (d.lastT) {
+      const kbps = Math.round((bytes - d.lastBytes) * 8 / (now - d.lastT));
+      const ch = codec && codec.channels ? (codec.channels === 2 ? 'estéreo' : 'mono') : '';
+      const lost = inb.packetsLost || 0;
+      d.el.querySelector('.stats').textContent = `${kbps} kbps · Opus ${ch} · ${lost} paquetes perdidos`;
+    }
+    d.lastBytes = bytes; d.lastT = now;
+  } catch {}
+}), 2000);
+
+/* ---------- grabación WAV 24 bit ---------- */
+function startRec(p){
+  const d = p.dawIn; const ctx = S.ctx;
+  const node = ctx.createScriptProcessor(4096, 2, 2);
+  const L = [], R = [];
+  node.onaudioprocess = e => { L.push(new Float32Array(e.inputBuffer.getChannelData(0))); R.push(new Float32Array(e.inputBuffer.getChannelData(1))); };
+  const g = ctx.createGain(); g.gain.value = 0;
+  d.meter.src.connect(node); node.connect(g); g.connect(ctx.destination);
+  const btn = d.el.querySelector('.rec'); btn.classList.add('on');
+  const t0 = Date.now();
+  const tick = setInterval(() => { const s = Math.floor((Date.now() - t0) / 1000); btn.textContent = `■ ${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; }, 500);
+  d.rec = { node, g, L, R, tick };
+}
+function stopRec(p){
+  const d = p.dawIn, r = d.rec; if (!r) return;
+  clearInterval(r.tick);
+  try { d.meter.src.disconnect(r.node); } catch {} r.node.disconnect(); r.g.disconnect();
+  d.rec = null;
+  const btn = d.el.querySelector('.rec'); btn.classList.remove('on'); btn.textContent = '● Grabar';
+  if (!r.L.length) return;
+  const blob = wav24(r.L, r.R, S.ctx.sampleRate);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0,16).replace(/[:T]/g, '-');
+  a.href = URL.createObjectURL(blob); a.download = `cabina-${slug(p.name) || 'toma'}-${stamp}.wav`;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  toast('Toma guardada en Descargas.', true);
+}
+function wav24(L, R, sr){
+  const n = L.reduce((s, c) => s + c.length, 0), bytes = n * 6;
+  const buf = new ArrayBuffer(44 + bytes), v = new DataView(buf);
+  const str = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  str(0,'RIFF'); v.setUint32(4, 36 + bytes, true); str(8,'WAVE'); str(12,'fmt ');
+  v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,2,true); v.setUint32(24,sr,true);
+  v.setUint32(28,sr*6,true); v.setUint16(32,6,true); v.setUint16(34,24,true); str(36,'data'); v.setUint32(40,bytes,true);
+  let o = 44;
+  for (let c = 0; c < L.length; c++) for (let j = 0; j < L[c].length; j++) for (const x of [L[c][j], R[c][j]]) {
+    const s = Math.max(-1, Math.min(1, x));
+    const iv = Math.round(s < 0 ? s * 0x800000 : s * 0x7FFFFF);
+    v.setUint8(o, iv & 255); v.setUint8(o+1, (iv >> 8) & 255); v.setUint8(o+2, (iv >> 16) & 255); o += 3;
+  }
+  return new Blob([buf], { type: 'audio/wav' });
+}
+
+/* ---------- vídeo ---------- */
+function addLocalTile(){
+  const t = document.createElement('div'); t.className = 'tile me';
+  t.innerHTML = '<video autoplay playsinline muted></video><div class="avatar"></div><span class="tag"></span>';
+  t.querySelector('.tag').textContent = S.name + ' (tú)';
+  t.querySelector('.avatar').textContent = S.name[0].toUpperCase();
+  t.querySelector('video').srcObject = S.talk;
+  if (!S.talk.getVideoTracks().length) { t.classList.add('novideo'); $('#camBtn').disabled = true; }
+  $('#grid').prepend(t); S.localTile = t;
+}
+function addTile(p){
+  const t = document.createElement('div'); t.className = 'tile novideo';
+  t.innerHTML = '<video autoplay playsinline></video><div class="avatar"></div><span class="tag"></span>';
+  p.tile = t; setName(p, p.name); $('#grid').append(t);
+}
+function setName(p, n){
+  p.name = String(n || 'Anónimo').slice(0, 40);
+  if (p.tile) { p.tile.querySelector('.tag').textContent = p.name; p.tile.querySelector('.avatar').textContent = (p.name[0] || '?').toUpperCase(); }
+  if (p.dawIn) p.dawIn.el.querySelector('b').textContent = p.name;
+}
+function attachTalk(p, s){
+  const v = p.tile.querySelector('video');
+  if (v.srcObject !== s) { v.srcObject = s; setSink(v); v.play().catch(() => {}); }
+  p.hasVideo = s.getVideoTracks().length > 0;
+  p.tile.classList.toggle('novideo', !(p.hasVideo && p.camOn !== false));
+}
+function setCam(p, on){ p.camOn = on; if (p.tile) p.tile.classList.toggle('novideo', !(p.hasVideo && on)); }
+function setSink(el){ if (S.sinkId && el.setSinkId) el.setSinkId(S.sinkId).catch(() => {}); }
+const camOn = () => { const t = S.talk && S.talk.getVideoTracks()[0]; return !!(t && t.enabled); };
+
+/* ---------- controles ---------- */
+$('#micBtn').onclick = e => {
+  const t = S.talk.getAudioTracks()[0]; if (!t) return;
+  t.enabled = !t.enabled; e.target.classList.toggle('on', t.enabled); e.target.classList.toggle('off', !t.enabled);
+  e.target.textContent = t.enabled ? 'Micro' : 'Micro silenciado';
+};
+$('#camBtn').onclick = e => {
+  const t = S.talk.getVideoTracks()[0]; if (!t) return;
+  t.enabled = !t.enabled; e.target.classList.toggle('on', t.enabled); e.target.classList.toggle('off', !t.enabled);
+  S.localTile.classList.toggle('novideo', !t.enabled);
+  peers.forEach(p => send(p.dc, { type: 'cam', on: t.enabled }));
+};
+$('#out').onchange = e => {
+  S.sinkId = e.target.value;
+  document.querySelectorAll('.tile:not(.me) video').forEach(setSink);
+  peers.forEach(p => p.dawIn && setSink(p.dawIn.audio));
+};
+$('#copy').onclick = () => navigator.clipboard.writeText(location.href).then(() => toast('Enlace copiado. Pásaselo a tus colegas.', true), () => toast(location.href));
+$('#leave').onclick = () => { try { S.peer && S.peer.destroy(); } catch {} location.href = location.pathname; };
+window.addEventListener('beforeunload', () => { try { S.peer && S.peer.destroy(); } catch {} });
+
+/* ---------- chat ---------- */
+function addMsg(who, text, t){
+  const m = document.createElement('div'); m.className = 'msg';
+  const w = document.createElement('span'); w.className = 'who'; w.textContent = who;
+  const x = document.createElement('span'); x.textContent = text;
+  const tt = document.createElement('span'); tt.className = 't'; tt.textContent = hhmm(t || Date.now());
+  m.append(w, x, tt); $('#chatLog').append(m); $('#chatLog').scrollTop = 1e9;
+}
+$('#chatForm').onsubmit = e => {
+  e.preventDefault();
+  const text = $('#chatIn').value.trim(); if (!text) return;
+  const t = Date.now();
+  peers.forEach(p => send(p.dc, { type: 'chat', text, t }));
+  addMsg('Tú', text, t); $('#chatIn').value = '';
+};
+</script>
+</body>
+</html>

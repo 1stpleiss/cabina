@@ -1,0 +1,12 @@
+{
+  "cmake.sourceDirectory": "${workspaceFolder}/plugin",
+  "cmake.buildDirectory": "${workspaceFolder}/build",
+  "cmake.configureSettings": {
+    "CMAKE_BUILD_TYPE": "Release"
+  },
+  "liveServer.settings.root": "/web",
+  "files.exclude": {
+    "build": true
+  },
+  "markdown.preview.breaks": false
+}
