@@ -317,7 +317,11 @@ $('#enter').onclick = async () => {
   prefs.cam = $('#cam').value; prefs.mic = $('#mic').value; prefs.dawIn = $('#dawIn').value; prefs.out = $('#out').value;
   savePrefs();
   history.replaceState(null, '', '?sala=' + S.room);
-  S.ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+  // En Safari (y en todos los navegadores de iPhone/iPad, que son WebKit) forzar un sample rate
+  // distinto al del hardware provoca chasquidos en todo el audio de la página: allí se usa el nativo.
+  const webkit = /AppleWebKit/.test(navigator.userAgent) && !/Chrome|Chromium|Edg/.test(navigator.userAgent);
+  const AC = window.AudioContext || window.webkitAudioContext;
+  S.ctx = webkit ? new AC() : new AC({ sampleRate: 48000 });
   await S.ctx.resume();
   try { S.talk = await getTalk(); } catch (e) { toast('No se pudo abrir el micro: ' + e.message); return; }
   $('#join').hidden = true; $('#studio').hidden = false;
