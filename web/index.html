@@ -54,6 +54,7 @@ h1{font-size:22px;margin:0;letter-spacing:-.01em}
 header{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 header .room{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:0}
 header .room h2{font-size:16px;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+header select{width:auto;max-width:170px;padding:5px 8px;font-size:12.5px;border-radius:7px}
 .pill{font-size:12px;padding:3px 9px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
 .pill.ok{color:var(--green);border-color:#1f4a3a}
 .layout{display:grid;grid-template-columns:1fr 340px;min-height:0}
@@ -148,7 +149,9 @@ aside{border-left:1px solid var(--line);overflow:auto;padding:12px;display:flex;
     <div class="room"><span class="dot"></span><h2 id="roomName"></h2><span class="pill" id="status">Conectando…</span></div>
     <button class="btn sm" id="plugOpen2">Plugins</button>
     <button class="btn sm" id="copy">Copiar enlace</button>
+    <select id="mic2" aria-label="Micro"></select>
     <button class="btn sm on" id="micBtn">Micro</button>
+    <select id="cam2" aria-label="Cámara"></select>
     <button class="btn sm on" id="camBtn">Cámara</button>
     <button class="btn sm danger" id="leave">Salir</button>
   </header>
@@ -266,6 +269,8 @@ async function fillDevices(){
   const outs = devs.filter(d => d.kind==='audiooutput' && d.deviceId!=='communications');
   fill($('#cam'), cams, 'Sin cámara', () => true, null, prefs.cam);
   fill($('#mic'), ins, null, d => !LOOPBACK.test(d.label), null, prefs.mic);
+  fill($('#cam2'), cams, 'Sin cámara', () => true, null, prefs.cam);
+  fill($('#mic2'), ins, null, d => !LOOPBACK.test(d.label), null, prefs.mic);
   fill($('#dawIn'), ins, 'Ninguna (solo escuchar)', d => LOOPBACK.test(d.label), [PLUGIN_OPT], prefs.dawIn);
   fill($('#dawIn2'), ins, 'Elige la entrada…', d => LOOPBACK.test(d.label), [PLUGIN_OPT], prefs.dawIn);
   if ('setSinkId' in HTMLMediaElement.prototype && outs.length) fill($('#out'), outs, null, () => true, null, prefs.out);
@@ -318,7 +323,10 @@ $('#enter').onclick = async () => {
   $('#join').hidden = true; $('#studio').hidden = false;
   $('#roomName').textContent = S.room;
   $('#dawIn2').value = $('#dawIn').value;
+  $('#cam2').value = S.talk.getVideoTracks().length ? $('#cam').value : '';
+  $('#mic2').value = $('#mic').value;
   S.sinkId = $('#out').value;
+  $('#cam2').dataset.cur = $('#cam2').value; $('#mic2').dataset.cur = $('#mic2').value;
   addLocalTile();
   connect();
   if ($('#dawIn').value) startDaw();
@@ -871,6 +879,48 @@ function attachTalk(p, s){
   p.tile.classList.toggle('novideo', !(p.hasVideo && p.camOn !== false));
 }
 function setCam(p, on){ p.camOn = on; if (p.tile) p.tile.classList.toggle('novideo', !(p.hasVideo && on)); }
+// Cambiar de cámara o micro dentro de la sala sin cortar la llamada
+async function switchTalk(kind, id, sel){
+  const old = kind === 'video' ? S.talk.getVideoTracks()[0] : S.talk.getAudioTracks()[0];
+  let track = null;
+  if (id || kind === 'audio') {
+    try {
+      const s = await navigator.mediaDevices.getUserMedia(kind === 'video'
+        ? { video: { deviceId: { exact: id }, width: { ideal: 640 }, height: { ideal: 360 } } }
+        : { audio: { deviceId: id ? { exact: id } : undefined, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      track = s.getTracks()[0];
+    } catch (e) {
+      toast(`No se pudo abrir ${kind === 'video' ? 'la cámara' : 'el micro'}: ${e.message}`);
+      sel.value = sel.dataset.cur || ''; return;
+    }
+  }
+  if (old) { if (track) track.enabled = kind === 'video' || old.enabled; S.talk.removeTrack(old); old.stop(); }
+  if (track) S.talk.addTrack(track);
+  sel.dataset.cur = id;
+  if (kind === 'video') prefs.cam = id; else prefs.mic = id;
+  savePrefs();
+  peers.forEach((p, pid) => {
+    const pc = p.talkCall && p.talkCall.peerConnection; if (!pc) return;
+    const tr = pc.getTransceivers().find(t => t.receiver.track && t.receiver.track.kind === kind);
+    if (tr && /send/.test(tr.currentDirection || '')) tr.sender.replaceTrack(track).catch(() => recallTalk(pid));
+    else if (track) recallTalk(pid);
+  });
+  if (kind === 'video') {
+    const v = S.localTile.querySelector('video'); v.srcObject = null; v.srcObject = S.talk;
+    S.localTile.classList.toggle('novideo', !track);
+    const b = $('#camBtn'); b.disabled = !track; b.classList.add('on'); b.classList.remove('off');
+    peers.forEach(p => send(p.dc, { type: 'cam', on: !!track }));
+  }
+}
+// Si al entrar no había cámara, la llamada no tiene hueco para vídeo: hay que rehacerla
+function recallTalk(pid){
+  const p = peers.get(pid); if (!p || !S.peer) return;
+  const old = p.talkCall;
+  wireTalk(p, S.peer.call(pid, S.talk, { metadata: { kind: 'talk' } }));
+  try { old && old.close(); } catch {}
+}
+$('#cam2').onchange = e => switchTalk('video', e.target.value, e.target);
+$('#mic2').onchange = e => switchTalk('audio', e.target.value, e.target);
 function setSink(el){ if (S.sinkId && el.setSinkId) el.setSinkId(S.sinkId).catch(() => {}); }
 const camOn = () => { const t = S.talk && S.talk.getVideoTracks()[0]; return !!(t && t.enabled); };
 
