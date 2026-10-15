@@ -215,7 +215,7 @@ const slug = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''
 const rid = () => Math.random().toString(36).slice(2,8);
 const hhmm = t => new Date(t).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
 let toastT;
-function toast(msg, good){ const t=$('#toast'); t.textContent=msg; t.className='show'+(good?' good':''); clearTimeout(toastT); toastT=setTimeout(()=>t.className='',4500); }
+function toast(msg, good, ms){ const t=$('#toast'); t.textContent=msg; t.className='show'+(good?' good':''); clearTimeout(toastT); toastT=setTimeout(()=>t.className='',ms||4500); }
 
 if (!window.isSecureContext) $('#secure').hidden = false;
 $('#room').value = new URLSearchParams(location.search).get('sala') || '';
@@ -407,7 +407,7 @@ function onCall(call){
     const gen = call.metadata.gen;
     call.answer(undefined, { sdpTransform: hqOpus });
     p.dawCallIn = call;
-    call.on('stream', s => attachDaw(p, s, call, gen));
+    call.on('stream', s => { roomyJitter(call); attachDaw(p, s, call, gen); });
     call.on('close', () => { if (p.dawIn && p.dawIn.call === call) removeDawIn(p); });
   } else {
     call.answer(S.talk);
@@ -446,6 +446,15 @@ function boostBitrate(call){
     s.setParameters(prm).catch(() => {});
   });
   pc.addEventListener('connectionstatechange', () => { if (pc.connectionState === 'connected') go(); });
+}
+// Más margen en el búfer de WebRTC para el DAW: estira y encoge menos el audio cuando la red baila
+function roomyJitter(call){
+  const pc = call.peerConnection; if (!pc) return;
+  pc.getReceivers().forEach(r => {
+    if (!r.track || r.track.kind !== 'audio') return;
+    try { r.jitterBufferTarget = 150; } catch {}
+    try { r.playoutDelayHint = 0.15; } catch {}
+  });
 }
 function callDaw(id){
   const p = peers.get(id); if (!p || !S.daw || !S.peer) return;
@@ -537,7 +546,7 @@ async function startDaw(){
         channelCount: { ideal: 2 }, sampleRate: { ideal: 48000 } } });
     } catch (e) { toast('No se pudo abrir la entrada del DAW: ' + e.message); return; }
   }
-  S.dawGen = (S.dawGen || 0) + 1; S.lagWarned = false;
+  S.dawGen = (S.dawGen || 0) + 1; S.lagWarned = false; S.bleedWarned = false;
   if (S.quality !== 'opus') { try { await startCap(); } catch (e) { toast('No se pudo preparar el modo sin pérdidas: ' + e.message); } }
   const tr = S.daw.getAudioTracks()[0];
   try { tr.contentHint = 'music'; } catch {}
@@ -567,38 +576,76 @@ $('#dawBtn').onclick = () => S.daw ? stopDaw() : startDaw();
 // de audio (remuestreando a 48 kHz y absorbiendo jitter); "cabina-out" captura el DAW de un
 // colega y lo remuestrea al sample rate del plugin Cabina Retorno.
 const WORKLET = `
+// Remuestreo con sinc enventanado (Kaiser), 64 puntos y tabla polifásica: plano hasta 20 kHz
+// y sin el filtrado variable de la interpolación lineal (que sonaba "desfasado").
+function bessel0(x){ let s = 1, t = 1; for (let k = 1; k < 40; k++) { t *= (x / (2 * k)) ** 2; s += t; } return s; }
+function kernel(ratio){
+  const down = Math.max(1, ratio), half = Math.ceil(32 * down), W = 2 * half, P = 512;
+  const cut = 0.9 / down, beta = 7, ib = bessel0(beta), tab = new Float32Array((P + 1) * W);
+  for (let p = 0; p <= P; p++) {
+    let sum = 0;
+    for (let k = 0; k < W; k++) {
+      const d = k - half + 1 - p / P, u = d / half;
+      const w = Math.abs(u) >= 1 ? 0 : bessel0(beta * Math.sqrt(1 - u * u)) / ib;
+      const x = Math.PI * cut * d, v = (x === 0 ? 1 : Math.sin(x) / x) * cut * w;
+      tab[p * W + k] = v; sum += v;
+    }
+    for (let k = 0; k < W; k++) tab[p * W + k] /= sum;
+  }
+  return { half, W, P, tab };
+}
+// Lee una muestra interpolada en la posición fraccionaria pos de los anillos L/R
+function interp(K, L, R, mask, pos, out, j){
+  const i0 = Math.floor(pos), pf = (pos - i0) * K.P, p = Math.floor(pf), a = pf - p;
+  const W = K.W, t0 = p * W, t1 = t0 + W, tab = K.tab, base = i0 - K.half + 1;
+  let l = 0, r = 0;
+  for (let k = 0; k < W; k++) {
+    const c = tab[t0 + k] + a * (tab[t1 + k] - tab[t0 + k]), x = (base + k) & mask;
+    l += L[x] * c; r += R[x] * c;
+  }
+  out[0][j] = l; out[1][j] = r;
+}
 class CabinaIn extends AudioWorkletProcessor {
-  constructor(){ super(); this.cap = 1 << 16; this.buf = new Float32Array(this.cap * 2);
+  constructor(){ super(); this.cap = 1 << 17; this.mask = this.cap - 1;
+    this.L = new Float32Array(this.cap); this.R = new Float32Array(this.cap);
     this.w = 0; this.r = 0; this.ratio = 1; this.target = 2880; this.on = false; this.under = 0; this.blk = 0;
+    this.fill = 0; this.K = kernel(1);
     this.port.onmessage = e => { const d = e.data;
-      if (d && d.sr) { this.ratio = d.sr / sampleRate; this.target = Math.round(d.sr * (d.buf || 0.06)); return; }
+      if (d && d.sr) { this.ratio = d.sr / sampleRate; this.target = Math.round(d.sr * (d.buf || 0.06)); this.K = kernel(this.ratio); return; }
       this.push(d); }; }
-  push(f){ const n = f.length >> 1, c = this.cap;
-    for (let i = 0; i < n; i++) { const k = (this.w % c) * 2; this.buf[k] = f[2*i]; this.buf[k+1] = f[2*i+1]; this.w++; }
-    if (this.w - this.r > c - 4096) this.r = this.w - this.target; }
-  process(_i, outs){ const L = outs[0][0], R = outs[0][1] || L, N = L.length, c = this.cap;
+  push(f){ const n = f.length >> 1, m = this.mask;
+    for (let i = 0; i < n; i++) { const k = this.w & m; this.L[k] = f[2*i]; this.R[k] = f[2*i+1]; this.w++; }
+    if (this.w - this.r > this.cap - 8192) { this.r = this.w - this.target; this.fill = this.target; } }
+  process(_i, outs){ const o = outs[0], L = o[0], R = o[1] || o[0], N = L.length, need = this.K.half + 2;
     let avail = this.w - this.r;
     if (++this.blk % 94 === 0) this.port.postMessage({ ms: avail / (this.ratio * sampleRate) * 1000, u: this.under });
-    if (!this.on) { if (avail >= this.target) this.on = true; else { L.fill(0); R.fill(0); return true; } }
-    if (avail > this.target * 4) { this.r = this.w - this.target; avail = this.target; }
-    const corr = Math.max(-0.003, Math.min(0.003, (avail - this.target) / this.target * 0.003));
-    const step = this.ratio * (1 + corr);
+    if (!this.on) {
+      if (avail >= this.target + need) { this.on = true; this.fill = avail; }
+      else { L.fill(0); R.fill(0); return true; }
+    }
+    if (avail > this.target * 4) { this.r = this.w - this.target; avail = this.target; this.fill = avail; }
+    // Corrección de deriva lenta (constante de ~2 s, máx. ±500 ppm): inaudible
+    this.fill += (avail - this.fill) * (N / (2 * sampleRate));
+    const err = (this.fill - this.target) / this.target;
+    const step = this.ratio * (1 + Math.max(-5e-4, Math.min(5e-4, err * 5e-4)));
+    const out = [L, R];
     for (let i = 0; i < N; i++) {
-      if (this.w - this.r < 2) { if (this.on) this.under++; this.on = false; L[i] = 0; R[i] = 0; continue; }
-      const i0 = Math.floor(this.r), fr = this.r - i0, a = (i0 % c) * 2, b = ((i0 + 1) % c) * 2;
-      L[i] = this.buf[a] + (this.buf[b] - this.buf[a]) * fr;
-      R[i] = this.buf[a+1] + (this.buf[b+1] - this.buf[a+1]) * fr;
+      if (this.w - this.r < need) { if (this.on) this.under++; this.on = false; L[i] = 0; R[i] = 0; continue; }
+      interp(this.K, this.L, this.R, this.mask, this.r, out, i);
       this.r += step; }
     return true; } }
 class CabinaOut extends AudioWorkletProcessor {
-  constructor(){ super(); this.step = 1; this.ph = 0; this.pl = 0; this.pr = 0; this.chunk = new Float32Array(2048); this.n = 0;
-    this.port.onmessage = e => { if (e.data && e.data.sr) this.step = sampleRate / e.data.sr; }; }
+  constructor(){ super(); this.cap = 1 << 13; this.mask = this.cap - 1;
+    this.L = new Float32Array(this.cap); this.R = new Float32Array(this.cap); this.w = 0; this.pos = 0;
+    this.step = 1; this.K = kernel(1); this.chunk = new Float32Array(2048); this.n = 0; this.tmp = [new Float32Array(1), new Float32Array(1)];
+    this.port.onmessage = e => { if (e.data && e.data.sr) { this.step = sampleRate / e.data.sr; this.K = kernel(this.step); } }; }
   emit(l, r){ this.chunk[this.n++] = l; this.chunk[this.n++] = r;
     if (this.n === this.chunk.length) { this.port.postMessage(this.chunk, [this.chunk.buffer]); this.chunk = new Float32Array(2048); this.n = 0; } }
-  process(ins){ const inp = ins[0]; if (!inp || !inp.length) return true; const L = inp[0], R = inp[1] || inp[0];
-    for (let i = 0; i < L.length; i++) { const l = L[i], r = R[i];
-      while (this.ph < 1) { this.emit(this.pl + (l - this.pl) * this.ph, this.pr + (r - this.pr) * this.ph); this.ph += this.step; }
-      this.ph -= 1; this.pl = l; this.pr = r; }
+  process(ins){ const inp = ins[0]; if (!inp || !inp.length) return true; const L = inp[0], R = inp[1] || inp[0], m = this.mask;
+    if (this.step === 1) { for (let i = 0; i < L.length; i++) this.emit(L[i], R[i]); return true; }
+    for (let i = 0; i < L.length; i++) { const k = this.w & m; this.L[k] = L[i]; this.R[k] = R[i]; this.w++; }
+    const t = this.tmp;
+    while (this.pos + this.K.half + 1 < this.w) { interp(this.K, this.L, this.R, m, this.pos, t, 0); this.emit(t[0][0], t[1][0]); this.pos += this.step; }
     return true; } }
 // Captura el DAW en bloques de 20 ms y los convierte a PCM entero (16 bit con dither, o 24 bit)
 class CabinaCap extends AudioWorkletProcessor {
@@ -798,15 +845,51 @@ setInterval(() => peers.forEach(async p => {
     if (!inb) return;
     if (inb.codecId) codec = stats.get(inb.codecId);
     const now = inb.timestamp, bytes = inb.bytesReceived;
+    // muestras que WebRTC ha tenido que inventar o estirar/encoger (pérdidas y jitter)
+    const touched = (inb.concealedSamples || 0) + (inb.insertedSamplesForDeceleration || 0) + (inb.removedSamplesForAcceleration || 0);
+    const total = inb.totalSamplesReceived || 0;
     if (d.lastT) {
       const kbps = Math.round((bytes - d.lastBytes) * 8 / (now - d.lastT));
       const ch = codec && codec.channels ? (codec.channels === 2 ? 'estéreo' : 'mono') : '';
       const lost = inb.packetsLost || 0;
-      d.el.querySelector('.stats').textContent = `${kbps} kbps · Opus ${ch} · ${lost} paquetes perdidos`;
+      const pct = total > d.lastTotal ? (touched - d.lastTouched) / (total - d.lastTotal) * 100 : 0;
+      d.el.querySelector('.stats').textContent = `${kbps} kbps · Opus ${ch} · ${lost} perdidos · ${pct.toFixed(1)} % retocado`;
     }
-    d.lastBytes = bytes; d.lastT = now;
+    d.lastBytes = bytes; d.lastT = now; d.lastTouched = touched; d.lastTotal = total;
   } catch {}
 }), 2000);
+
+/* ---------- aviso: el micro capta el DAW ---------- */
+// Si el micro recoge lo que suena (altavoces, monitorización directa, loopback de la interfaz),
+// a los demás les llega la mezcla dos veces con distinto retardo y suena desfasada.
+function envelope(stream){
+  const src = S.ctx.createMediaStreamSource(stream), a = S.ctx.createAnalyser();
+  a.fftSize = 2048; src.connect(a);
+  return { src, a, buf: new Float32Array(2048) };
+}
+function levelDb(x){ x.a.getFloatTimeDomainData(x.buf); let e = 0; for (const v of x.buf) e += v * v; return 10 * Math.log10(e / x.buf.length + 1e-12); }
+function dropBleed(){ if (S.bleed) { S.bleed.m.src.disconnect(); S.bleed.d.src.disconnect(); S.bleed = null; } }
+setInterval(() => {
+  const mt = S.talk && S.talk.getAudioTracks()[0];
+  if (!S.daw || !mt || !mt.enabled || S.bleedWarned) { dropBleed(); return; }
+  if (!S.bleed || S.bleed.track !== mt || S.bleed.daw !== S.daw) {
+    dropBleed();
+    S.bleed = { track: mt, daw: S.daw, m: envelope(new MediaStream([mt])), d: envelope(S.daw), hm: [], hd: [] };
+  }
+  const b = S.bleed;
+  b.hm.push(levelDb(b.m)); b.hd.push(levelDb(b.d));
+  if (b.hm.length > 150) { b.hm.shift(); b.hd.shift(); }
+  if (b.hm.length < 150) return;
+  // correlación de las envolventes de los últimos 15 s
+  const n = b.hm.length, mm = b.hm.reduce((x, y) => x + y) / n, md = b.hd.reduce((x, y) => x + y) / n;
+  if (mm < -60 || md < -45) return;
+  let sxy = 0, sxx = 0, syy = 0;
+  for (let i = 0; i < n; i++) { const x = b.hm[i] - mm, y = b.hd[i] - md; sxy += x * y; sxx += x * x; syy += y * y; }
+  if (sxy / Math.sqrt(sxx * syy + 1e-9) > 0.75) {
+    S.bleedWarned = true; dropBleed();
+    toast('Tu micro está captando el audio del DAW: a los demás les llega doble y suena desfasado. Usa auriculares o silencia el micro mientras escucháis.', false, 12000);
+  }
+}, 100);
 
 /* ---------- grabación WAV 24 bit ---------- */
 function startRec(p){

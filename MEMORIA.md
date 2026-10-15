@@ -150,7 +150,12 @@ Conexión: `ws://127.0.0.1:<puerto>`.
    - **Send → web**: al sample rate del DAW. La web remuestrea a 48 kHz.
    - **web → Retorno**: la web ya lo manda remuestreado al sample rate del DAW.
 
-Todo el remuestreo se hace en la web, en un `AudioWorklet` con interpolación lineal y una corrección de deriva de reloj de ±0,3 %. Así el plugin es más simple.
+Todo el remuestreo se hace en la web, en un `AudioWorklet`, para que el plugin sea más simple:
+
+- **Interpolación sinc con ventana de Kaiser** (64 puntos, tabla de 512 fases; más puntos y corte más bajo al bajar de sample rate). Respuesta plana hasta 20 kHz; ruido y distorsión por debajo de −73 dB a 44,1, 48 y 96 kHz.
+- **Corrección de deriva de reloj** muy lenta (nivel del colchón suavizado con constante de ~2 s, máximo ±500 ppm).
+
+> Hasta la v0.1 se usaba interpolación lineal con corrección rápida de ±0,3 %. Como la posición de lectura nunca caía exactamente en una muestra, la interpolación actuaba como un filtro de agudos que cambiaba sin parar: los agudos oscilaban hasta 6 dB y sonaba "desfasado", como un phaser. Pasaba con cualquier sample rate, también a 48 kHz.
 
 ## 7. Calidad de audio y latencia
 
@@ -349,6 +354,8 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 | El plugin dice "Puerto ocupado" | Otro proyecto o instancia lo está usando | Cerrar la otra instancia |
 | Llega en mono | Safari, o cable virtual configurado en mono | Usar Chrome; revisar el dispositivo en Audio MIDI |
 | kbps muy por debajo de 400 | Red congestionada; WebRTC baja la calidad solo | Cable de red en vez de wifi; cerrar descargas |
+| Suena desfasado, como con un canal de más | El micro de quien emite capta el DAW (altavoces, monitorización directa, loopback de la interfaz) y llega dos veces | Auriculares o silenciar el micro. La web avisa al emisor si lo detecta |
+| "% retocado" alto en el DAW entrante | WebRTC estira o rellena audio por pérdidas o jitter de la red | Cable de red; probar el modo sin pérdidas |
 | Eco o acoples | Altavoces en lugar de auriculares | Auriculares |
 | No conecta con alguien concreto | Router o NAT estricto | Normalmente lo salva el TURN; si no, montar TURN propio |
 | En el DAW suena a trozos | El colchón del Retorno se vacía | Mejor red, o subir `target` en `PluginProcessor.cpp` (0.06 → 0.12) |
