@@ -257,7 +257,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#plug'
 
 /* ---------- dispositivos ---------- */
 const LOOPBACK = /blackhole|vb-?audio|cable output|loopback|soundflower|voicemeeter/i;
-const PLUGIN_OPT = ['Plugin Cabina Send (sin cable virtual)', 'plugin'];
+const PLUGIN_OPT = ['Plugin Cabina Send', 'plugin'];
 function fill(sel, list, noneLabel, pick, extra, saved){
   const prev = sel.value; sel.innerHTML = '';
   if (noneLabel) sel.add(new Option(noneLabel, ''));

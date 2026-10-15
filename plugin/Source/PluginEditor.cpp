@@ -56,13 +56,13 @@ void CabinaEditor::paint (juce::Graphics& g)
     if (port < 0)
     {
         status = "Puerto ocupado";
-        detail = CabinaProcessor::isReturn ? "Hay ya 8 retornos abiertos o algo usa los puertos 47801-47808."
-                                           : "Ya hay otro Cabina Send abierto (en este u otro proyecto).";
+        detail = CabinaProcessor::isReturn ? "Hay ya 8 retornos abiertos. Se conectara solo cuando se libere uno."
+                                           : "Hay otro Cabina Send abierto. Se conectara solo cuando se cierre.";
     }
     else if (! connected)
     {
         status = "Esperando a la web de Cabina";
-        detail = CabinaProcessor::isReturn ? "En la web: \"Buscar plugins de retorno\" y elige quien llega aqui."
+        detail = CabinaProcessor::isReturn ? "En la web: \"Buscar retornos\" y elige quien llega aqui."
                                            : "En la web, en \"Tu DAW\", elige \"Plugin Cabina Send\".";
     }
     else

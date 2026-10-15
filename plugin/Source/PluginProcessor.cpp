@@ -20,8 +20,8 @@ CabinaProcessor::CabinaProcessor()
     peak[0] = 0.0f;
     peak[1] = 0.0f;
 
-    port = isReturn ? server.start (firstReturnPort, lastReturnPort)
-                    : server.start (sendPort, sendPort);
+    if (isReturn) server.start (firstReturnPort, lastReturnPort);
+    else          server.start (sendPort, sendPort);
 
     if (! isReturn)
         startThread();
@@ -66,7 +66,7 @@ juce::String CabinaProcessor::helloMessage()
     obj->setProperty ("role", isReturn ? "return" : "send");
     obj->setProperty ("sr",   sampleRate.load());
     obj->setProperty ("ch",   2);
-    obj->setProperty ("port", port);
+    obj->setProperty ("port", server.getPort());
     {
         const juce::ScopedLock sl (nameLock);
         obj->setProperty ("name", trackName);

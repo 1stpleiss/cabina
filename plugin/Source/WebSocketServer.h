@@ -26,7 +26,10 @@ public:
     explicit WebSocketServer (Listener& l);
     ~WebSocketServer() override;
 
-    /** Intenta escuchar en el primer puerto libre del rango. Devuelve el puerto o -1. */
+    /** Escucha en el primer puerto libre del rango. Devuelve el puerto, o -1 si ahora están
+        todos ocupados: en ese caso lo sigue intentando cada medio segundo (en macOS, si el DAW
+        crea dos instancias, la segunda no puede compartir el puerto y toma el relevo al cerrarse
+        la primera). */
     int start (int firstPort, int lastPort);
     void stop();
 
@@ -34,6 +37,7 @@ public:
     void sendText (const juce::String& text);
 
     int getNumClients() const noexcept               { return numClients.load(); }
+    int getPort() const noexcept                     { return port.load(); }
     juce::String getLastOrigin() const;
 
 private:
@@ -41,6 +45,7 @@ private:
     friend class Client;
 
     void run() override;
+    bool tryListen();
     void broadcast (int opcode, const void* data, size_t size);
     void removeDeadClients();
     void setLastOrigin (const juce::String& o);
@@ -50,6 +55,8 @@ private:
     juce::CriticalSection lock;
     juce::OwnedArray<Client> clients;
     std::atomic<int> numClients { 0 };
+    std::atomic<int> port { -1 };
+    int firstPort = 0, lastPort = 0;
     juce::String lastOrigin;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WebSocketServer)

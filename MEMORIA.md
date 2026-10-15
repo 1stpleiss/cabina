@@ -315,7 +315,8 @@ cabina/
 - **Safari**: la captura estéreo del cable virtual es poco fiable. Usad Chrome o Edge.
 - **Grabación en la web**: se guarda en memoria; ~230 MB por cada 10 minutos. Es para tomas, no para sesiones de horas.
 - **Retorno**: si los relojes de audio derivan, puede haber un pequeño clic cada varios minutos al reajustar el colchón.
-- **Un solo Cabina Send** abierto a la vez (puerto 47800 fijo).
+- **Un solo Cabina Send** abierto a la vez (puerto 47800 fijo). Si hay dos, el segundo muestra "Puerto ocupado" y toma el relevo solo en cuanto se cierra el primero.
+  - Por qué importa en Mac: JUCE abre el puerto con `SO_REUSEADDR`. En Windows esa opción deja que una segunda instancia comparta el puerto, pero en macOS no. Algunos DAW (FL Studio en Mac, por ejemplo) crean una instancia temporal del plugin y luego la destruyen. Hasta la v0.1, la instancia buena se quedaba sin puerto para siempre, y la web y el plugin no se veían. Ahora el servidor reintenta cada 0,5 s.
 - **AAX / Pro Tools**: no incluido, porque requiere firma de Avid.
 - **Plugins sin firmar en Mac**: hay que quitar la cuarentena (§8.3). Firmar y notarizar requiere cuenta de desarrollador de Apple (99 €/año).
 

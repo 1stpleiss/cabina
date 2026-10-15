@@ -1,5 +1,8 @@
 #include "WebSocketServer.h"
 #include <cstring>
+#if JUCE_MAC || JUCE_IOS
+ #include <sys/socket.h>
+#endif
 
 namespace
 {
@@ -55,7 +58,15 @@ class WebSocketServer::Client : public juce::Thread
 {
 public:
     Client (WebSocketServer& o, juce::StreamingSocket* s)
-        : juce::Thread ("Cabina WS cliente"), owner (o), socket (s) {}
+        : juce::Thread ("Cabina WS cliente"), owner (o), socket (s)
+    {
+       #if JUCE_MAC || JUCE_IOS
+        // Si la web se cierra mientras enviamos, que write() devuelva error en vez de
+        // lanzar SIGPIPE, que puede cerrar el DAW entero
+        int one = 1;
+        setsockopt (socket->getRawSocketHandle(), SOL_SOCKET, SO_NOSIGPIPE, &one, sizeof (one));
+       #endif
+    }
 
     ~Client() override
     {
@@ -290,22 +301,32 @@ WebSocketServer::~WebSocketServer()
     stop();
 }
 
-int WebSocketServer::start (int firstPort, int lastPort)
+int WebSocketServer::start (int first, int last)
 {
-    for (int port = firstPort; port <= lastPort; ++port)
+    firstPort = first;
+    lastPort = last;
+    tryListen();
+    startThread(); // si no hay puerto libre, el hilo lo reintenta
+    return port.load();
+}
+
+bool WebSocketServer::tryListen()
+{
+    for (int p = firstPort; p <= lastPort; ++p)
     {
-        if (serverSocket.createListener (port, "127.0.0.1"))
+        if (serverSocket.createListener (p, "127.0.0.1"))
         {
-            startThread();
-            return port;
+            port = p;
+            return true;
         }
     }
-    return -1;
+    return false;
 }
 
 void WebSocketServer::stop()
 {
     signalThreadShouldExit();
+    notify(); // por si está esperando a que se libere el puerto
     serverSocket.close(); // JUCE desbloquea accept() al cerrar
     stopThread (3000);
 
@@ -321,6 +342,12 @@ void WebSocketServer::run()
 {
     while (! threadShouldExit())
     {
+        if (port.load() < 0 && ! tryListen())
+        {
+            wait (500);
+            continue;
+        }
+
         std::unique_ptr<juce::StreamingSocket> s (serverSocket.waitForNextConnection());
 
         if (threadShouldExit())

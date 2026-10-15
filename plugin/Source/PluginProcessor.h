@@ -54,7 +54,7 @@ public:
     void updateTrackProperties (const TrackProperties&) override;
 
     // Para el editor
-    int  getPort() const noexcept              { return port; }
+    int  getPort() const noexcept              { return server.getPort(); }
     int  getNumClients() const noexcept        { return server.getNumClients(); }
     juce::String getLastOrigin() const         { return server.getLastOrigin(); }
     bool isReceiving() const noexcept          { return ! buffering.load(); }
@@ -70,7 +70,6 @@ private:
     void updatePeaks (const float* left, const float* right, int n) noexcept;
 
     WebSocketServer server { *this };
-    int port = -1;
 
     std::atomic<double> sampleRate { 48000.0 };
     juce::String trackName;
