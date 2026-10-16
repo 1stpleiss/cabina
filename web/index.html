@@ -316,6 +316,9 @@ async function getTalk(){
     throw e;
   }
 }
+// En Safari (y en todos los navegadores de iPhone/iPad, que son WebKit) forzar un sample rate
+// distinto al del hardware provoca chasquidos en todo el audio de la página: allí se usa el nativo.
+const WEBKIT = /AppleWebKit/.test(navigator.userAgent) && !/Chrome|Chromium|Edg/.test(navigator.userAgent);
 $('#enter').onclick = async () => {
   S.name = $('#name').value.trim() || 'Anónimo';
   S.room = slug($('#room').value) || rid();
@@ -323,11 +326,9 @@ $('#enter').onclick = async () => {
   prefs.cam = $('#cam').value; prefs.mic = $('#mic').value; prefs.dawIn = $('#dawIn').value; prefs.out = $('#out').value;
   savePrefs();
   history.replaceState(null, '', '?sala=' + S.room);
-  // En Safari (y en todos los navegadores de iPhone/iPad, que son WebKit) forzar un sample rate
-  // distinto al del hardware provoca chasquidos en todo el audio de la página: allí se usa el nativo.
-  const webkit = /AppleWebKit/.test(navigator.userAgent) && !/Chrome|Chromium|Edg/.test(navigator.userAgent);
+  if ($('#dawIn').value === 'plugin') openBridge(SEND_PORT);
   const AC = window.AudioContext || window.webkitAudioContext;
-  S.ctx = webkit ? new AC() : new AC({ sampleRate: 48000 });
+  S.ctx = WEBKIT ? new AC() : new AC({ sampleRate: 48000 });
   await S.ctx.resume();
   try { S.talk = await getTalk(); } catch (e) { toast('No se pudo abrir el micro: ' + e.message); return; }
   $('#join').hidden = true; $('#studio').hidden = false;
@@ -611,7 +612,7 @@ function stopDaw(){
   $('#dawInfo').textContent = '';
   const b = $('#dawBtn'); b.textContent = 'Emitir DAW'; b.classList.add('primary'); b.classList.remove('off');
 }
-$('#dawBtn').onclick = () => S.daw ? stopDaw() : startDaw();
+$('#dawBtn').onclick = () => { if (S.daw) { stopDaw(); return; } if ($('#dawIn2').value === 'plugin') openBridge(SEND_PORT); startDaw(); };
 
 /* ---------- puente con los plugins (ws://127.0.0.1) ---------- */
 // Dos procesadores de audio: "cabina-in" convierte lo que manda Cabina Send en una pista
@@ -717,7 +718,66 @@ function ensureWorklet(){
   if (!workletReady) workletReady = S.ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET], { type: 'application/javascript' })));
   return workletReady;
 }
+/* ---------- puente para Safari ---------- */
+// Safari bloquea ws://127.0.0.1 desde una web https (contenido mixto). El plugin sirve una página
+// en http://127.0.0.1:<puerto>/puente que sí puede conectarse; la abrimos en una ventanita y nos
+// pasa los mensajes con postMessage. Imita lo justo de WebSocket para que el resto no cambie.
+const NEED_BRIDGE = WEBKIT && location.protocol === 'https:';
+const bridgeSocks = new Map(); let bridgeSeq = 0, bridgeWaiters = [];
+// Hay que llamarla directamente desde un clic: Safari solo deja abrir ventanas así
+function openBridge(port){
+  if (!NEED_BRIDGE || (S.bridge && !S.bridge.closed && S.bridgeReady)) return;
+  S.bridgeReady = false; S.bridgeOrigin = 'http://127.0.0.1:' + port;
+  S.bridge = window.open(S.bridgeOrigin + '/puente#' + encodeURIComponent(location.origin), 'cabina-puente', 'popup,width=380,height=220');
+  if (!S.bridge) toast('Safari ha bloqueado la ventana puente con el plugin. Permite las ventanas emergentes para esta web.', false, 8000);
+}
+function waitBridge(ms){
+  if (S.bridgeReady && S.bridge && !S.bridge.closed) return Promise.resolve();
+  return new Promise((res, rej) => {
+    const t = setTimeout(() => { bridgeWaiters = bridgeWaiters.filter(f => f !== ok); rej(new Error('sin puente')); }, ms);
+    const ok = () => { clearTimeout(t); res(); };
+    bridgeWaiters.push(ok);
+  });
+}
+const bridgePost = (m, t) => { try { S.bridge.postMessage(m, S.bridgeOrigin, t || []); } catch {} };
+async function bridgeSocket(port, timeout){
+  await waitBridge(5000);
+  return new Promise((res, rej) => {
+    const id = ++bridgeSeq;
+    const sock = { readyState: 0, bufferedAmount: 0, binaryType: 'arraybuffer', onopen: null, onmessage: null, onclose: null, onerror: null,
+      send(d){
+        if (this.readyState !== 1) return;
+        if (typeof d === 'string') { bridgePost({ cab: 'send', id, data: d }); return; }
+        const buf = d instanceof ArrayBuffer ? d : d.buffer.slice(d.byteOffset, d.byteOffset + d.byteLength);
+        bridgePost({ cab: 'send', id, data: buf }, [buf]);
+      },
+      close(){ if (this.readyState < 2) { this.readyState = 2; bridgePost({ cab: 'close', id }); } } };
+    const t = setTimeout(() => { bridgeSocks.delete(id); bridgePost({ cab: 'close', id }); rej(new Error('timeout')); }, timeout || 1500);
+    sock._open = () => { clearTimeout(t); sock.readyState = 1; res(sock); };
+    sock._fail = () => { clearTimeout(t); bridgeSocks.delete(id); rej(new Error('closed')); };
+    bridgeSocks.set(id, sock);
+    bridgePost({ cab: 'open', id, port });
+  });
+}
+function bridgeClosed(id){
+  const s = bridgeSocks.get(id); if (!s) return;
+  const was = s.readyState; s.readyState = 3; bridgeSocks.delete(id);
+  if (was === 0) s._fail(); else if (s.onclose) s.onclose();
+}
+window.addEventListener('message', e => {
+  if (!S.bridge || e.source !== S.bridge || e.origin !== S.bridgeOrigin) return;
+  const m = e.data; if (!m || !m.cab) return;
+  if (m.cab === 'ready') { S.bridgeReady = true; const w = bridgeWaiters; bridgeWaiters = []; w.forEach(f => f()); try { window.focus(); } catch {} return; }
+  const s = bridgeSocks.get(m.id); if (!s) return;
+  if (m.cab === 'open') s._open();
+  else if (m.cab === 'msg') { if (s.onmessage) s.onmessage({ data: m.data }); }
+  else if (m.cab === 'close') bridgeClosed(m.id);
+});
+// Si alguien cierra la ventana puente, se cortan sus conexiones
+setInterval(() => { if (S.bridge && S.bridge.closed) { S.bridge = null; S.bridgeReady = false; [...bridgeSocks.keys()].forEach(bridgeClosed); } }, 1000);
+
 function openWs(port, timeout){
+  if (NEED_BRIDGE) return bridgeSocket(port, timeout);
   return new Promise((res, rej) => {
     let ws; try { ws = new WebSocket('ws://127.0.0.1:' + port); } catch (e) { rej(e); return; }
     ws.binaryType = 'arraybuffer';
@@ -732,7 +792,9 @@ async function pluginStream(){
   await ensureWorklet();
   let ws;
   try { ws = await openWs(SEND_PORT, 4000); }
-  catch { throw new Error('No encuentro el plugin Cabina Send. Ponlo en el máster del DAW (y si Chrome pide acceso a la red local, acepta).'); }
+  catch { throw new Error(NEED_BRIDGE
+    ? 'No encuentro el plugin Cabina Send. Ponlo en el máster del DAW y vuelve a pulsar Emitir DAW.'
+    : 'No encuentro el plugin Cabina Send. Ponlo en el máster del DAW (y si Chrome pide acceso a la red local, acepta).'); }
   const node = new AudioWorkletNode(S.ctx, 'cabina-in', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2] });
   const dest = S.ctx.createMediaStreamDestination(); dest.channelCount = 2;
   node.connect(dest);
@@ -803,8 +865,8 @@ function detachReturn(r){
   r.node.port.onmessage = null; r.node.disconnect(); r.g.disconnect();
   r.node = null; r.peer = null; r.src = null;
 }
-$('#scanRet').onclick = () => scanReturns().catch(e => toast('No se pudo buscar: ' + e.message));
-$('#dawIn2').onchange = e => { prefs.dawIn = e.target.value; savePrefs(); if (S.daw) startDaw(); };
+$('#scanRet').onclick = () => { openBridge(RETURN_PORTS[0]); scanReturns().catch(e => toast('No se pudo buscar: ' + e.message)); };
+$('#dawIn2').onchange = e => { prefs.dawIn = e.target.value; savePrefs(); if (S.daw) { if (e.target.value === 'plugin') openBridge(SEND_PORT); startDaw(); } };
 $('#quality').onchange = e => { S.quality = e.target.value; prefs.quality = S.quality; savePrefs(); qInfo(); if (S.daw) startDaw(); };
 
 /* ---------- medidores L/R ---------- */
