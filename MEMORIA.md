@@ -152,6 +152,8 @@ Conexión: `ws://127.0.0.1:<puerto>`.
    - **Send → web**: al sample rate del DAW. La web remuestrea a 48 kHz.
    - **web → Retorno**: la web ya lo manda remuestreado al sample rate del DAW.
 
+**Safari**: Safari bloquea `ws://127.0.0.1` desde una web `https`, porque lo trata como contenido mixto (Chrome y Edge lo permiten). Por eso los plugins también sirven una página en `http://127.0.0.1:<puerto>/puente`. En Safari, al pulsar *Emitir DAW* o *Buscar retornos*, la web la abre en una ventanita. Esa página sí puede conectarse a los plugins y pasa los mensajes a la web con `postMessage` (la web le indica su origen en `#…` y solo se aceptan mensajes de ese origen). La ventana tiene que quedarse abierta mientras se usen los plugins.
+
 Todo el remuestreo se hace en la web, en un `AudioWorklet`, para que el plugin sea más simple:
 
 - **Interpolación sinc con ventana de Kaiser** (64 puntos, tabla de 512 fases; más puntos y corte más bajo al bajar de sample rate). Respuesta plana hasta 20 kHz; ruido y distorsión por debajo de −73 dB a 44,1, 48 y 96 kHz.
@@ -312,7 +314,7 @@ cabina/
 
 - **Malla**: con más de 5–6 personas, la subida de cada uno se satura, porque se manda una copia del DAW por persona. Para grupos grandes haría falta un SFU (LiveKit, mediasoup).
 - **Servidor público de PeerJS**: sin garantías de disponibilidad. Si falla, montar uno propio (§16).
-- **Safari**: la captura estéreo del cable virtual es poco fiable. Usad Chrome o Edge.
+- **Safari**: la captura estéreo del cable virtual es poco fiable. Con los plugins funciona, pero a través de la ventana puente (§6), que hay que dejar abierta. Si Safari bloquea ventanas emergentes, hay que permitirlas para la web de Cabina.
 - **Grabación en la web**: se guarda en memoria; ~230 MB por cada 10 minutos. Es para tomas, no para sesiones de horas.
 - **Retorno**: si los relojes de audio derivan, puede haber un pequeño clic cada varios minutos al reajustar el colchón.
 - **Un solo Cabina Send** abierto a la vez (puerto 47800 fijo). Si hay dos, el segundo muestra "Puerto ocupado" y toma el relevo solo en cuanto se cierra el primero.
