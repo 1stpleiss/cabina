@@ -1,6 +1,6 @@
 # Cabina
 
-Estudio virtual privado: escuchar el DAW de un colega en estéreo a 510 kbps, hablar, verse y grabarlo en tu DAW.
+Estudio virtual privado: escuchar el DAW de un colega en estéreo a 510 kbps (o sin pérdidas), hablar, verse, compartir pantalla y grabarlo en tu DAW.
 
 - `web/index.html` — la web (súbela a Netlify o GitHub Pages).
 - `plugin/` — **Cabina Send** (máster → web) y **Cabina Retorno** (web → pista), VST3/AU con JUCE.

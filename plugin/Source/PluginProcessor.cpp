@@ -37,6 +37,7 @@ void CabinaProcessor::prepareToPlay (double sr, int)
 {
     const auto old = sampleRate.exchange (sr);
     buffering = true;
+    starved = 0;
 
     if (std::abs (old - sr) > 0.5)
         server.sendText (helloMessage()); // la web ajusta el remuestreo
@@ -140,10 +141,11 @@ void CabinaProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         float* l = buffer.getWritePointer (0);
         float* r = numCh > 1 ? buffer.getWritePointer (1) : nullptr;
 
-        const int target = (int) (sampleRate.load() * 0.06); // colchón de 60 ms
+        const double sr = sampleRate.load();
+        int target = (int) (sr * returnBuffer.load()); // colchón: empieza en 60 ms
         int ready = fifo.getNumReady();
 
-        if (ready > target * 6) // demasiada latencia acumulada: saltamos hacia delante
+        if (ready > juce::jmin (target * 6, fifoFrames * 3 / 4)) // demasiada latencia acumulada: saltamos hacia delante
         {
             fifo.finishedRead (ready - target);
             ready = target;
@@ -151,10 +153,24 @@ void CabinaProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 
         if (buffering.load())
         {
+            if (ready >= target && starved > 0 && starved < (juce::int64) sr)
+            {
+                // Corte breve (el navegador o la red se atascaron): más colchón para que no se repita
+                returnBuffer = juce::jmin (returnBuffer.load() * 1.5, 0.5);
+                target = (int) (sr * returnBuffer.load());
+                starved = 0;
+            }
+
             if (ready >= target)
+            {
                 buffering = false;
+                starved = 0;
+                rampDone = 0;
+            }
             else
             {
+                if (starved > 0)
+                    starved += n;
                 buffer.clear();
                 return;
             }
@@ -184,6 +200,16 @@ void CabinaProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
             for (int ch = 0; ch < numCh; ++ch)
                 buffer.clear (ch, got, n - got);
             buffering = true;
+            starved = 1;
+        }
+
+        // Entrada suave de 5 ms al volver a sonar tras un corte, para que no chasquee
+        const int rampLen = juce::jmax (1, (int) (sr * 0.005));
+        for (int i = 0; i < n && rampDone < rampLen; ++i)
+        {
+            const float g = (float) ++rampDone / (float) rampLen;
+            for (int ch = 0; ch < juce::jmin (numCh, 2); ++ch)
+                buffer.getWritePointer (ch)[i] *= g;
         }
 
         for (int ch = 2; ch < numCh; ++ch)

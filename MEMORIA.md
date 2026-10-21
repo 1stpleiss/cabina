@@ -90,9 +90,10 @@ Un único archivo HTML, sin build ni dependencias, salvo PeerJS desde CDN.
 | Canal | Contenido | Ajustes |
 |---|---|---|
 | Datos | nombres, chat, cámara on/off, aviso de fin de emisión | fiable |
-| Llamada "talk" | micro + cámara | cancelación de eco y supresión de ruido activadas |
+| Llamada "talk" | micro + cámara | supresión de ruido activada; cancelación de eco activada salvo en Safari (ver §14) |
 | Llamada "daw" | audio del DAW (modo Opus) | Opus estéreo 510 kbps, FEC, sin DTX, sin procesado de voz |
 | Datos "pcm" | audio del DAW (modo sin pérdidas) | PCM 16 bit con dither o 24 bit, bloques de 20 ms, canal fiable y ordenado |
+| Llamada "screen" | pantalla compartida (solo vídeo) | hasta 30 fps, 4 Mbps, prioriza nitidez (`contentHint = detail`, `maintain-resolution`) |
 
 ### Funciones
 
@@ -104,6 +105,7 @@ Un único archivo HTML, sin build ni dependencias, salvo PeerJS desde CDN.
 - **Grabar**: graba lo que llega en WAV estéreo de 24 bits a 48 kHz y lo descarga.
 - **Mandar a mi DAW**: envía ese audio a un plugin Cabina Retorno.
 - Chat con hora, útil para notas tipo "1:42 baja la voz 1 dB".
+- **Compartir pantalla** (botón *Pantalla*): el navegador deja elegir una ventana (el DAW) o la pantalla entera. Los demás la ven en grande encima de las cámaras, con botón de *Pantalla completa*. Va sin audio, porque el sonido ya va por el DAW. Quien entra a mitad también la recibe. Si comparten varios a la vez, se ve la última. Al parar, se manda `screen-stop` con un número de generación para no cerrar por error una pantalla compartida después.
 
 ## 5. Los plugins
 
@@ -120,7 +122,7 @@ Hechos con **JUCE 8** (C++17). Un mismo código fuente genera los dos plugins; l
 
 - Efecto que **sustituye** el audio de la pista por lo que llega de la web.
 - Cada instancia coge el primer puerto libre entre `47801` y `47808`, así que puedes tener hasta 8 retornos, uno por colega.
-- Mantiene un colchón de **60 ms** para absorber irregularidades de la red. Si se vacía, saca silencio y vuelve a llenarlo. Si se acumulan más de 360 ms, salta hacia delante para no ir con retraso.
+- Mantiene un **colchón adaptable**, que empieza en 60 ms. Si se vacía, saca silencio, vuelve a llenarlo y entra con un fundido de 5 ms. Si el corte fue breve (menos de 1 s: el navegador o la red se atascaron), el colchón crece un 50 %, hasta 0,5 s. Si la emisión simplemente se paró, no crece. La ventana del plugin muestra el colchón actual. Si se acumula más de 6 veces el colchón, salta hacia delante para no ir con retraso.
 - Avisa a la web del nombre de la pista (en los DAW que lo informan, como Reaper) para que aparezca en el selector.
 
 ### Servidor WebSocket propio
@@ -164,6 +166,10 @@ Todo el remuestreo se hace en la web, en un `AudioWorklet`, para que el plugin s
 
 - **Interpolación sinc con ventana de Kaiser** (64 puntos, tabla de 512 fases; más puntos y corte más bajo al bajar de sample rate). Respuesta plana hasta 20 kHz; ruido y distorsión por debajo de −73 dB a 44,1, 48 y 96 kHz.
 - **Corrección de deriva de reloj** muy lenta (nivel del colchón suavizado con constante de ~2 s, máximo ±500 ppm).
+- **Colchón adaptable** en `cabina-in`: empieza en 80 ms con Cabina Send y en 250 ms en modo sin pérdidas, y crece un 50 % con cada corte, hasta 0,5 s. Tras un corte entra con un fundido de 5 ms. Si el plugin repite el `hello` con el mismo sample rate (lo hace al cambiar el nombre de la pista), no se reinicia lo aprendido. La web del emisor muestra junto al plugin el colchón y los cortes.
+- El `AudioContext` de la página usa la misma salida que *Escuchar* (`setSinkId`). Si fueran por dispositivos distintos, sus relojes derivarían y saldrían chasquidos.
+
+> **Por qué colchones adaptables (21-10-2026).** El audio del plugin llega a la web por el hilo principal de la página. Mientras se trabaja en el DAW, el navegador está en segundo plano y macOS le da menos prioridad, así que ese hilo se atasca a ratos. Con colchones fijos de 60 ms, en el emisor y en el Retorno, cada atasco de más de 60 ms era un corte, **con cualquier calidad de emisión**. Medido con atascos simulados de 30–90 ms por segundo: antes había 3–6 cortes cada 15 s; ahora, 1 al principio y ninguno después.
 
 > Hasta la v0.1 se usaba interpolación lineal con corrección rápida de ±0,3 %. Como la posición de lectura nunca caía exactamente en una muestra, la interpolación actuaba como un filtro de agudos que cambiaba sin parar: los agudos oscilaban hasta 6 dB y sonaba "desfasado", como un phaser. Pasaba con cualquier sample rate, también a 48 kHz.
 
@@ -176,7 +182,7 @@ Todo el remuestreo se hace en la web, en un `AudioWorklet`, para que el plugin s
 | Web → web (internet), modo sin pérdidas | **PCM 16 bit (1,5 Mbps) o 24 bit (2,3 Mbps)** por oyente | canal de datos fiable; colchón de 250 ms en el receptor |
 | Web → Retorno | float32 sin pérdidas | localhost |
 
-**Latencia orientativa** de extremo a extremo (DAW de A → oídos de B): 150–300 ms según la red con Opus; unos 300 ms más en modo sin pérdidas.
+**Latencia orientativa** de extremo a extremo (DAW de A → oídos de B): 300–500 ms según la red con Opus (el búfer de WebRTC del DAW entrante se pide de 300 ms para que estire y encoja menos el audio); algo menos en modo sin pérdidas. Los colchones adaptables pueden sumar hasta ~0,4 s más si el ordenador va justo.
 
 **Modo sin pérdidas**: un `AudioWorklet` (`cabina-cap`) corta el DAW en bloques de 20 ms y los pasa a entero (16 bit con dither TPDF, o 24 bit). Se envían por una conexión de datos de PeerJS (`serialization: 'raw'`, fiable y ordenada). El receptor los vuelve a float y los mete en el mismo `cabina-in` que usa el plugin, con un colchón de 250 ms. Si la subida no da abasto, se descartan bloques en lugar de acumular retraso y sale un aviso. En malla, la subida se multiplica por el número de oyentes: con 3 oyentes a 24 bit, unos 7 Mbps. Sirve para revisar mezclas y tomas, no para tocar a la vez.
 
@@ -323,6 +329,9 @@ cabina/
 - **Safari**: la captura estéreo del cable virtual es poco fiable. Con los plugins funciona, pero a través de la ventana puente (§6), que hay que dejar abierta. Si Safari bloquea ventanas emergentes, hay que permitirlas para la web de Cabina.
 - **Grabación en la web**: se guarda en memoria; ~230 MB por cada 10 minutos. Es para tomas, no para sesiones de horas.
 - **Retorno**: si los relojes de audio derivan, puede haber un pequeño clic cada varios minutos al reajustar el colchón.
+- **Safari y la cancelación de eco**: con la cancelación de eco del micro activada, Safari usa el procesado de voz de macOS, que también procesa y baja todo lo que suena, el DAW que escuchas incluido. Por eso en Safari va apagada (`talkAudio()`), y hay que usar auriculares o, si no, los demás oirán eco. En Chrome y Edge sigue activada, porque allí no afecta a lo que se escucha.
+- **Probar en un solo ordenador**: si escuchas a la vez el DAW directo y lo que llega por Cabina, suenan dos copias con retardo distinto y parece un phaser. Para probar, silencia una de las dos.
+- **Compartir pantalla**: no funciona en iPhone/iPad (no tienen `getDisplayMedia`) y el botón no aparece. En malla, cada participante recibe una copia (hasta 4 Mbps de subida por oyente).
 - **Un solo Cabina Send** abierto a la vez (puerto 47800 fijo). Si hay dos, el segundo muestra "Puerto ocupado" y toma el relevo solo en cuanto se cierra el primero.
   - Por qué importa en Mac: JUCE abre el puerto con `SO_REUSEADDR`. En Windows esa opción deja que una segunda instancia comparta el puerto, pero en macOS no. Algunos DAW (FL Studio en Mac, por ejemplo) crean una instancia temporal del plugin y luego la destruyen. Hasta la v0.1, la instancia buena se quedaba sin puerto para siempre, y la web y el plugin no se veían. Ahora el servidor reintenta cada 0,5 s.
 - **AAX / Pro Tools**: no incluido, porque requiere firma de Avid.
@@ -339,6 +348,10 @@ cabina/
 | Compilación de ambos plugins (VST3, Linux/GCC 13, JUCE 8.0.9) | OK, sin avisos en el código de Cabina |
 | Servidor WebSocket frente a un cliente WebSocket estándar (Node.js 22) | OK: handshake, hello JSON, 50 bloques de audio intactos hacia la web, 20 mensajes de vuelta (incluidos de 400 KB, longitud de 64 bits), cierre y parada limpios |
 
+| Prueba de extremo a extremo (Cabina Send simulado con tonos de 997 Hz en L y 3001 Hz en R → web → WebRTC → web → Cabina Retorno simulado), Chrome sin interfaz | Llega igual que sale: nivel exacto, estéreo sin cruzarse (diafonía < −73 dB). Ruido + distorsión: 24 bit a 48 kHz −125 dB, 24 bit a 44,1 kHz −91 dB, 16 bit −86 dB, Opus −60 dB (normal en un tono puro) |
+| La misma, con atascos de 30–90 ms por segundo en las páginas | Antes: 3–6 cortes / 15 s en el emisor y 3 en el Retorno, con cualquier calidad. Con colchones adaptables: 1 corte al principio en el emisor y 0 en el Retorno en 25 s |
+| Compartir pantalla con 3 navegadores | Se ve en los demás; quien entra después también la recibe; al parar desaparece |
+
 Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y los plugins en Reaper en Mac y Windows.
 
 ## 16. Hoja de ruta
@@ -346,6 +359,7 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 **Corto plazo**
 - [ ] Prueba real con 2–3 colegas; ajustar el colchón del Retorno según los resultados.
 - [ ] Lista de orígenes permitidos en los plugins (solo la URL de Cabina).
+- [ ] Leer el WebSocket de los plugins en un Worker y pasarlo directo al `AudioWorklet` (`MessageChannel`), para no depender del hilo principal. Antes, comprobar que el permiso de red local de Chrome lo permite desde un Worker.
 - [ ] Botón "marcar tiempo" en el chat que inserte la posición del transporte del DAW (el plugin la conoce).
 
 **Medio plazo**
@@ -371,7 +385,10 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 | "% retocado" alto en el DAW entrante | WebRTC estira o rellena audio por pérdidas o jitter de la red | Cable de red; probar el modo sin pérdidas |
 | Eco o acoples | Altavoces en lugar de auriculares | Auriculares |
 | No conecta con alguien concreto | Router o NAT estricto | Normalmente lo salva el TURN; si no, montar TURN propio |
-| En el DAW suena a trozos | El colchón del Retorno se vacía | Mejor red, o subir `target` en `PluginProcessor.cpp` (0.06 → 0.12) |
+| En el DAW suena a trozos | El colchón del Retorno se vacía | Debería adaptarse solo en unos segundos (la ventana del plugin muestra el colchón). Si sigue, subir el valor inicial de `returnBuffer` en `PluginProcessor.h` (0.06 → 0.12) |
+| Al emitir, la web pone "N cortes" junto al plugin | La página del emisor se atasca (segundo plano, ordenador cargado) | El colchón crece solo; si siguen apareciendo, dejar la ventana de Cabina visible o cerrar pestañas pesadas |
+| Suena con efecto phaser al probar en un solo ordenador | Se oyen a la vez el DAW directo y lo que llega por Cabina | Silenciar una de las dos |
+| En Safari todo suena más bajo o "enlatado" con el micro abierto | Procesado de voz de macOS (versión anterior al 21-10-2026) | Recargar la web; usar auriculares |
 
 ## 18. Licencias
 

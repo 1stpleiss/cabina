@@ -58,6 +58,7 @@ public:
     int  getNumClients() const noexcept        { return server.getNumClients(); }
     juce::String getLastOrigin() const         { return server.getLastOrigin(); }
     bool isReceiving() const noexcept          { return ! buffering.load(); }
+    double getReturnBufferSeconds() const noexcept { return returnBuffer.load(); }
     float takePeak (int ch) noexcept           { return peak[ch].exchange (0.0f); }
 
 private:
@@ -81,6 +82,11 @@ private:
 
     std::atomic<float> peak[2];
     std::atomic<bool> buffering { true };
+
+    // Retorno: colchón que crece un 50 % con cada corte breve (hasta 0,5 s)
+    std::atomic<double> returnBuffer { 0.06 };
+    juce::int64 starved = 0; // muestras sin audio desde el último corte (0 = no venimos de un corte)
+    int rampDone = 0;        // muestras de la entrada suave ya aplicadas
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CabinaProcessor)
 };

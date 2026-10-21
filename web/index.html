@@ -69,6 +69,12 @@ main{padding:12px;overflow:auto}
 .tile .kick{display:none;position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6)}
 #studio.host .tile:not(.me) .kick{display:block}
 .tile .tag{position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.6);padding:3px 9px;border-radius:7px;font-size:12.5px;font-weight:500}
+#stage{position:relative;aspect-ratio:16/9;max-height:calc(100vh - 150px);margin:0 auto 10px;background:#000;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+#stage video{width:100%;height:100%;object-fit:contain;display:block}
+#stage .tag{position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.6);padding:3px 9px;border-radius:7px;font-size:12.5px;font-weight:500}
+#stage .full{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6)}
+#stage:fullscreen{max-height:none;border:0;border-radius:0}
+main.sharing #grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
 aside{border-left:1px solid var(--line);overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
 .box{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;flex:none}
 .box h3{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
@@ -155,10 +161,14 @@ aside{border-left:1px solid var(--line);overflow:auto;padding:12px;display:flex;
     <button class="btn sm on" id="micBtn">Micro</button>
     <select id="cam2" aria-label="Cámara"></select>
     <button class="btn sm on" id="camBtn">Cámara</button>
+    <button class="btn sm" id="screenBtn" hidden>Pantalla</button>
     <button class="btn sm danger" id="leave">Salir</button>
   </header>
   <div class="layout">
-    <main><div id="grid"></div></main>
+    <main>
+      <div id="stage" hidden><video autoplay playsinline muted></video><span class="tag"></span><button class="btn sm full">Pantalla completa</button></div>
+      <div id="grid"></div>
+    </main>
     <aside>
       <div class="box">
         <h3>Tu DAW <span class="info mono" id="dawInfo"></span></h3>
@@ -306,7 +316,7 @@ navigator.mediaDevices?.addEventListener?.('devicechange', () => fillDevices().c
 /* ---------- entrar ---------- */
 async function getTalk(){
   const cam = $('#cam').value, mic = $('#mic').value;
-  const audio = { echoCancellation:true, noiseSuppression:true, autoGainControl:true };
+  const audio = talkAudio();
   if (mic) audio.deviceId = { exact: mic };
   try {
     return await navigator.mediaDevices.getUserMedia({ audio,
@@ -319,6 +329,9 @@ async function getTalk(){
 // En Safari (y en todos los navegadores de iPhone/iPad, que son WebKit) forzar un sample rate
 // distinto al del hardware provoca chasquidos en todo el audio de la página: allí se usa el nativo.
 const WEBKIT = /AppleWebKit/.test(navigator.userAgent) && !/Chrome|Chromium|Edg/.test(navigator.userAgent);
+// En Safari la cancelación de eco activa el procesado de voz de macOS, que también procesa y baja
+// todo lo que suena (el DAW que escuchas incluido). Con auriculares no hace falta: allí va apagada.
+const talkAudio = () => ({ echoCancellation: !WEBKIT, noiseSuppression: true, autoGainControl: true });
 $('#enter').onclick = async () => {
   S.name = $('#name').value.trim() || 'Anónimo';
   S.room = slug($('#room').value) || rid();
@@ -341,6 +354,7 @@ $('#enter').onclick = async () => {
   $('#cam2').value = S.talk.getVideoTracks().length ? $('#cam').value : '';
   $('#mic2').value = $('#mic').value;
   S.sinkId = $('#out').value;
+  ctxSink();
   $('#cam2').dataset.cur = $('#cam2').value; $('#mic2').dataset.cur = $('#mic2').value;
   addLocalTile();
   connect();
@@ -405,6 +419,7 @@ function wireConn(c){
     send(c, { type: 'hello', name: S.name, cam: camOn() });
     if (S.isHost) send(c, { type: 'roster', ids: [...peers.keys()].filter(id => id !== c.peer) });
     if (S.daw) callDaw(c.peer);
+    if (S.screen) callScreen(c.peer);
     updateCount();
   });
   c.on('data', d => onData(p, d));
@@ -423,6 +438,7 @@ function onData(p, d){
   else if (d.type === 'roster' && Array.isArray(d.ids)) d.ids.filter(x => typeof x === 'string' && x.startsWith(PREFIX + S.room)).forEach(connectTo);
   else if (d.type === 'chat' && typeof d.text === 'string') addMsg(p.name, d.text.slice(0,500), d.t);
   else if (d.type === 'cam') setCam(p, !!d.on);
+  else if (d.type === 'screen-stop') screens.filter(x => x.p === p && !(x.call.metadata.gen > d.gen)).forEach(x => hideScreen(p, x.call));
   else if (d.type === 'daw-stop') { if (p.dawIn && !(d.gen < p.dawIn.gen)) removeDawIn(p); }
 }
 function onCall(call){
@@ -433,6 +449,11 @@ function onCall(call){
     p.dawCallIn = call;
     call.on('stream', s => { roomyJitter(call); attachDaw(p, s, call, gen); });
     call.on('close', () => { if (p.dawIn && p.dawIn.call === call) removeDawIn(p); });
+  } else if (call.metadata && call.metadata.kind === 'screen') {
+    call.answer();
+    p.screenIn = call;
+    call.on('stream', s => showScreen(p, s, call));
+    call.on('close', () => hideScreen(p, call));
   } else {
     call.answer(S.talk);
     wireTalk(p, call);
@@ -441,8 +462,8 @@ function onCall(call){
 function wireTalk(p, call){ p.talkCall = call; call.on('stream', s => attachTalk(p, s)); call.on('error', () => {}); }
 function removePeer(id){
   const p = peers.get(id); if (!p) return;
-  removeDawIn(p);
-  [p.talkCall, p.dawOut, p.pcmOut, p.dawCallIn].forEach(c => { try { c && c.close(); } catch {} });
+  removeDawIn(p); hideScreen(p);
+  [p.talkCall, p.dawOut, p.pcmOut, p.dawCallIn, p.screenOut, p.screenIn].forEach(c => { try { c && c.close(); } catch {} });
   try { p.dc && p.dc.close(); } catch {}
   p.tile && p.tile.remove();
   peers.delete(id); updateCount();
@@ -499,8 +520,8 @@ function roomyJitter(call){
   const pc = call.peerConnection; if (!pc) return;
   pc.getReceivers().forEach(r => {
     if (!r.track || r.track.kind !== 'audio') return;
-    try { r.jitterBufferTarget = 150; } catch {}
-    try { r.playoutDelayHint = 0.15; } catch {}
+    try { r.jitterBufferTarget = 300; } catch {}
+    try { r.playoutDelayHint = 0.3; } catch {}
   });
 }
 function callDaw(id){
@@ -611,7 +632,7 @@ function stopDaw(){
   peers.forEach(p => { closeOuts(p); send(p.dc, { type: 'daw-stop', gen: S.dawGen }); });
   stopCap();
   S.daw.getTracks().forEach(t => t.stop()); S.daw = null;
-  if (S.pluginSrc) { const x = S.pluginSrc; S.pluginSrc = null; try { x.ws.close(); } catch {} x.node.disconnect(); x.g.disconnect(); }
+  if (S.pluginSrc) { const x = S.pluginSrc; S.pluginSrc = null; try { x.ws.close(); } catch {} x.node.port.onmessage = null; x.node.disconnect(); x.g.disconnect(); }
   S.dawMeter && S.dawMeter.dispose(); S.dawMeter = null;
   $('#dawInfo').textContent = '';
   const b = $('#dawBtn'); b.textContent = 'Emitir DAW'; b.classList.add('primary'); b.classList.remove('off');
@@ -652,13 +673,18 @@ function interp(K, L, R, mask, pos, out, j){
   }
   out[0][j] = l; out[1][j] = r;
 }
+// El colchón empieza en "buf" segundos y crece un 50 % con cada corte (hasta 0,5 s): si el navegador
+// se atasca (pestaña en segundo plano mientras se trabaja en el DAW), se adapta en vez de cortar una y otra vez.
 class CabinaIn extends AudioWorkletProcessor {
   constructor(){ super(); this.cap = 1 << 17; this.mask = this.cap - 1;
     this.L = new Float32Array(this.cap); this.R = new Float32Array(this.cap);
-    this.w = 0; this.r = 0; this.ratio = 1; this.target = 2880; this.on = false; this.under = 0; this.blk = 0;
-    this.fill = 0; this.K = kernel(1);
+    this.w = 0; this.r = 0; this.ratio = 1; this.target = 2880; this.max = 24000; this.on = false; this.under = 0; this.blk = 0;
+    this.fill = 0; this.K = kernel(1); this.src = 0; this.ramp = 0;
     this.port.onmessage = e => { const d = e.data;
-      if (d && d.sr) { this.ratio = d.sr / sampleRate; this.target = Math.round(d.sr * (d.buf || 0.06)); this.K = kernel(this.ratio); return; }
+      if (d && d.sr) {
+        if (d.sr === this.src) return; // el plugin repite el hello al cambiar el nombre de la pista: no perder lo aprendido
+        this.src = d.sr; this.ratio = d.sr / sampleRate; this.K = kernel(this.ratio);
+        this.target = Math.round(d.sr * (d.buf || 0.06)); this.max = Math.max(this.target, Math.round(d.sr * 0.5)); return; }
       this.push(d); }; }
   push(f){ const n = f.length >> 1, m = this.mask;
     for (let i = 0; i < n; i++) { const k = this.w & m; this.L[k] = f[2*i]; this.R[k] = f[2*i+1]; this.w++; }
@@ -667,7 +693,7 @@ class CabinaIn extends AudioWorkletProcessor {
     let avail = this.w - this.r;
     if (++this.blk % 94 === 0) this.port.postMessage({ ms: avail / (this.ratio * sampleRate) * 1000, u: this.under });
     if (!this.on) {
-      if (avail >= this.target + need) { this.on = true; this.fill = avail; }
+      if (avail >= this.target + need) { this.on = true; this.fill = avail; this.ramp = 0; }
       else { L.fill(0); R.fill(0); return true; }
     }
     if (avail > this.target * 4) { this.r = this.w - this.target; avail = this.target; this.fill = avail; }
@@ -676,9 +702,13 @@ class CabinaIn extends AudioWorkletProcessor {
     const err = (this.fill - this.target) / this.target;
     const step = this.ratio * (1 + Math.max(-5e-4, Math.min(5e-4, err * 5e-4)));
     const out = [L, R];
+    const fade = sampleRate * 0.005; // 5 ms de entrada suave al volver tras un corte
     for (let i = 0; i < N; i++) {
-      if (this.w - this.r < need) { if (this.on) this.under++; this.on = false; L[i] = 0; R[i] = 0; continue; }
+      if (this.w - this.r < need) {
+        if (this.on) { this.under++; this.target = Math.min(Math.round(this.target * 1.5), this.max); }
+        this.on = false; L[i] = 0; R[i] = 0; continue; }
       interp(this.K, this.L, this.R, this.mask, this.r, out, i);
+      if (this.ramp < fade) { const g = ++this.ramp / fade; L[i] *= g; R[i] *= g; }
       this.r += step; }
     return true; } }
 class CabinaOut extends AudioWorkletProcessor {
@@ -808,11 +838,14 @@ async function pluginStream(){
   const dest = S.ctx.createMediaStreamDestination(); dest.channelCount = 2;
   node.connect(dest);
   const g = silentSink(node);
+  let rate = '';
+  const info = st => { $('#dawInfo').textContent = `plugin · DAW a ${rate} kHz` + (st ? ` · colchón ${Math.round(st.ms)} ms` + (st.u ? ` · ${st.u} corte${st.u > 1 ? 's' : ''}` : '') : ''); };
+  node.port.onmessage = e => info(e.data);
   ws.onmessage = e => {
     if (typeof e.data === 'string') {
       try { const m = JSON.parse(e.data);
         if (m.role !== 'send') return;
-        if (m.sr) { node.port.postMessage({ sr: m.sr }); $('#dawInfo').textContent = `plugin · DAW a ${m.sr / 1000} kHz`; }
+        if (m.sr) { node.port.postMessage({ sr: m.sr, buf: 0.08 }); rate = m.sr / 1000; info(); }
       } catch {}
     } else { const f = new Float32Array(e.data); node.port.postMessage(f, [f.buffer]); }
   };
@@ -1084,7 +1117,7 @@ async function switchTalk(kind, id, sel){
     try {
       const s = await navigator.mediaDevices.getUserMedia(kind === 'video'
         ? { video: { deviceId: { exact: id }, width: { ideal: 640 }, height: { ideal: 360 } } }
-        : { audio: { deviceId: id ? { exact: id } : undefined, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+        : { audio: { ...talkAudio(), deviceId: id ? { exact: id } : undefined } });
       track = s.getTracks()[0];
     } catch (e) {
       toast(`No se pudo abrir ${kind === 'video' ? 'la cámara' : 'el micro'}: ${e.message}`);
@@ -1119,7 +1152,76 @@ function recallTalk(pid){
 $('#cam2').onchange = e => switchTalk('video', e.target.value, e.target);
 $('#mic2').onchange = e => switchTalk('audio', e.target.value, e.target);
 function setSink(el){ if (S.sinkId && el.setSinkId) el.setSinkId(S.sinkId).catch(() => {}); }
+// El procesado de audio de la página (remuestreo, colchones) va al mismo ritmo que la tarjeta por la que
+// suena. Si la página y lo que escuchas van por dispositivos distintos, sus relojes derivan y salen chasquidos.
+function ctxSink(){ if (S.ctx && S.ctx.setSinkId) S.ctx.setSinkId(S.sinkId || '').catch(() => {}); }
 const camOn = () => { const t = S.talk && S.talk.getVideoTracks()[0]; return !!(t && t.enabled); };
+
+/* ---------- compartir pantalla ---------- */
+// La pantalla va en una llamada aparte ("screen"), solo vídeo: el sonido sigue yendo por el DAW.
+// Se prioriza la nitidez (texto de plugins, automatizaciones) sobre la fluidez.
+if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) $('#screenBtn').hidden = false;
+async function startScreen(){
+  let s;
+  try { s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 30, max: 30 } }, audio: false }); }
+  catch (e) { if (e.name !== 'NotAllowedError') toast('No se pudo compartir la pantalla: ' + e.message); return; }
+  const tr = s.getVideoTracks()[0];
+  try { tr.contentHint = 'detail'; } catch {}
+  tr.onended = stopScreen; // "Dejar de compartir" del propio navegador
+  S.screen = s; S.screenGen = (S.screenGen || 0) + 1;
+  peers.forEach((p, pid) => { if (p.dc && p.dc.open) callScreen(pid); });
+  const b = $('#screenBtn'); b.textContent = 'Dejar de compartir'; b.classList.add('on');
+}
+function stopScreen(){
+  if (!S.screen) return;
+  S.screen.getTracks().forEach(t => t.stop()); S.screen = null;
+  peers.forEach(p => { send(p.dc, { type: 'screen-stop', gen: S.screenGen }); try { p.screenOut && p.screenOut.close(); } catch {} p.screenOut = null; });
+  const b = $('#screenBtn'); b.textContent = 'Pantalla'; b.classList.remove('on');
+}
+function callScreen(id){
+  const p = peers.get(id); if (!p || !S.screen || !S.peer) return;
+  try { p.screenOut && p.screenOut.close(); } catch {}
+  const call = S.peer.call(id, S.screen, { metadata: { kind: 'screen', gen: S.screenGen } });
+  p.screenOut = call;
+  const pc = call.peerConnection; if (!pc) return;
+  pc.addEventListener('connectionstatechange', () => {
+    if (pc.connectionState !== 'connected') return;
+    pc.getSenders().forEach(snd => {
+      if (!snd.track || snd.track.kind !== 'video') return;
+      const prm = snd.getParameters();
+      if (!prm.encodings || !prm.encodings.length) prm.encodings = [{}];
+      prm.encodings[0].maxBitrate = 4000000;
+      prm.degradationPreference = 'maintain-resolution';
+      snd.setParameters(prm).catch(() => {});
+    });
+  });
+}
+// Si comparten varios a la vez se ve la última pantalla que llegó; al acabar, la anterior
+const screens = [];
+function showScreen(p, stream, call){
+  hideScreen(p, null, true);
+  screens.push({ p, stream, call });
+  renderStage();
+}
+function hideScreen(p, call, quiet){
+  const i = screens.findIndex(x => x.p === p && (!call || x.call === call));
+  if (i < 0) return;
+  screens.splice(i, 1);
+  if (!quiet) renderStage();
+}
+function renderStage(){
+  const cur = screens[screens.length - 1], st = $('#stage'), v = st.querySelector('video');
+  st.hidden = !cur; document.querySelector('main').classList.toggle('sharing', !!cur);
+  if (!cur) { v.srcObject = null; if (document.fullscreenElement === st) document.exitFullscreen().catch(() => {}); return; }
+  st.querySelector('.tag').textContent = 'Pantalla de ' + cur.p.name;
+  if (v.srcObject !== cur.stream) { v.srcObject = cur.stream; v.play().catch(() => {}); }
+}
+$('#screenBtn').onclick = () => S.screen ? stopScreen() : startScreen();
+$('#stage .full').onclick = () => {
+  const st = $('#stage');
+  if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  else (st.requestFullscreen || st.webkitRequestFullscreen).call(st);
+};
 
 /* ---------- controles ---------- */
 $('#micBtn').onclick = e => {
@@ -1137,6 +1239,7 @@ $('#out').onchange = e => {
   S.sinkId = e.target.value; prefs.out = S.sinkId; savePrefs();
   document.querySelectorAll('.tile:not(.me) video').forEach(setSink);
   peers.forEach(p => p.dawIn && setSink(p.dawIn.audio));
+  ctxSink();
 };
 $('#copy').onclick = () => navigator.clipboard.writeText(location.href).then(() => toast('Enlace copiado. Pásaselo a tus colegas.', true), () => toast(location.href));
 $('#leave').onclick = () => { try { S.peer && S.peer.destroy(); } catch {} location.href = location.pathname; };

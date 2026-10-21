@@ -69,6 +69,8 @@ void CabinaEditor::paint (juce::Graphics& g)
     {
         status = CabinaProcessor::isReturn ? (proc.isReceiving() ? "Recibiendo audio" : "Conectado, sin audio")
                                            : "Emitiendo";
+        if (CabinaProcessor::isReturn)
+            status << " - colchon " << juce::roundToInt (proc.getReturnBufferSeconds() * 1000.0) << " ms";
         detail = "Conectado desde " + proc.getLastOrigin();
     }
 
