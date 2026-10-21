@@ -155,11 +155,19 @@ private:
 
     bool handshake()
     {
+        // Que una conexión que no dice nada (las que Safari abre por adelantado) no ocupe un hilo para siempre
+        if (socket->waitUntilReady (true, 5000) != 1)
+            return false;
+
         std::string req;
         char c;
         while (req.size() < 8192)
         {
             if (! readFully (&c, 1))
+                return false;
+            // Safari prueba primero https://127.0.0.1/puente. Si llega TLS (o cualquier cosa que no
+            // sea HTTP) se cierra al momento para que vuelva a http; si no, se queda colgado.
+            if (req.empty() && ! (c >= 'A' && c <= 'Z'))
                 return false;
             req.push_back (c);
             if (req.size() >= 4 && req.compare (req.size() - 4, 4, "\r\n\r\n") == 0)

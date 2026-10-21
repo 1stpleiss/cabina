@@ -326,10 +326,14 @@ $('#enter').onclick = async () => {
   prefs.cam = $('#cam').value; prefs.mic = $('#mic').value; prefs.dawIn = $('#dawIn').value; prefs.out = $('#out').value;
   savePrefs();
   history.replaceState(null, '', '?sala=' + S.room);
-  if ($('#dawIn').value === 'plugin') openBridge(SEND_PORT);
+  // El audio se arranca antes de abrir la ventana puente: en Safari abrir una ventana gasta el clic,
+  // y sin clic resume() no termina nunca y nos quedábamos en esta pantalla
   const AC = window.AudioContext || window.webkitAudioContext;
   S.ctx = WEBKIT ? new AC() : new AC({ sampleRate: 48000 });
-  await S.ctx.resume();
+  const resumed = S.ctx.resume().catch(() => {});
+  if ($('#dawIn').value === 'plugin') openBridge(SEND_PORT);
+  await Promise.race([resumed, new Promise(r => setTimeout(r, 1000))]);
+  if (S.ctx.state !== 'running') addEventListener('pointerdown', () => S.ctx.resume().catch(() => {}), { once: true });
   try { S.talk = await getTalk(); } catch (e) { toast('No se pudo abrir el micro: ' + e.message); return; }
   $('#join').hidden = true; $('#studio').hidden = false;
   $('#roomName').textContent = S.room;
@@ -741,7 +745,12 @@ function waitBridge(ms){
 }
 const bridgePost = (m, t) => { try { S.bridge.postMessage(m, S.bridgeOrigin, t || []); } catch {} };
 async function bridgeSocket(port, timeout){
-  await waitBridge(5000);
+  try { await waitBridge(5000); }
+  catch (e) {
+    // La ventana no llegó a cargar (plugin cerrado): quitarla para que no quede el error de Safari
+    if (S.bridge && !S.bridgeReady) { try { S.bridge.close(); } catch {} S.bridge = null; }
+    throw e;
+  }
   return new Promise((res, rej) => {
     const id = ++bridgeSeq;
     const sock = { readyState: 0, bufferedAmount: 0, binaryType: 'arraybuffer', onopen: null, onmessage: null, onclose: null, onerror: null,

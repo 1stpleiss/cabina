@@ -154,6 +154,12 @@ Conexión: `ws://127.0.0.1:<puerto>`.
 
 **Safari**: Safari bloquea `ws://127.0.0.1` desde una web `https`, porque lo trata como contenido mixto (Chrome y Edge lo permiten). Por eso los plugins también sirven una página en `http://127.0.0.1:<puerto>/puente`. En Safari, al pulsar *Emitir DAW* o *Buscar retornos*, la web la abre en una ventanita. Esa página sí puede conectarse a los plugins y pasa los mensajes a la web con `postMessage` (la web le indica su origen en `#…` y solo se aceptan mensajes de ese origen). La ventana tiene que quedarse abierta mientras se usen los plugins.
 
+Detalles del puente que ya han dado problemas:
+
+- **Safari prueba antes `https://`** al abrir `http://127.0.0.1:<puerto>/puente`. Hasta el 21-10-2026, el plugin se quedaba esperando sin responder a esa conexión TLS y Safari mostraba *"no ha podido conectarse al servidor"*. Ahora el servidor cierra al instante cualquier conexión cuyo primer byte no sea una letra mayúscula (inicio de `GET`), y Safari vuelve a `http`. También cierra las conexiones que no envían nada en 5 s.
+- **Abrir la ventana gasta el clic** en Safari. Si se abre antes de arrancar el `AudioContext`, `resume()` no termina y la web se queda en la pantalla de entrada. Por eso, al pulsar *Entrar*, primero se llama a `resume()` y después se abre el puente; además, no se espera más de 1 s a `resume()`, y si el audio sigue parado, arranca con el siguiente clic.
+- Si la ventana puente no avisa de que está lista en 5 s (plugin cerrado), la web la cierra y muestra el aviso de que no encuentra el plugin.
+
 Todo el remuestreo se hace en la web, en un `AudioWorklet`, para que el plugin sea más simple:
 
 - **Interpolación sinc con ventana de Kaiser** (64 puntos, tabla de 512 fases; más puntos y corte más bajo al bajar de sample rate). Respuesta plana hasta 20 kHz; ruido y distorsión por debajo de −73 dB a 44,1, 48 y 96 kHz.
@@ -357,6 +363,8 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 |---|---|---|
 | "No encuentro el plugin Cabina Send" | Plugin no cargado, o Chrome bloqueó el acceso local | Cargar el plugin en el máster; aceptar el aviso de red local de Chrome |
 | El plugin dice "Puerto ocupado" | Otro proyecto o instancia lo está usando | Cerrar la otra instancia |
+| Safari: la ventanita puente dice "no ha podido conectarse al servidor" | Plugin cerrado, o plugin anterior al 21-10-2026 (se colgaba con el intento https de Safari) | Abrir Cabina Send en el DAW; reinstalar los plugins desde la release `plugins` |
+| Safari: se queda en la pantalla de entrada al pulsar *Entrar* | Web anterior al 21-10-2026 (la ventana puente gastaba el clic y el audio no arrancaba) | Recargar la web |
 | Llega en mono | Safari, o cable virtual configurado en mono | Usar Chrome; revisar el dispositivo en Audio MIDI |
 | kbps muy por debajo de 400 | Red congestionada; WebRTC baja la calidad solo | Cable de red en vez de wifi; cerrar descargas |
 | Suena desfasado, como con un canal de más | El micro de quien emite capta el DAW (altavoces, monitorización directa, loopback de la interfaz) y llega dos veces | Auriculares o silenciar el micro. La web avisa al emisor si lo detecta |
