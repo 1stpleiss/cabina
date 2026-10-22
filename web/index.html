@@ -82,7 +82,7 @@ aside{border-left:1px solid var(--line);overflow:auto;padding:12px;display:flex;
 .line{display:flex;align-items:center;gap:8px;margin-top:8px}
 .line select{flex:1;min-width:0}
 .line .lbl{font-size:12px;color:var(--muted);width:52px;flex:none}
-.box h3 .info{float:right;margin:0;text-transform:none;letter-spacing:0;font-weight:500}
+#dawInfo:empty{display:none}
 .meter{display:grid;gap:3px;margin-top:8px}
 .meter i{display:block;height:6px;border-radius:3px;background:var(--panel2);position:relative;overflow:hidden}
 .meter i::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,var(--green) 0 70%,var(--amber) 70% 90%,var(--red) 90%);transform-origin:left;transform:scaleX(var(--v,0));transition:transform 60ms linear}
@@ -171,8 +171,9 @@ aside{border-left:1px solid var(--line);overflow:auto;padding:12px;display:flex;
     </main>
     <aside>
       <div class="box">
-        <h3>Tu DAW <span class="info mono" id="dawInfo"></span></h3>
+        <h3>Tu DAW</h3>
         <div class="line" style="margin:0"><select id="dawIn2" aria-label="Entrada del DAW"></select><button class="btn primary sm" id="dawBtn">Emitir DAW</button></div>
+        <div class="info mono" id="dawInfo"></div>
         <div class="meter" id="dawMeter"><i></i><i></i></div>
         <div class="line"><span class="lbl">Calidad</span><select id="quality" aria-label="Calidad de emisión">
           <option value="opus">Opus 510 kbps</option>
@@ -333,9 +334,12 @@ const WEBKIT = /AppleWebKit/.test(navigator.userAgent) && !/Chrome|Chromium|Edg/
 // todo lo que suena (el DAW que escuchas incluido). Con auriculares no hace falta: allí va apagada.
 const talkAudio = () => ({ echoCancellation: !WEBKIT, noiseSuppression: true, autoGainControl: true });
 $('#enter').onclick = async () => {
+  // Pedir micro y cámara tarda un momento: un segundo clic metía a la misma persona dos veces en la sala
+  if (S.entering) return;
+  S.entering = true; $('#enter').disabled = true;
   S.name = $('#name').value.trim() || 'Anónimo';
   S.room = slug($('#room').value) || rid();
-  try { localStorage.setItem('cabina-name', S.name); } catch {}
+  try { localStorage.setItem('cabina-name', $('#name').value.trim()); } catch {}
   prefs.cam = $('#cam').value; prefs.mic = $('#mic').value; prefs.dawIn = $('#dawIn').value; prefs.out = $('#out').value;
   savePrefs();
   history.replaceState(null, '', '?sala=' + S.room);
@@ -347,7 +351,7 @@ $('#enter').onclick = async () => {
   if ($('#dawIn').value === 'plugin') openBridge(SEND_PORT);
   await Promise.race([resumed, new Promise(r => setTimeout(r, 1000))]);
   if (S.ctx.state !== 'running') addEventListener('pointerdown', () => S.ctx.resume().catch(() => {}), { once: true });
-  try { S.talk = await getTalk(); } catch (e) { toast('No se pudo abrir el micro: ' + e.message); return; }
+  try { S.talk = await getTalk(); } catch (e) { toast('No se pudo abrir el micro: ' + e.message); S.entering = false; $('#enter').disabled = false; return; }
   $('#join').hidden = true; $('#studio').hidden = false;
   $('#roomName').textContent = S.room;
   $('#dawIn2').value = $('#dawIn').value;

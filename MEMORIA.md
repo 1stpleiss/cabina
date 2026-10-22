@@ -81,6 +81,8 @@ Un único archivo HTML, sin build ni dependencias, salvo PeerJS desde CDN.
 
 - La sala es el parámetro `?sala=nombre` de la URL. "Copiar enlace" lo pone en el portapapeles.
 - El primero en entrar reserva el ID `cabina-v1-<sala>` en PeerJS y hace de **anfitrión**. Los demás se conectan a él, reciben la lista de quién hay y se conectan con todos (**malla**).
+- *Entrar en la sala* se desactiva al pulsarlo (`S.entering`). Pedir micro y cámara tarda un momento, y hasta el 22-10-2026 un segundo clic metía a la misma persona dos veces: los demás la veían duplicada y ella se veía dos veces.
+- Sin nombre se entra como "Anónimo", pero no se guarda como nombre para la próxima vez.
 - Si el anfitrión se va, los que ya están siguen conectados entre ellos. Si un recién llegado no encuentra al anfitrión, pasa a serlo él.
 - **Presencia**: cada participante manda una señal de vida (`ping`) cada 3 s por el canal de datos. Quien lleve 15 s sin darla (conexión caída, móvil bloqueado) sale de la sala para los demás.
 - **Echar**: el anfitrión ve un botón *Echar* en cada vídeo. Manda `kick` a esa persona (su web sale de la sala) y `kicked` al resto, que la quitan y no vuelven a conectar con ella. Solo se obedecen si vienen del ID del anfitrión. Si la persona vuelve a entrar con el enlace, puede hacerlo (no es un bloqueo permanente).
@@ -387,6 +389,7 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 | No conecta con alguien concreto | Router o NAT estricto | Normalmente lo salva el TURN; si no, montar TURN propio |
 | En el DAW suena a trozos | El colchón del Retorno se vacía | Debería adaptarse solo en unos segundos (la ventana del plugin muestra el colchón). Si sigue, subir el valor inicial de `returnBuffer` en `PluginProcessor.h` (0.06 → 0.12) |
 | Al emitir, la web pone "N cortes" junto al plugin | La página del emisor se atasca (segundo plano, ordenador cargado) | El colchón crece solo; si siguen apareciendo, dejar la ventana de Cabina visible o cerrar pestañas pesadas |
+| Alguien aparece dos veces en la sala | Pulsó *Entrar* dos veces con una web anterior al 22-10-2026 | Que recargue la web y vuelva a entrar |
 | Suena con efecto phaser al probar en un solo ordenador | Se oyen a la vez el DAW directo y lo que llega por Cabina | Silenciar una de las dos |
 | En Safari todo suena más bajo o "enlatado" con el micro abierto | Procesado de voz de macOS (versión anterior al 21-10-2026) | Recargar la web; usar auriculares |
 
