@@ -75,7 +75,7 @@ Los plugins son **opcionales**: la web funciona sola con un cable de audio virtu
 
 ## 4. La web
 
-Un único archivo HTML, sin build ni dependencias, salvo PeerJS desde CDN.
+Un único archivo HTML (más el icono `icono.png`, el logo de 1st), sin build. Dependencias desde CDN: PeerJS y, solo si se elige *Ruido: fuerte*, la reducción de ruido RNNoise (`@sapphi-red/web-noise-suppressor@0.4.1`, MIT, desde jsDelivr).
 
 ### Sala
 
@@ -95,18 +95,36 @@ Un único archivo HTML, sin build ni dependencias, salvo PeerJS desde CDN.
 | Llamada "talk" | micro + cámara | supresión de ruido activada; cancelación de eco activada salvo en Safari (ver §14) |
 | Llamada "daw" | audio del DAW (modo Opus) | Opus estéreo 510 kbps, FEC, sin DTX, sin procesado de voz |
 | Datos "pcm" | audio del DAW (modo sin pérdidas) | PCM 16 bit con dither o 24 bit, bloques de 20 ms, canal fiable y ordenado |
+| Datos "file" | un archivo del chat (una conexión por archivo y persona) | fiable y ordenado, trozos de 64 KB |
 | Llamada "screen" | pantalla compartida (solo vídeo) | hasta 30 fps, 4 Mbps, prioriza nitidez (`contentHint = detail`, `maintain-resolution`) |
 
 ### Funciones
 
 - Selector de cámara, micro, entrada del DAW y salida de escucha. Se recuerdan en el navegador de cada persona (`localStorage`, clave `cabina-prefs`). Si ya dio permiso de micro y cámara, se rellenan solos al abrir la página.
 - **Calidad de emisión**: Opus 510 kbps (por defecto) o sin pérdidas a 16 o 24 bit (ver §7).
-- Aviso la primera vez que se abre la web con los enlaces de descarga de los plugins (botón *Plugins* para volver a verlo).
+- Aviso la primera vez que se abre la web con los enlaces de descarga de los plugins (botón *Plugin de transmisión* para volver a verlo).
 - Medidores de pico L/R (−60 a 0 dBFS) del DAW propio y de cada DAW entrante.
 - Por cada DAW entrante: volumen, silenciar, kbps reales, estéreo/mono y paquetes perdidos.
 - **Grabar**: graba lo que llega en WAV estéreo de 24 bits a 48 kHz y lo descarga.
 - **Mandar a mi DAW**: envía ese audio a un plugin Cabina Retorno.
 - Chat con hora, útil para notas tipo "1:42 baja la voz 1 dB".
+- **Archivos por el chat** (clip o arrastrando sobre el chat): van directos de ordenador a ordenador, sin servidor y **sin coste**. Límite de **1 GB por archivo**, porque quien recibe lo guarda en memoria hasta pulsar *Descargar*. Se ve el progreso; el que envía ve "Enviado a N personas". Solo llega a quienes estén en la sala en ese momento. Quien recibe cierra la conexión al tenerlo entero, y así sabe el emisor que llegó. El emisor no llena la memoria más rápido de lo que sube (espera si hay más de 8 MB pendientes). Probado: 12 MB llegan idénticos en 3 s en local. Por internet, la velocidad es la de la subida de quien envía; si la conexión va por el servidor de relevo (TURN), puede ser bastante más lenta.
+- **Tarjeta de cada participante**:
+  - **Estado de la conexión** junto al nombre: punto verde con la latencia de ida y vuelta (ámbar si pasa de 250 ms), ámbar mientras conecta, reconecta o lleva más de 6 s sin dar señales, y rojo sin conexión. Al pasar el ratón dice si la conexión es directa o por el servidor de relevo.
+  - **Brillo azul en el borde** mientras habla (voz por encima de −50 dBFS, con 350 ms de margen). También en tu propia tarjeta; con el micro silenciado no se enciende.
+  - **Volumen de su voz** (deslizador arriba a la derecha, aparece al pasar el ratón): es tu mezcla, solo cambia lo que oyes tú. Se recuerda por nombre (`localStorage`, clave `cabina-vols`).
+- **Tu cámara se ve igual que la ven los demás**, sin efecto espejo (antes tu vista estaba girada y la de los demás no).
+- **Reducción de ruido del micro** (selector *Ruido* arriba):
+  - *Normal*: la del navegador.
+  - *Fuerte*: RNNoise, una red neuronal que quita teclado, ventiladores o ruido de calle. El micro pasa por un `AudioWorklet` y se envía ya limpio. Necesita la página a 48 kHz, así que en Safari aparece desactivada.
+  - *Sin filtro*.
+  
+  Se recuerda en `cabina-prefs`.
+- **Emisión automática con el plugin**:
+  - Al pulsar *Emitir DAW* (o al entrar con el plugin elegido), si Cabina Send no está abierto, la web lo espera (botón *Cancelar*) y empieza sola en cuanto aparece.
+  - Si el plugin se cierra mientras se emite (al cerrar y abrir el proyecto, por ejemplo), la emisión sigue sola cuando vuelve. La pista que reciben los demás es la misma, así que la llamada no se corta.
+  - Esa pausa no cuenta como corte y no hace crecer el colchón (mensaje `idle` al `AudioWorklet`).
+  - En Safari, la ventana puente la sirve el propio plugin. Si se emite con el plugin cerrado, avisa de que hay que abrirlo y volver a pulsar; si el plugin se cierra con la ventana puente abierta, se reconecta igual.
 - **Compartir pantalla** (botón *Pantalla*): el navegador deja elegir una ventana (el DAW) o la pantalla entera. Los demás la ven en grande encima de las cámaras, con botón de *Pantalla completa*. Va sin audio, porque el sonido ya va por el DAW. Quien entra a mitad también la recibe. Si comparten varios a la vez, se ve la última. Al parar, se manda `screen-stop` con un número de generación para no cerrar por error una pantalla compartida después.
 
 ## 5. Los plugins
@@ -242,7 +260,7 @@ Después, en Reaper: *Options → Preferences → Plug-ins → VST → Re-scan*.
 
 1. Abre la web, pon nombre y sala → *Detectar dispositivos* → *Entrar en la sala*.
 2. *Copiar enlace* y pásaselo a los demás.
-3. **Para emitir**: en *Tu DAW* elige *Plugin Cabina Send* (o BlackHole/VB-Cable) → *Emitir DAW*.
+3. **Para emitir**: en *Tu DAW* elige *Plugin Cabina Send* (o BlackHole/VB-Cable) → *Emitir DAW*. Con el plugin no hace falta volver a pulsar aunque lo cierres y lo abras: la web lo espera.
    - Coloca Cabina Send **el último** de la cadena del máster para que salga post-limitador.
 4. **Para recibir en tu DAW**:
    1. Crea una pista con **Cabina Retorno** (una por colega).
@@ -295,7 +313,8 @@ cabina/
 │   ├── compilar.yml            ← compila los plugins, crea instaladores y los publica
 │   └── web.yml                 ← publica web/ en GitHub Pages
 ├── web/
-│   └── index.html              ← toda la web en un archivo
+│   ├── index.html              ← toda la web en un archivo
+│   └── icono.png               ← icono de la pestaña (logo de 1st, 180×180)
 └── plugin/
     ├── CMakeLists.txt          ← genera Cabina Send y Cabina Retorno
     └── Source/
@@ -310,6 +329,7 @@ cabina/
 |---|---|
 | Alojamiento de la web (Netlify / GitHub Pages) | 0 € |
 | Señalización (servidor público de PeerJS) | 0 € |
+| Archivos por el chat (de ordenador a ordenador) | 0 € |
 | TURN de relevo (el que trae PeerJS por defecto) | 0 € |
 | Compilación (GitHub Actions, repositorio público o cuota gratuita) | 0 € |
 | JUCE para uso personal | 0 € (ver §18) |
@@ -333,6 +353,8 @@ cabina/
 - **Retorno**: si los relojes de audio derivan, puede haber un pequeño clic cada varios minutos al reajustar el colchón.
 - **Safari y la cancelación de eco**: con la cancelación de eco del micro activada, Safari usa el procesado de voz de macOS, que también procesa y baja todo lo que suena, el DAW que escuchas incluido. Por eso en Safari va apagada (`talkAudio()`), y hay que usar auriculares o, si no, los demás oirán eco. En Chrome y Edge sigue activada, porque allí no afecta a lo que se escucha.
 - **Probar en un solo ordenador**: si escuchas a la vez el DAW directo y lo que llega por Cabina, suenan dos copias con retardo distinto y parece un phaser. Para probar, silencia una de las dos.
+- **Archivos**: máximo 1 GB por archivo y solo a quienes estén en la sala. No se reanudan si se corta la conexión. Para pasar sesiones enteras, mejor WeTransfer o una carpeta compartida.
+- **Reducción de ruido fuerte**: depende de jsDelivr (si no carga, avisa y el micro sigue sin filtro). No está en Safari. Gasta algo de CPU.
 - **Compartir pantalla**: no funciona en iPhone/iPad (no tienen `getDisplayMedia`) y el botón no aparece. En malla, cada participante recibe una copia (hasta 4 Mbps de subida por oyente).
 - **Un solo Cabina Send** abierto a la vez (puerto 47800 fijo). Si hay dos, el segundo muestra "Puerto ocupado" y toma el relevo solo en cuanto se cierra el primero.
   - Por qué importa en Mac: JUCE abre el puerto con `SO_REUSEADDR`. En Windows esa opción deja que una segunda instancia comparta el puerto, pero en macOS no. Algunos DAW (FL Studio en Mac, por ejemplo) crean una instancia temporal del plugin y luego la destruyen. Hasta la v0.1, la instancia buena se quedaba sin puerto para siempre, y la web y el plugin no se veían. Ahora el servidor reintenta cada 0,5 s.
@@ -349,10 +371,15 @@ cabina/
 | Remuestreo `cabina-out` 48 → 44,1 kHz | 1 s → ~44 100 frames |
 | Compilación de ambos plugins (VST3, Linux/GCC 13, JUCE 8.0.9) | OK, sin avisos en el código de Cabina |
 | Servidor WebSocket frente a un cliente WebSocket estándar (Node.js 22) | OK: handshake, hello JSON, 50 bloques de audio intactos hacia la web, 20 mensajes de vuelta (incluidos de 400 KB, longitud de 64 bits), cierre y parada limpios |
-
 | Prueba de extremo a extremo (Cabina Send simulado con tonos de 997 Hz en L y 3001 Hz en R → web → WebRTC → web → Cabina Retorno simulado), Chrome sin interfaz | Llega igual que sale: nivel exacto, estéreo sin cruzarse (diafonía < −73 dB). Ruido + distorsión: 24 bit a 48 kHz −125 dB, 24 bit a 44,1 kHz −91 dB, 16 bit −86 dB, Opus −60 dB (normal en un tono puro) |
 | La misma, con atascos de 30–90 ms por segundo en las páginas | Antes: 3–6 cortes / 15 s en el emisor y 3 en el Retorno, con cualquier calidad. Con colchones adaptables: 1 corte al principio en el emisor y 0 en el Retorno en 25 s |
 | Compartir pantalla con 3 navegadores | Se ve en los demás; quien entra después también la recibe; al parar desaparece |
+| Pulsar *Entrar* dos veces | Una sola entrada |
+| Archivo aleatorio de 12 MB por el chat | Llega idéntico (SHA-256) en 3 s; el emisor ve "Enviado a 1 persona" |
+| Emitir con Cabina Send cerrado → abrirlo → cerrarlo → reabrirlo | Espera, empieza sola, avisa al cerrarse y sigue sola al volver; el oyente no deja de recibir y el nivel llega exacto |
+| Reducción de ruido normal ↔ fuerte | La cadena RNNoise se monta, se quita y se vuelve a montar sin errores |
+| Brillo al hablar | Sigue los pitidos del micro de prueba; con el micro silenciado no se enciende |
+| Estado de conexión y volumen por persona | Punto verde con la latencia; el volumen se aplica y se recuerda por nombre |
 
 Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y los plugins en Reaper en Mac y Windows.
 
@@ -397,4 +424,6 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 
 - **JUCE 8**: doble licencia, AGPLv3 o comercial. Para uso personal entre colegas, sin vender, encaja en la AGPLv3 publicando el código (el repositorio de GitHub sirve). Si algún día se vende, revisar las condiciones de licencia de JUCE.
 - **PeerJS**: MIT.
+- **web-noise-suppressor** (RNNoise): MIT; RNNoise es BSD.
+- **Logo de 1st** (`web/icono.png`): propio.
 - El código de Cabina es tuyo. Si lo publicas, AGPLv3 por coherencia con JUCE.

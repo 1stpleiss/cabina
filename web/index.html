@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Cabina</title>
+<link rel="icon" type="image/png" href="icono.png">
+<link rel="apple-touch-icon" href="icono.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
@@ -62,13 +64,24 @@ main{padding:12px;overflow:auto}
 #grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
 .tile{position:relative;aspect-ratio:16/9;max-height:calc(100vh - 80px);background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
 .tile video{width:100%;height:100%;object-fit:cover;display:block;background:#000}
-.tile.me video{transform:scaleX(-1)}
 .tile .avatar{display:none;position:absolute;inset:0;place-items:center;font-size:44px;font-weight:700;color:var(--muted);background:var(--panel)}
 .tile.novideo .avatar{display:grid}
 .tile.novideo video{visibility:hidden}
 .tile .kick{display:none;position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6)}
 #studio.host .tile:not(.me) .kick{display:block}
-.tile .tag{position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.6);padding:3px 9px;border-radius:7px;font-size:12.5px;font-weight:500}
+.tile .tag{position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.6);padding:3px 9px;border-radius:7px;font-size:12.5px;font-weight:500;display:flex;align-items:center;gap:6px;max-width:calc(100% - 20px)}
+.tile .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tile{transition:box-shadow .15s,border-color .15s}
+.tile.speaking{border-color:var(--accent-glow);box-shadow:0 0 0 1px var(--accent-glow),0 0 22px rgba(74,102,240,.6)}
+.net{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+.net.ok{background:var(--green)}
+.net.mid{background:var(--amber)}
+.net.bad{background:var(--red)}
+.tile .ms{color:var(--muted);font-size:11px;flex:none}
+.tile .vol{position:absolute;right:10px;top:10px;width:90px;opacity:0;transition:opacity .15s}
+.tile:hover .vol,.tile .vol:focus{opacity:1}
+#studio.host .tile:not(.me) .vol{top:44px}
+@media (hover:none){.tile .vol{opacity:1}}
 #stage{position:relative;aspect-ratio:16/9;max-height:calc(100vh - 150px);margin:0 auto 10px;background:#000;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
 #stage video{width:100%;height:100%;object-fit:contain;display:block}
 #stage .tag{position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.6);padding:3px 9px;border-radius:7px;font-size:12.5px;font-weight:500}
@@ -102,6 +115,13 @@ aside{border-left:1px solid var(--line);overflow:auto;padding:12px;display:flex;
 .msg .who{font-weight:600;margin-right:6px}
 .msg .t{color:var(--muted);font-size:11px;margin-left:4px}
 #chatForm{display:flex;gap:8px}
+#fileBtn{padding:7px 9px;display:grid;place-items:center}
+#fileBtn svg{width:16px;height:16px}
+.box.chat.drop{border-color:var(--accent-glow);box-shadow:0 0 0 1px var(--accent-glow)}
+.msg .fname{font-weight:500;word-break:break-all}
+.msg .fsize{color:var(--muted);font-size:11px}
+.msg .fst{color:var(--muted);font-size:11.5px;margin-top:3px}
+.msg .fst .btn{margin-top:2px}
 .modal{position:fixed;inset:0;z-index:8;display:grid;place-items:center;padding:16px;background:rgba(5,6,8,.72)}
 .modal h2{font-size:18px;margin:0 0 4px}
 .modal .actions{margin-top:14px}
@@ -155,10 +175,12 @@ aside{border-left:1px solid var(--line);overflow:auto;padding:12px;display:flex;
 <section id="studio" hidden>
   <header>
     <div class="room"><span class="dot"></span><h2 id="roomName"></h2><span class="pill" id="status">Conectando…</span></div>
-    <button class="btn sm" id="plugOpen2">Plugins</button>
+    <button class="btn sm" id="plugOpen2">Plugin de transmisión</button>
     <button class="btn sm" id="copy">Copiar enlace</button>
     <select id="mic2" aria-label="Micro"></select>
     <button class="btn sm on" id="micBtn">Micro</button>
+    <select id="ns" aria-label="Reducción de ruido del micro" title="Reducción de ruido del micro">
+      <option value="normal">Ruido: normal</option><option value="fuerte">Ruido: fuerte</option><option value="off">Ruido: sin filtro</option></select>
     <select id="cam2" aria-label="Cámara"></select>
     <button class="btn sm on" id="camBtn">Cámara</button>
     <button class="btn sm" id="screenBtn" hidden>Pantalla</button>
@@ -190,7 +212,9 @@ aside{border-left:1px solid var(--line);overflow:auto;padding:12px;display:flex;
       <div class="box chat">
         <h3>Chat</h3>
         <div id="chatLog"></div>
-        <form id="chatForm"><input type="text" id="chatIn" maxlength="500" placeholder="Escribe un mensaje" autocomplete="off"><button class="btn">Enviar</button></form>
+        <form id="chatForm"><input type="text" id="chatIn" maxlength="500" placeholder="Escribe o arrastra archivos" autocomplete="off">
+          <button type="button" class="btn" id="fileBtn" title="Mandar archivos (hasta 1 GB cada uno)" aria-label="Mandar archivos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.1 12.2 20.3a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg></button>
+          <button class="btn">Enviar</button><input type="file" id="fileIn" multiple hidden></form>
       </div>
     </aside>
   </div>
@@ -332,7 +356,49 @@ async function getTalk(){
 const WEBKIT = /AppleWebKit/.test(navigator.userAgent) && !/Chrome|Chromium|Edg/.test(navigator.userAgent);
 // En Safari la cancelación de eco activa el procesado de voz de macOS, que también procesa y baja
 // todo lo que suena (el DAW que escuchas incluido). Con auriculares no hace falta: allí va apagada.
-const talkAudio = () => ({ echoCancellation: !WEBKIT, noiseSuppression: true, autoGainControl: true });
+const talkAudio = () => ({ echoCancellation: !WEBKIT, noiseSuppression: S.ns === 'normal', autoGainControl: true });
+
+// Reducción de ruido del micro: "normal" es la del navegador; "fuerte" pasa el micro por RNNoise
+// (red neuronal, la de muchas apps de llamadas), que quita teclado, ventiladores, ruido de calle...
+// Necesita la página a 48 kHz, así que en Safari no está.
+S.ns = ['normal', 'fuerte', 'off'].includes(prefs.ns) ? prefs.ns : 'normal';
+const NS_CDN = 'https://cdn.jsdelivr.net/npm/@sapphi-red/web-noise-suppressor@0.4.1/dist/';
+let rnLoad = null;
+function loadRnnoise(){
+  if (!rnLoad) {
+    rnLoad = (async () => {
+      const lib = await import(NS_CDN + 'index.js');
+      const wasm = await lib.loadRnnoise({ url: NS_CDN + 'rnnoise.wasm', simdUrl: NS_CDN + 'rnnoise_simd.wasm' });
+      await S.ctx.audioWorklet.addModule(NS_CDN + 'rnnoise/workletProcessor.js');
+      return { lib, wasm };
+    })();
+    rnLoad.catch(() => { rnLoad = null; });
+  }
+  return rnLoad;
+}
+// Recibe lo que da getUserMedia y, con "fuerte", cambia su pista de audio por la ya limpia
+async function cleanMic(stream){
+  dropMicChain();
+  const raw = stream.getAudioTracks()[0];
+  if (S.ns !== 'fuerte' || !raw) return stream;
+  try {
+    if (S.ctx.sampleRate !== 48000) throw new Error('este navegador no lo permite');
+    const { lib, wasm } = await loadRnnoise();
+    const src = S.ctx.createMediaStreamSource(new MediaStream([raw]));
+    const mono = S.ctx.createGain(); mono.channelCount = 1; mono.channelCountMode = 'explicit';
+    const node = new lib.RnnoiseWorkletNode(S.ctx, { maxChannels: 1, wasmBinary: wasm });
+    const dest = S.ctx.createMediaStreamDestination(); dest.channelCount = 1;
+    src.connect(mono); mono.connect(node); node.connect(dest);
+    S.micChain = { raw, src, node };
+    stream.removeTrack(raw); stream.addTrack(dest.stream.getAudioTracks()[0]);
+  } catch (e) { toast('No se pudo activar la reducción de ruido fuerte: ' + e.message); }
+  return stream;
+}
+function dropMicChain(){
+  const c = S.micChain; if (!c) return; S.micChain = null;
+  try { c.src.disconnect(); c.node.disconnect(); c.node.destroy(); } catch {}
+  c.raw.stop();
+}
 $('#enter').onclick = async () => {
   // Pedir micro y cámara tarda un momento: un segundo clic metía a la misma persona dos veces en la sala
   if (S.entering) return;
@@ -348,10 +414,11 @@ $('#enter').onclick = async () => {
   const AC = window.AudioContext || window.webkitAudioContext;
   S.ctx = WEBKIT ? new AC() : new AC({ sampleRate: 48000 });
   const resumed = S.ctx.resume().catch(() => {});
+  if (S.ctx.sampleRate !== 48000) { $('#ns option[value=fuerte]').disabled = true; if (S.ns === 'fuerte') { S.ns = 'normal'; $('#ns').value = 'normal'; } }
   if ($('#dawIn').value === 'plugin') openBridge(SEND_PORT);
   await Promise.race([resumed, new Promise(r => setTimeout(r, 1000))]);
   if (S.ctx.state !== 'running') addEventListener('pointerdown', () => S.ctx.resume().catch(() => {}), { once: true });
-  try { S.talk = await getTalk(); } catch (e) { toast('No se pudo abrir el micro: ' + e.message); S.entering = false; $('#enter').disabled = false; return; }
+  try { S.talk = await cleanMic(await getTalk()); } catch (e) { toast('No se pudo abrir el micro: ' + e.message); S.entering = false; $('#enter').disabled = false; return; }
   $('#join').hidden = true; $('#studio').hidden = false;
   $('#roomName').textContent = S.room;
   $('#dawIn2').value = $('#dawIn').value;
@@ -386,7 +453,8 @@ function joinGuest(){
 function wirePeer(p){
   p.on('connection', c => {
     if (banned.has(c.peer)) { c.on('open', () => c.close()); return; }
-    (c.metadata && c.metadata.kind === 'pcm') ? wirePcmIn(c) : wireConn(c);
+    const kind = c.metadata && c.metadata.kind;
+    kind === 'pcm' ? wirePcmIn(c) : kind === 'file' ? wireFileIn(c) : wireConn(c);
   });
   p.on('call', call => { if (banned.has(call.peer)) { call.close(); return; } onCall(call); });
   p.on('disconnected', () => { setStatus('Reconectando…'); try { p.reconnect(); } catch {} });
@@ -610,7 +678,8 @@ async function startDaw(){
   if (id === $('#mic').value) toast('Ojo: la entrada del DAW es la misma que tu micro.');
   stopDaw();
   if (id === 'plugin') {
-    try { S.daw = await pluginStream(); } catch (e) { toast(e.message); return; }
+    try { S.daw = await pluginStream(); } catch (e) { setDawWaiting(false); toast(e.message); return; }
+    if (!S.daw) return; // cancelado mientras esperaba al plugin
   } else {
     try {
       S.daw = await navigator.mediaDevices.getUserMedia({ audio: {
@@ -632,6 +701,8 @@ async function startDaw(){
   const b = $('#dawBtn'); b.textContent = 'Parar emisión'; b.classList.remove('primary'); b.classList.add('off');
 }
 function stopDaw(){
+  S.dawTry = (S.dawTry || 0) + 1; // cancela la espera del plugin, si la había
+  if (S.dawWaiting) setDawWaiting(false);
   if (!S.daw) return;
   peers.forEach(p => { closeOuts(p); send(p.dc, { type: 'daw-stop', gen: S.dawGen }); });
   stopCap();
@@ -641,7 +712,7 @@ function stopDaw(){
   $('#dawInfo').textContent = '';
   const b = $('#dawBtn'); b.textContent = 'Emitir DAW'; b.classList.add('primary'); b.classList.remove('off');
 }
-$('#dawBtn').onclick = () => { if (S.daw) { stopDaw(); return; } if ($('#dawIn2').value === 'plugin') openBridge(SEND_PORT); startDaw(); };
+$('#dawBtn').onclick = () => { if (S.daw || S.dawWaiting) { stopDaw(); return; } if ($('#dawIn2').value === 'plugin') openBridge(SEND_PORT); startDaw(); };
 
 /* ---------- puente con los plugins (ws://127.0.0.1) ---------- */
 // Dos procesadores de audio: "cabina-in" convierte lo que manda Cabina Send en una pista
@@ -685,6 +756,7 @@ class CabinaIn extends AudioWorkletProcessor {
     this.w = 0; this.r = 0; this.ratio = 1; this.target = 2880; this.max = 24000; this.on = false; this.under = 0; this.blk = 0;
     this.fill = 0; this.K = kernel(1); this.src = 0; this.ramp = 0;
     this.port.onmessage = e => { const d = e.data;
+      if (d && d.idle) { this.on = false; this.r = this.w; return; }
       if (d && d.sr) {
         if (d.sr === this.src) return; // el plugin repite el hello al cambiar el nombre de la pista: no perder lo aprendido
         this.src = d.sr; this.ratio = d.sr / sampleRate; this.K = kernel(this.ratio);
@@ -831,31 +903,75 @@ function openWs(port, timeout){
 }
 function silentSink(node){ const g = S.ctx.createGain(); g.gain.value = 0; node.connect(g); g.connect(S.ctx.destination); return g; }
 
+// Con el plugin no hace falta volver a pulsar Emitir: si Cabina Send no está abierto se le espera, y si
+// se cierra mientras se emite (al cerrar y abrir el proyecto, por ejemplo) se sigue solo en cuanto vuelve.
+// La pista que reciben los demás es siempre la misma, así que la llamada no se corta.
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const bridgeUp = () => S.bridge && !S.bridge.closed && S.bridgeReady;
+function setDawWaiting(on){
+  S.dawWaiting = on;
+  const b = $('#dawBtn');
+  if (on) { b.textContent = 'Cancelar'; b.classList.remove('primary'); b.classList.add('off'); }
+  else if (!S.daw) { b.textContent = 'Emitir DAW'; b.classList.add('primary'); b.classList.remove('off'); $('#dawInfo').textContent = ''; }
+}
 async function pluginStream(){
   await ensureWorklet();
-  let ws;
-  try { ws = await openWs(SEND_PORT, 4000); }
-  catch { throw new Error(NEED_BRIDGE
-    ? 'No encuentro el plugin Cabina Send. Ponlo en el máster del DAW y vuelve a pulsar Emitir DAW.'
-    : 'No encuentro el plugin Cabina Send. Ponlo en el máster del DAW (y si Chrome pide acceso a la red local, acepta).'); }
+  const gen = S.dawTry = (S.dawTry || 0) + 1;
+  setDawWaiting(true);
+  let ws = null;
+  while (!ws) {
+    try { ws = await openWs(SEND_PORT, 2500); }
+    catch {
+      if (S.dawTry !== gen) return null;
+      // En Safari la ventana puente la sirve el propio plugin: sin él no carga y solo se puede abrir con un clic
+      if (NEED_BRIDGE && !bridgeUp()) throw new Error('No encuentro el plugin Cabina Send. Ábrelo en el máster del DAW y vuelve a pulsar Emitir DAW.');
+      $('#dawInfo').textContent = 'Esperando a Cabina Send en el máster del DAW…';
+      await sleep(2000);
+      if (S.dawTry !== gen) return null;
+    }
+  }
+  if (S.dawTry !== gen) { ws.close(); return null; }
+  setDawWaiting(false);
   const node = new AudioWorkletNode(S.ctx, 'cabina-in', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2] });
   const dest = S.ctx.createMediaStreamDestination(); dest.channelCount = 2;
   node.connect(dest);
-  const g = silentSink(node);
-  let rate = '';
-  const info = st => { $('#dawInfo').textContent = `plugin · DAW a ${rate} kHz` + (st ? ` · colchón ${Math.round(st.ms)} ms` + (st.u ? ` · ${st.u} corte${st.u > 1 ? 's' : ''}` : '') : ''); };
-  node.port.onmessage = e => info(e.data);
+  const src = S.pluginSrc = { ws, node, g: silentSink(node), rate: '' };
+  node.port.onmessage = e => pluginInfo(src, e.data);
+  wirePluginWs(src, ws);
+  return dest.stream;
+}
+function pluginInfo(src, st){
+  if (!src.ws || src.ws.readyState !== 1) return;
+  $('#dawInfo').textContent = `plugin · DAW a ${src.rate} kHz` + (st ? ` · colchón ${Math.round(st.ms)} ms` + (st.u ? ` · ${st.u} corte${st.u > 1 ? 's' : ''}` : '') : '');
+}
+function wirePluginWs(src, ws){
+  src.ws = ws;
   ws.onmessage = e => {
     if (typeof e.data === 'string') {
       try { const m = JSON.parse(e.data);
         if (m.role !== 'send') return;
-        if (m.sr) { node.port.postMessage({ sr: m.sr, buf: 0.08 }); rate = m.sr / 1000; info(); }
+        if (m.sr) { src.node.port.postMessage({ sr: m.sr, buf: 0.08 }); src.rate = m.sr / 1000; pluginInfo(src); }
       } catch {}
-    } else { const f = new Float32Array(e.data); node.port.postMessage(f, [f.buffer]); }
+    } else { const f = new Float32Array(e.data); src.node.port.postMessage(f, [f.buffer]); }
   };
-  ws.onclose = () => { if (S.pluginSrc && S.pluginSrc.ws === ws) { toast('Se ha cortado la conexión con Cabina Send.'); stopDaw(); } };
-  S.pluginSrc = { ws, node, g };
-  return dest.stream;
+  ws.onclose = () => {
+    if (S.pluginSrc !== src || src.ws !== ws) return;
+    src.node.port.postMessage({ idle: 1 }); // es una pausa, no un atasco: que no crezca el colchón
+    $('#dawInfo').textContent = 'Cabina Send se ha cerrado. La emisión seguirá sola en cuanto vuelva a abrirse.';
+    reconnectPlugin(src);
+  };
+}
+async function reconnectPlugin(src){
+  while (S.pluginSrc === src) {
+    await sleep(2000);
+    if (S.pluginSrc !== src) return;
+    if (NEED_BRIDGE && !bridgeUp()) { $('#dawInfo').textContent = 'Cabina Send se ha cerrado y la ventana puente también. Pulsa Parar emisión y vuelve a emitir.'; return; }
+    try {
+      const ws = await openWs(SEND_PORT, 2500);
+      if (S.pluginSrc !== src) { ws.close(); return; }
+      wirePluginWs(src, ws); return;
+    } catch {}
+  }
 }
 
 const returns = new Map(); // puerto -> { ws, sr, name, peer, node }
@@ -912,7 +1028,7 @@ function detachReturn(r){
   r.node = null; r.peer = null; r.src = null;
 }
 $('#scanRet').onclick = () => { openBridge(RETURN_PORTS[0]); scanReturns().catch(e => toast('No se pudo buscar: ' + e.message)); };
-$('#dawIn2').onchange = e => { prefs.dawIn = e.target.value; savePrefs(); if (S.daw) { if (e.target.value === 'plugin') openBridge(SEND_PORT); startDaw(); } };
+$('#dawIn2').onchange = e => { prefs.dawIn = e.target.value; savePrefs(); if (S.daw || S.dawWaiting) { if (e.target.value === 'plugin') openBridge(SEND_PORT); startDaw(); } };
 $('#quality').onchange = e => { S.quality = e.target.value; prefs.quality = S.quality; savePrefs(); qInfo(); if (S.daw) startDaw(); };
 
 /* ---------- medidores L/R ---------- */
@@ -1097,22 +1213,80 @@ function addLocalTile(){
 }
 function addTile(p){
   const t = document.createElement('div'); t.className = 'tile novideo';
-  t.innerHTML = '<video autoplay playsinline></video><div class="avatar"></div><span class="tag"></span><button class="btn sm danger kick">Echar</button>';
+  t.innerHTML = '<video autoplay playsinline></video><div class="avatar"></div>'
+    + '<span class="tag"><i class="net mid" title="Conectando…"></i><span class="nm"></span><span class="ms mono"></span></span>'
+    + '<input type="range" class="vol" min="0" max="1" step="0.01" value="1" aria-label="Volumen de su voz" title="Volumen de su voz (solo para ti)">'
+    + '<button class="btn sm danger kick">Echar</button>';
   t.querySelector('.kick').onclick = () => kick(p.id);
+  t.querySelector('.vol').oninput = e => { const v = +e.target.value; t.querySelector('video').volume = v; vols[p.name] = v; saveVols(); };
   p.tile = t; setName(p, p.name); $('#grid').append(t);
 }
 function setName(p, n){
   p.name = String(n || 'Anónimo').slice(0, 40);
-  if (p.tile) { p.tile.querySelector('.tag').textContent = p.name; p.tile.querySelector('.avatar').textContent = (p.name[0] || '?').toUpperCase(); }
+  if (p.tile) {
+    p.tile.querySelector('.nm').textContent = p.name; p.tile.querySelector('.avatar').textContent = (p.name[0] || '?').toUpperCase();
+    const v = vols[p.name] ?? 1; p.tile.querySelector('.vol').value = v; p.tile.querySelector('video').volume = v;
+  }
   if (p.dawIn) p.dawIn.el.querySelector('b').textContent = p.name;
 }
 function attachTalk(p, s){
+  p.talkStream = s;
   const v = p.tile.querySelector('video');
   if (v.srcObject !== s) { v.srcObject = s; setSink(v); v.play().catch(() => {}); }
   p.hasVideo = s.getVideoTracks().length > 0;
   p.tile.classList.toggle('novideo', !(p.hasVideo && p.camOn !== false));
 }
 function setCam(p, on){ p.camOn = on; if (p.tile) p.tile.classList.toggle('novideo', !(p.hasVideo && on)); }
+// Volumen de la voz de cada uno: es tu mezcla, solo cambia lo que oyes tú. Se recuerda por nombre.
+let vols = {}; try { vols = JSON.parse(localStorage.getItem('cabina-vols')) || {}; } catch {}
+function saveVols(){ try { localStorage.setItem('cabina-vols', JSON.stringify(vols)); } catch {} }
+
+// Brillo en la tarjeta de quien habla
+const voices = new WeakMap();
+function voiceDb(track){
+  if (!track || track.readyState !== 'live' || !track.enabled || !S.ctx) return -100;
+  let v = voices.get(track);
+  if (!v) {
+    const src = S.ctx.createMediaStreamSource(new MediaStream([track])), an = S.ctx.createAnalyser();
+    an.fftSize = 1024; src.connect(an);
+    v = { an, buf: new Float32Array(1024) }; voices.set(track, v);
+  }
+  v.an.getFloatTimeDomainData(v.buf);
+  let e = 0; for (const x of v.buf) e += x * x;
+  return 10 * Math.log10(e / v.buf.length + 1e-12);
+}
+function markSpeaking(tile, track, who){
+  if (voiceDb(track) > -50) who.spokeAt = Date.now();
+  tile.classList.toggle('speaking', Date.now() - (who.spokeAt || 0) < 350);
+}
+setInterval(() => {
+  if (!S.localTile) return;
+  markSpeaking(S.localTile, S.talk && S.talk.getAudioTracks()[0], S);
+  peers.forEach(p => p.tile && markSpeaking(p.tile, p.talkStream && p.talkStream.getAudioTracks()[0], p));
+}, 100);
+
+// Estado de la conexión con cada uno, junto a su nombre
+function setNet(p, cls, ms, title){
+  if (!p.tile) return;
+  const n = p.tile.querySelector('.net'); n.className = 'net ' + cls; n.title = title;
+  p.tile.querySelector('.ms').textContent = ms;
+}
+setInterval(() => peers.forEach(async p => {
+  const pc = p.talkCall && p.talkCall.peerConnection, st = pc ? pc.connectionState : 'new';
+  if (st === 'failed' || st === 'closed') return setNet(p, 'bad', '', 'Sin conexión');
+  if (st === 'disconnected') return setNet(p, 'mid', '', 'Reconectando…');
+  if (st !== 'connected') return setNet(p, 'mid', '', 'Conectando…');
+  if (p.lastSeen && Date.now() - p.lastSeen > 6000) return setNet(p, 'mid', '', 'Sin señal desde hace unos segundos');
+  try {
+    const stats = await pc.getStats(); let pair;
+    stats.forEach(r => { if (r.type === 'transport' && r.selectedCandidatePairId) pair = stats.get(r.selectedCandidatePairId); });
+    if (!pair) stats.forEach(r => { if (!pair && r.type === 'candidate-pair' && r.nominated && r.state === 'succeeded') pair = r; });
+    const rtt = pair && pair.currentRoundTripTime != null ? Math.round(pair.currentRoundTripTime * 1000) : null;
+    const relay = pair && [pair.localCandidateId, pair.remoteCandidateId].some(id => (stats.get(id) || {}).candidateType === 'relay');
+    setNet(p, rtt != null && rtt > 250 ? 'mid' : 'ok', rtt != null ? rtt + ' ms' : '',
+      (relay ? 'Conectado a través de un servidor de relevo' : 'Conexión directa') + (rtt != null ? ` · ida y vuelta ${rtt} ms` : ''));
+  } catch {}
+}), 2000);
 // Cambiar de cámara o micro dentro de la sala sin cortar la llamada
 async function switchTalk(kind, id, sel){
   const old = kind === 'video' ? S.talk.getVideoTracks()[0] : S.talk.getAudioTracks()[0];
@@ -1122,7 +1296,7 @@ async function switchTalk(kind, id, sel){
       const s = await navigator.mediaDevices.getUserMedia(kind === 'video'
         ? { video: { deviceId: { exact: id }, width: { ideal: 640 }, height: { ideal: 360 } } }
         : { audio: { ...talkAudio(), deviceId: id ? { exact: id } : undefined } });
-      track = s.getTracks()[0];
+      track = (kind === 'audio' ? await cleanMic(s) : s).getTracks()[0];
     } catch (e) {
       toast(`No se pudo abrir ${kind === 'video' ? 'la cámara' : 'el micro'}: ${e.message}`);
       sel.value = sel.dataset.cur || ''; return;
@@ -1155,6 +1329,8 @@ function recallTalk(pid){
 }
 $('#cam2').onchange = e => switchTalk('video', e.target.value, e.target);
 $('#mic2').onchange = e => switchTalk('audio', e.target.value, e.target);
+$('#ns').value = S.ns;
+$('#ns').onchange = e => { S.ns = e.target.value; prefs.ns = S.ns; savePrefs(); if (S.talk) switchTalk('audio', $('#mic2').value, $('#mic2')); };
 function setSink(el){ if (S.sinkId && el.setSinkId) el.setSinkId(S.sinkId).catch(() => {}); }
 // El procesado de audio de la página (remuestreo, colchones) va al mismo ritmo que la tarjeta por la que
 // suena. Si la página y lo que escuchas van por dispositivos distintos, sus relojes derivan y salen chasquidos.
@@ -1264,6 +1440,82 @@ $('#chatForm').onsubmit = e => {
   peers.forEach(p => send(p.dc, { type: 'chat', text, t }));
   addMsg('Tú', text, t); $('#chatIn').value = '';
 };
+
+/* ---------- archivos por el chat ---------- */
+// Van directos de ordenador a ordenador por un canal de datos aparte, como el audio: sin servidor ni
+// coste. Quien recibe lo guarda en memoria hasta que lo descarga; de ahí el límite de 1 GB por archivo.
+// Solo les llega a quienes estén en la sala en ese momento.
+const FILE_MAX = 1024 ** 3, CHUNK = 64 * 1024;
+const fmtSize = n => n < 1048576 ? Math.max(1, Math.round(n / 1024)) + ' KB'
+  : n < 1073741824 ? (n / 1048576).toFixed(1).replace('.', ',') + ' MB' : (n / 1073741824).toFixed(2).replace('.', ',') + ' GB';
+function fileMsg(who, name, size){
+  const m = document.createElement('div'); m.className = 'msg';
+  m.innerHTML = '<span class="who"></span><span class="fname"></span> <span class="fsize mono"></span><div class="fst mono"></div>';
+  m.querySelector('.who').textContent = who; m.querySelector('.fname').textContent = name; m.querySelector('.fsize').textContent = fmtSize(size);
+  $('#chatLog').append(m); $('#chatLog').scrollTop = 1e9;
+  return m.querySelector('.fst');
+}
+function sendFiles(files){
+  const to = [...peers.keys()].filter(id => peers.get(id).dc && peers.get(id).dc.open);
+  if (!to.length) { toast('No hay nadie en la sala a quien mandarlo.'); return; }
+  for (const f of files) {
+    if (!f.size) continue;
+    if (f.size > FILE_MAX) { toast(`${f.name} pesa ${fmtSize(f.size)}: el límite es 1 GB por archivo.`); continue; }
+    const st = fileMsg('Tú', f.name, f.size), prog = new Map();
+    const show = () => {
+      const v = [...prog.values()], ok = v.filter(x => x === 1).length, bad = v.filter(x => x < 0).length;
+      if (ok + bad < v.length) { st.textContent = `Enviando… ${Math.floor(Math.min(...v.filter(x => x >= 0)) * 100)} %`; return; }
+      st.textContent = (ok ? `Enviado a ${ok === 1 ? '1 persona' : ok + ' personas'}` : '') + (bad ? `${ok ? ' · ' : ''}no llegó a ${bad}` : '');
+    };
+    to.forEach(id => { prog.set(id, 0); sendFile(id, f, x => { prog.set(id, x); show(); }); });
+    show();
+  }
+}
+function sendFile(id, f, progress){
+  const c = S.peer.connect(id, { reliable: true, serialization: 'raw', metadata: { kind: 'file', name: f.name, size: f.size, type: f.type } });
+  let off = 0, last = 0;
+  c.on('open', async () => {
+    const dc = c.dataChannel;
+    while (off < f.size && c.open) {
+      if (dc.bufferedAmount > 8 << 20) { await sleep(20); continue; } // no llenar la memoria más rápido de lo que sube
+      const buf = await f.slice(off, off + CHUNK).arrayBuffer();
+      try { dc.send(buf); } catch { break; }
+      off += buf.byteLength;
+      const now = performance.now(); if (now - last > 200) { last = now; progress(off / f.size * 0.99); }
+    }
+  });
+  // Quien recibe cierra al tenerlo entero
+  c.on('close', () => progress(off >= f.size ? 1 : -1));
+  c.on('error', () => {});
+}
+function wireFileIn(c){
+  const p = ensurePeer(c.peer), m = c.metadata || {};
+  const size = +m.size || 0, name = String(m.name || 'archivo').slice(0, 200);
+  if (!(size > 0 && size <= FILE_MAX)) { c.on('open', () => c.close()); return; }
+  const st = fileMsg(p.name, name, size), parts = [];
+  let got = 0, last = 0, done = false;
+  st.textContent = 'Recibiendo… 0 %';
+  c.on('data', d => {
+    if (done || !(d instanceof ArrayBuffer)) return;
+    parts.push(d); got += d.byteLength;
+    const now = performance.now(); if (now - last > 200) { last = now; st.textContent = `Recibiendo… ${Math.floor(got / size * 100)} %`; }
+    if (got < size) return;
+    done = true; c.close();
+    const a = document.createElement('a'); a.className = 'btn sm'; a.textContent = 'Descargar'; a.download = name;
+    a.href = URL.createObjectURL(new Blob(parts, { type: m.type || 'application/octet-stream' })); parts.length = 0;
+    st.textContent = ''; st.append(a);
+  });
+  c.on('close', () => { if (!done) { parts.length = 0; st.textContent = 'Se cortó antes de terminar.'; } });
+  c.on('error', () => {});
+}
+$('#fileBtn').onclick = () => $('#fileIn').click();
+$('#fileIn').onchange = e => { sendFiles([...e.target.files]); e.target.value = ''; };
+{
+  const box = $('.box.chat');
+  box.addEventListener('dragover', e => { if ([...e.dataTransfer.types].includes('Files')) { e.preventDefault(); box.classList.add('drop'); } });
+  box.addEventListener('dragleave', e => { if (!box.contains(e.relatedTarget)) box.classList.remove('drop'); });
+  box.addEventListener('drop', e => { e.preventDefault(); box.classList.remove('drop'); sendFiles([...e.dataTransfer.files]); });
+}
 </script>
 </body>
 </html>
