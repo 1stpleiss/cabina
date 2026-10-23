@@ -114,9 +114,11 @@ Un único archivo HTML (más el icono `icono.png`, el logo de 1st), sin build. D
   - Se envía el vídeo ya con el filtro (canvas → `captureStream`), así que los demás lo ven igual. El espejo lo sigue poniendo cada pantalla.
   - En Chrome y Edge lee los fotogramas con `MediaStreamTrackProcessor`, que sigue funcionando con la pestaña en segundo plano; en Safari, con `requestVideoFrameCallback`.
   - Detecta en uno de cada dos fotogramas. Se recuerda en `cabina-prefs` y se vuelve a montar al cambiar de cámara.
-- **Easter egg**: al pulsar la bola azul (arriba a la izquierda, también en la pantalla de entrada) suena un "uhh!" al estilo del de Roblox y la bola rebota.
-  - No es el sonido de Roblox, que tiene derechos y Roblox lo retiró en 2022: se sintetiza con Web Audio (diente de sierra de 190 → 105 Hz en 0,3 s, filtrado por los formantes de la vocal "uh": 600, 1000 y 2450 Hz).
+- **Easter egg**: al pulsar la bola azul (arriba a la izquierda, también en la pantalla de entrada) suena un *hitmarker* y la bola rebota.
+  - Sonido: "Hitmarker Sound Effect", de aruscio28 en Freesound ([freesound.org/s/322640](https://freesound.org/people/aruscio28/sounds/322640/)), **CC0** (dominio público): `web/hitmarker.mp3`.
+  - Se carga con la ruta completa (`window.CABINA_WEB`) para que también suene en la Cabina servida por el plugin.
   - Solo suena para quien la pulsa.
+  - Antes era un "uhh!" sintetizado al estilo del de Roblox; el original no se podía usar por derechos.
 - **Archivos por el chat** (clip o arrastrando sobre el chat): van directos de ordenador a ordenador, sin servidor y **sin coste**. Límite de **1 GB por archivo**, porque quien recibe lo guarda en memoria hasta pulsar *Descargar*. Se ve el progreso; el que envía ve "Enviado a N personas". Solo llega a quienes estén en la sala en ese momento. Quien recibe cierra la conexión al tenerlo entero, y así sabe el emisor que llegó. El emisor no llena la memoria más rápido de lo que sube (espera si hay más de 8 MB pendientes). Probado: 12 MB llegan idénticos en 3 s en local. Por internet, la velocidad es la de la subida de quien envía; si la conexión va por el servidor de relevo (TURN), puede ser bastante más lenta.
 - **Tarjeta de cada participante**:
   - **Estado de la conexión** junto al nombre: punto verde con la latencia de ida y vuelta (ámbar si pasa de 250 ms), ámbar mientras conecta, reconecta o lleva más de 6 s sin dar señales, y rojo sin conexión. Al pasar el ratón dice si la conexión es directa o por el servidor de relevo. Es la conexión **con cada persona**, así que si estás solo no hay ninguno. Tu propia tarjeta lleva otro punto: verde si estás conectado al servidor que reúne la sala, ámbar si está reconectando.
@@ -341,7 +343,8 @@ cabina/
 │   └── web.yml                 ← publica web/ en GitHub Pages
 ├── web/
 │   ├── index.html              ← toda la web en un archivo
-│   └── icono.png               ← icono de la pestaña (logo de 1st, 180×180)
+│   ├── icono.png               ← icono de la pestaña (logo de 1st, 180×180)
+│   └── hitmarker.mp3           ← sonido de la bola (Freesound 322640, CC0)
 └── plugin/
     ├── CMakeLists.txt          ← genera Cabina Send y Cabina Retorno
     └── Source/
@@ -459,4 +462,5 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 - **web-noise-suppressor** (RNNoise): MIT; RNNoise es BSD.
 - **MediaPipe tasks-vision** y el modelo Face Landmarker: Apache 2.0.
 - **Logo de 1st** (`web/icono.png`): propio.
+- **hitmarker.mp3**: CC0 (aruscio28, Freesound 322640).
 - El código de Cabina es tuyo. Si lo publicas, AGPLv3 por coherencia con JUCE.

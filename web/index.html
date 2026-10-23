@@ -1537,30 +1537,13 @@ $('#copy').onclick = () => { const url = PUBLIC_URL + '?sala=' + S.room; navigat
 $('#leave').onclick = () => { try { S.peer && S.peer.destroy(); } catch {} location.href = location.pathname; };
 window.addEventListener('beforeunload', () => { try { S.peer && S.peer.destroy(); } catch {} });
 
-/* ---------- uhh! ---------- */
-// La bola de arriba a la izquierda hace "uhh!", al estilo del de Roblox. No es su sonido (tiene derechos):
-// se sintetiza una voz que dice "uh" (pulso de voz con el tono cayendo, filtrado por las resonancias de la vocal).
-function uhh(){
-  const ctx = S.ctx || (S.uhhCtx = S.uhhCtx || new (window.AudioContext || window.webkitAudioContext)());
-  ctx.resume().catch(() => {});
-  const t = ctx.currentTime + 0.01, dur = 0.3;
-  const voice = ctx.createOscillator(); voice.type = 'sawtooth';
-  voice.frequency.setValueAtTime(190, t); voice.frequency.exponentialRampToValueAtTime(105, t + dur);
-  const out = ctx.createGain();
-  out.gain.setValueAtTime(0.0001, t); out.gain.exponentialRampToValueAtTime(0.9, t + 0.025);
-  out.gain.setValueAtTime(0.9, t + 0.12); out.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  // Formantes de una "u" abierta, como en "uh"
-  [[600, 6, 1], [1000, 8, 0.55], [2450, 10, 0.18]].forEach(([fq, q, lvl]) => {
-    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = fq; bp.Q.value = q;
-    const gn = ctx.createGain(); gn.gain.value = lvl * 1.6;
-    voice.connect(bp); bp.connect(gn); gn.connect(out);
-  });
-  out.connect(ctx.destination);
-  voice.start(t); voice.stop(t + dur + 0.05);
-  voice.onended = () => out.disconnect();
-}
+/* ---------- easter egg ---------- */
+// La bola de arriba a la izquierda suena a hitmarker. "Hitmarker Sound Effect" de aruscio28 en Freesound
+// (freesound.org/s/322640, CC0). Con la ruta completa, para que también suene en la Cabina servida por el plugin.
+const HIT = new Audio((window.CABINA_WEB || '') + 'hitmarker.mp3'); HIT.preload = 'auto';
+function hit(){ const a = HIT.cloneNode(); setSink(a); a.play().catch(() => {}); }
 document.querySelectorAll('.dot').forEach(d => d.addEventListener('click', () => {
-  uhh(); d.classList.remove('oof'); void d.offsetWidth; d.classList.add('oof');
+  hit(); d.classList.remove('oof'); void d.offsetWidth; d.classList.add('oof');
 }));
 
 /* ---------- chat ---------- */
