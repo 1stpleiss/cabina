@@ -108,6 +108,15 @@ Un único archivo HTML (más el icono `icono.png`, el logo de 1st), sin build. D
 - **Grabar**: graba lo que llega en WAV estéreo de 24 bits a 48 kHz y lo descarga.
 - **Mandar a mi DAW**: envía ese audio a un plugin Cabina Retorno.
 - Chat con hora, útil para notas tipo "1:42 baja la voz 1 dB".
+- **Filtro de perrito** (botón *Perrito* en tu tarjeta):
+  - Orejas, nariz y lengua (al abrir la boca) que siguen cada cara. El dibujo es propio, no el de Snapchat, que tiene derechos.
+  - Detecta las caras con MediaPipe Face Landmarker (`@mediapipe/tasks-vision@0.10.21` desde jsDelivr, modelo de Google Storage, 3,7 MB, se descarga al activarlo).
+  - Se envía el vídeo ya con el filtro (canvas → `captureStream`), así que los demás lo ven igual. El espejo lo sigue poniendo cada pantalla.
+  - En Chrome y Edge lee los fotogramas con `MediaStreamTrackProcessor`, que sigue funcionando con la pestaña en segundo plano; en Safari, con `requestVideoFrameCallback`.
+  - Detecta en uno de cada dos fotogramas. Se recuerda en `cabina-prefs` y se vuelve a montar al cambiar de cámara.
+- **Easter egg**: al pulsar la bola azul (arriba a la izquierda, también en la pantalla de entrada) suena un "uhh!" al estilo del de Roblox y la bola rebota.
+  - No es el sonido de Roblox, que tiene derechos y Roblox lo retiró en 2022: se sintetiza con Web Audio (diente de sierra de 190 → 105 Hz en 0,3 s, filtrado por los formantes de la vocal "uh": 600, 1000 y 2450 Hz).
+  - Solo suena para quien la pulsa.
 - **Archivos por el chat** (clip o arrastrando sobre el chat): van directos de ordenador a ordenador, sin servidor y **sin coste**. Límite de **1 GB por archivo**, porque quien recibe lo guarda en memoria hasta pulsar *Descargar*. Se ve el progreso; el que envía ve "Enviado a N personas". Solo llega a quienes estén en la sala en ese momento. Quien recibe cierra la conexión al tenerlo entero, y así sabe el emisor que llegó. El emisor no llena la memoria más rápido de lo que sube (espera si hay más de 8 MB pendientes). Probado: 12 MB llegan idénticos en 3 s en local. Por internet, la velocidad es la de la subida de quien envía; si la conexión va por el servidor de relevo (TURN), puede ser bastante más lenta.
 - **Tarjeta de cada participante**:
   - **Estado de la conexión** junto al nombre: punto verde con la latencia de ida y vuelta (ámbar si pasa de 250 ms), ámbar mientras conecta, reconecta o lleva más de 6 s sin dar señales, y rojo sin conexión. Al pasar el ratón dice si la conexión es directa o por el servidor de relevo. Es la conexión **con cada persona**, así que si estás solo no hay ninguno. Tu propia tarjeta lleva otro punto: verde si estás conectado al servidor que reúne la sala, ámbar si está reconectando.
@@ -180,7 +189,10 @@ Conexión: `ws://127.0.0.1:<puerto>`.
   - La dirección de la web se fija al compilar: `CABINA_WEB_URL`, por defecto `https://1stpleiss.github.io/cabina/`.
   - Los cambios de la web llegan sin recompilar el plugin.
   - La página deja la dirección pública en `window.CABINA_WEB`. La web la usa para *Copiar enlace*, que siempre da el enlace público, y para el icono.
-- En Safari, desde la web `https`, al elegir el plugin, pulsar *Emitir DAW* o *Buscar retornos* sale un aviso con el botón **Abrir Cabina desde el plugin**. Lleva a `http://127.0.0.1:47800/?sala=…&nombre=…&daw=plugin`: la misma sala, con el nombre y el plugin ya elegidos. Desde ahí todo funciona sin ventanas intermedias.
+- En Safari, desde la web `https`, al usar el plugin (*Emitir DAW* o *Buscar retornos*), primero **se prueba a conectar directamente** (`localAllowed()`):
+  - WebKit quitó el bloqueo de las direcciones locales el 4-9-2026 ([PR 72974](https://github.com/WebKit/WebKit/pull/72974), [bug 171934](https://bugs.webkit.org/show_bug.cgi?id=171934)). No consta en qué versión de Safari llega; Safari 27.0.1 seguramente aún no lo trae.
+  - Si ya lo permite, se usa directamente y no se cambia de página.
+  - Si no, sale un aviso con el botón **Abrir Cabina desde el plugin**. Lleva, en la misma pestaña, a `http://127.0.0.1:47800/?sala=…&nombre=…&daw=plugin&entrar=1`: la misma sala, con el nombre y el plugin ya elegidos, y **entrando sola en la sala** (`entrar`). La primera vez, Safari pedirá permiso de micro y cámara para esa dirección.
 - Esa copia solo existe mientras el plugin está abierto. Su `localStorage` es aparte (otro origen), así que las preferencias no se comparten con la web publicada.
 - Si solo hay un Cabina Retorno abierto, la dirección es `http://127.0.0.1:47801/`.
 
@@ -395,6 +407,8 @@ cabina/
 | Reducción de ruido normal ↔ fuerte | La cadena RNNoise se monta, se quita y se vuelve a montar sin errores |
 | Abrir Cabina desde el plugin (página de carga del plugin servida igual que en C++, Safari imitado en Chrome) | Aviso con el enlace correcto; la página del plugin carga la web, es segura, trae nombre y sala, emite sin ventanita, y *Copiar enlace* da el enlace público; un oyente en la web normal recibe el DAW |
 | Espejo | Por defecto los demás te ven en espejo, igual que tú; al quitarlo, cambia para ti y para ellos |
+| Safari que ya permite hablar con 127.0.0.1 / que lo bloquea (imitados en Chrome) | El primero emite directamente sin cambiar de página; el segundo muestra el aviso y, al pulsarlo, entra solo en la sala y emite |
+| Filtro de perrito (cámara de prueba con un retrato) | Detecta la cara, dibuja orejas, nariz y lengua; el otro participante lo recibe; al quitarlo vuelve la cámara normal |
 | Brillo al hablar | Sigue los pitidos del micro de prueba; con el micro silenciado no se enciende |
 | Estado de conexión y volumen por persona | Punto verde con la latencia; el volumen se aplica y se recuerda por nombre |
 
@@ -424,6 +438,7 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 | "No encuentro el plugin Cabina Send" | Plugin no cargado, o Chrome bloqueó el acceso local | Cargar el plugin en el máster; aceptar el aviso de red local de Chrome |
 | El plugin dice "Puerto ocupado" | Otro proyecto o instancia lo está usando | Cerrar la otra instancia |
 | Safari: "no puede conectarse al servidor 127.0.0.1" | Cabina Send no está en el máster o no escucha (en la ventana del plugin debe poner la dirección `127.0.0.1:47800`) | Poner el plugin en el máster; si estaba y no escucha, quitarlo y volver a ponerlo; plugins de antes del 23-10-2026: reinstalar |
+| Safari: tras *Abrir Cabina desde el plugin*, página en blanco o "no encontrado" | FL Studio (o el DAW) se abrió antes de instalar el plugin nuevo y sigue usando el viejo en memoria (responde en `/puente`, no en `/`) | Cerrar el DAW del todo y volver a abrirlo |
 | Safari: se abre sola una ventanita con ese error | Web anterior al 23-10-2026 (ventanita puente) | Recargar la web; ahora se abre Cabina desde el plugin |
 | Llega en mono | Safari, o cable virtual configurado en mono | Usar Chrome; revisar el dispositivo en Audio MIDI |
 | kbps muy por debajo de 400 | Red congestionada; WebRTC baja la calidad solo | Cable de red en vez de wifi; cerrar descargas |
@@ -442,5 +457,6 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 - **JUCE 8**: doble licencia, AGPLv3 o comercial. Para uso personal entre colegas, sin vender, encaja en la AGPLv3 publicando el código (el repositorio de GitHub sirve). Si algún día se vende, revisar las condiciones de licencia de JUCE.
 - **PeerJS**: MIT.
 - **web-noise-suppressor** (RNNoise): MIT; RNNoise es BSD.
+- **MediaPipe tasks-vision** y el modelo Face Landmarker: Apache 2.0.
 - **Logo de 1st** (`web/icono.png`): propio.
 - El código de Cabina es tuyo. Si lo publicas, AGPLv3 por coherencia con JUCE.
