@@ -52,40 +52,28 @@ namespace
 
     constexpr size_t maxMessageBytes = 8 * 1024 * 1024;
 
-    // Página puente para Safari: Safari no deja que una web https abra ws://127.0.0.1
-    // (contenido mixto), pero sí que una página servida desde 127.0.0.1 lo haga y pase los
-    // datos a la web con postMessage. La web la abre en una ventanita: /puente#<origen de la web>.
+    // Cabina servida desde el propio plugin, para Safari: Safari no deja que una web https hable con
+    // ws://127.0.0.1 (contenido mixto), pero una página de http://127.0.0.1 sí puede, y además cuenta
+    // como segura (micro y cámara). Esta página descarga la web publicada y la pone en su lugar, así
+    // que los cambios de la web llegan sin recompilar el plugin.
     // Solo ASCII (entidades HTML) para que compile igual en todos los sistemas.
-    const char* bridgePage = R"HTML(<!doctype html><html lang="es"><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>Cabina &middot; puente</title>
-<style>body{margin:0;height:100vh;display:grid;place-items:center;text-align:center;background:#0d0e10;color:#ebe8e3;font:14px/1.45 system-ui,sans-serif}
-b{color:#8C9EF7}small{color:#8d929a}p{margin:6px 0}</style>
-<div><p><b>Cabina</b> &middot; puente con el DAW</p><p id="s">Conectando&hellip;</p>
-<small>Deja esta ventana abierta mientras uses los plugins.<br>Safari no deja que la web hable directamente con ellos.</small></div>
+   #ifndef CABINA_WEB_URL
+    #define CABINA_WEB_URL "https://1stpleiss.github.io/cabina/"
+   #endif
+    const std::string loaderPage = std::string (R"HTML(<!doctype html><html lang="es"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Cabina</title>
+<body style="margin:0;height:100vh;display:grid;place-items:center;background:#0d0e10;color:#8d929a;font:14px system-ui,sans-serif">
+<p id="s">Cargando Cabina&hellip;</p>
 <script>
-const socks = new Map(), o = window.opener, st = document.getElementById('s');
-const ORIGIN = decodeURIComponent(location.hash.slice(1));
-const up = () => { st.textContent = socks.size ? socks.size + (socks.size > 1 ? ' conexiones activas' : ' conexi\u00f3n activa') : 'Listo'; };
-const post = (m, t) => { try { o.postMessage(m, ORIGIN, t || []); } catch (e) {} };
-if (!o || !/^https?:\/\/[^/]+$/.test(ORIGIN)) st.textContent = 'Abre esta ventana desde la web de Cabina.';
-else {
-  addEventListener('message', e => {
-    if (e.source !== o || e.origin !== ORIGIN) return;
-    const m = e.data; if (!m || !m.cab) return;
-    if (m.cab === 'open') {
-      const port = +m.port; if (!(port >= 47800 && port <= 47808)) return;
-      let ws; try { ws = new WebSocket('ws://127.0.0.1:' + port); } catch (err) { post({ cab: 'close', id: m.id }); return; }
-      ws.binaryType = 'arraybuffer'; socks.set(m.id, ws); up();
-      ws.onopen = () => post({ cab: 'open', id: m.id });
-      ws.onmessage = ev => typeof ev.data === 'string' ? post({ cab: 'msg', id: m.id, data: ev.data }) : post({ cab: 'msg', id: m.id, data: ev.data }, [ev.data]);
-      ws.onclose = () => { socks.delete(m.id); up(); post({ cab: 'close', id: m.id }); };
-      ws.onerror = () => {};
-    } else if (m.cab === 'send') { const ws = socks.get(m.id); if (ws && ws.readyState === 1) ws.send(m.data); }
-    else if (m.cab === 'close') { const ws = socks.get(m.id); if (ws) ws.close(); }
-  });
-  setInterval(() => { if (o.closed) { socks.forEach(w => w.close()); window.close(); } }, 1000);
-  up(); post({ cab: 'ready' });
-}
+const WEB = ")HTML") + CABINA_WEB_URL + R"HTML(";
+fetch(WEB + "index.html", { cache: "no-store" })
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
+  .then(h => {
+    h = h.split('href="icono.png"').join('href="' + WEB + 'icono.png"')
+         .replace("<head>", "<head><script>window.CABINA_WEB = " + JSON.stringify(WEB) + "<\/script>");
+    document.open(); document.write(h); document.close();
+  })
+  .catch(() => { document.getElementById("s").textContent = "No se pudo descargar Cabina de " + WEB + ". \u00bfHay conexi\u00f3n a internet?"; });
 </script></html>)HTML";
 }
 
@@ -165,7 +153,7 @@ private:
         {
             if (! readFully (&c, 1))
                 return false;
-            // Safari prueba primero https://127.0.0.1/puente. Si llega TLS (o cualquier cosa que no
+            // Safari prueba primero https://127.0.0.1. Si llega TLS (o cualquier cosa que no
             // sea HTTP) se cierra al momento para que vuelva a http; si no, se queda colgado.
             if (req.empty() && ! (c >= 'A' && c <= 'Z'))
                 return false;
@@ -186,11 +174,11 @@ private:
 
         if (key.isEmpty())
         {
-            // Petición HTTP normal: solo servimos la página puente para Safari
+            // Petición HTTP normal: solo servimos Cabina para Safari (la raíz)
             std::string resp;
-            if (lines[0].startsWith ("GET /puente"))
+            if (lines[0].startsWith ("GET / ") || lines[0].startsWith ("GET /?"))
                 resp = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\n"
-                       "Connection: close\r\nContent-Length: " + std::to_string (std::strlen (bridgePage)) + "\r\n\r\n" + bridgePage;
+                       "Connection: close\r\nContent-Length: " + std::to_string (loaderPage.size()) + "\r\n\r\n" + loaderPage;
             else
                 resp = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
             socket->write (resp.data(), (int) resp.size());
@@ -391,6 +379,8 @@ void WebSocketServer::stop()
 
 void WebSocketServer::run()
 {
+    int failures = 0;
+
     while (! threadShouldExit())
     {
         if (port.load() < 0 && ! tryListen())
@@ -406,9 +396,19 @@ void WebSocketServer::run()
 
         if (s == nullptr)
         {
+            // Si el puerto deja de aceptar conexiones (el sistema lo ha cerrado), se vuelve a abrir
+            // en vez de quedarse esperando para siempre sin que la web pueda conectar
+            if (++failures >= 20)
+            {
+                failures = 0;
+                serverSocket.close();
+                port = -1;
+            }
             juce::Thread::sleep (50);
             continue;
         }
+
+        failures = 0;
 
         removeDeadClients();
 

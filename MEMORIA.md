@@ -110,10 +110,10 @@ Un único archivo HTML (más el icono `icono.png`, el logo de 1st), sin build. D
 - Chat con hora, útil para notas tipo "1:42 baja la voz 1 dB".
 - **Archivos por el chat** (clip o arrastrando sobre el chat): van directos de ordenador a ordenador, sin servidor y **sin coste**. Límite de **1 GB por archivo**, porque quien recibe lo guarda en memoria hasta pulsar *Descargar*. Se ve el progreso; el que envía ve "Enviado a N personas". Solo llega a quienes estén en la sala en ese momento. Quien recibe cierra la conexión al tenerlo entero, y así sabe el emisor que llegó. El emisor no llena la memoria más rápido de lo que sube (espera si hay más de 8 MB pendientes). Probado: 12 MB llegan idénticos en 3 s en local. Por internet, la velocidad es la de la subida de quien envía; si la conexión va por el servidor de relevo (TURN), puede ser bastante más lenta.
 - **Tarjeta de cada participante**:
-  - **Estado de la conexión** junto al nombre: punto verde con la latencia de ida y vuelta (ámbar si pasa de 250 ms), ámbar mientras conecta, reconecta o lleva más de 6 s sin dar señales, y rojo sin conexión. Al pasar el ratón dice si la conexión es directa o por el servidor de relevo.
+  - **Estado de la conexión** junto al nombre: punto verde con la latencia de ida y vuelta (ámbar si pasa de 250 ms), ámbar mientras conecta, reconecta o lleva más de 6 s sin dar señales, y rojo sin conexión. Al pasar el ratón dice si la conexión es directa o por el servidor de relevo. Es la conexión **con cada persona**, así que si estás solo no hay ninguno. Tu propia tarjeta lleva otro punto: verde si estás conectado al servidor que reúne la sala, ámbar si está reconectando.
   - **Brillo azul en el borde** mientras habla (voz por encima de −50 dBFS, con 350 ms de margen). También en tu propia tarjeta; con el micro silenciado no se enciende.
   - **Volumen de su voz** (deslizador arriba a la derecha, aparece al pasar el ratón): es tu mezcla, solo cambia lo que oyes tú. Se recuerda por nombre (`localStorage`, clave `cabina-vols`).
-- **Tu cámara se ve igual que la ven los demás**, sin efecto espejo (antes tu vista estaba girada y la de los demás no).
+- **Espejo**: por defecto te ves en espejo, como en FaceTime, **y los demás también te ven así**, para que todos te vean igual que tú. El vídeo que se envía no se toca: quien emite dice en el `hello` (y con el mensaje `mirror`) si va en espejo, y cada uno lo gira en su pantalla. Botón *Espejo* en tu tarjeta para quitarlo (por ejemplo, para enseñar algo con texto). Se recuerda en `cabina-prefs`.
 - **Reducción de ruido del micro** (selector *Ruido* arriba):
   - *Normal*: la del navegador.
   - *Fuerte*: RNNoise, una red neuronal que quita teclado, ventiladores o ruido de calle. El micro pasa por un `AudioWorklet` y se envía ya limpio. Necesita la página a 48 kHz, así que en Safari aparece desactivada.
@@ -124,7 +124,7 @@ Un único archivo HTML (más el icono `icono.png`, el logo de 1st), sin build. D
   - Al pulsar *Emitir DAW* (o al entrar con el plugin elegido), si Cabina Send no está abierto, la web lo espera (botón *Cancelar*) y empieza sola en cuanto aparece.
   - Si el plugin se cierra mientras se emite (al cerrar y abrir el proyecto, por ejemplo), la emisión sigue sola cuando vuelve. La pista que reciben los demás es la misma, así que la llamada no se corta.
   - Esa pausa no cuenta como corte y no hace crecer el colchón (mensaje `idle` al `AudioWorklet`).
-  - En Safari, la ventana puente la sirve el propio plugin. Si se emite con el plugin cerrado, avisa de que hay que abrirlo y volver a pulsar; si el plugin se cierra con la ventana puente abierta, se reconecta igual.
+  - Igual en Safari, siempre que Cabina se haya abierto desde el plugin (§6).
 - **Compartir pantalla** (botón *Pantalla*): el navegador deja elegir una ventana (el DAW) o la pantalla entera. Los demás la ven en grande encima de las cámaras, con botón de *Pantalla completa*. Va sin audio, porque el sonido ya va por el DAW. Quien entra a mitad también la recibe. Si comparten varios a la vez, se ve la última. Al parar, se manda `screen-stop` con un número de generación para no cerrar por error una pantalla compartida después.
 
 ## 5. Los plugins
@@ -174,13 +174,28 @@ Conexión: `ws://127.0.0.1:<puerto>`.
    - **Send → web**: al sample rate del DAW. La web remuestrea a 48 kHz.
    - **web → Retorno**: la web ya lo manda remuestreado al sample rate del DAW.
 
-**Safari**: Safari bloquea `ws://127.0.0.1` desde una web `https`, porque lo trata como contenido mixto (Chrome y Edge lo permiten). Por eso los plugins también sirven una página en `http://127.0.0.1:<puerto>/puente`. En Safari, al pulsar *Emitir DAW* o *Buscar retornos*, la web la abre en una ventanita. Esa página sí puede conectarse a los plugins y pasa los mensajes a la web con `postMessage` (la web le indica su origen en `#…` y solo se aceptan mensajes de ese origen). La ventana tiene que quedarse abierta mientras se usen los plugins.
+**Safari: Cabina servida por el propio plugin.** Safari bloquea `ws://127.0.0.1` desde una web `https` porque lo trata como contenido mixto (Chrome y Edge lo permiten). Sin embargo, una página servida desde `http://127.0.0.1` sí puede conectarse a los plugins, y además cuenta como segura, así que da acceso a micro y cámara. Por eso:
 
-Detalles del puente que ya han dado problemas:
+- Los plugins sirven en la raíz, `http://127.0.0.1:<puerto>/`, una página mínima que descarga la web publicada con `fetch` y la pone en su lugar con `document.write`. GitHub Pages responde con `Access-Control-Allow-Origin: *`, así que se puede descargar.
+  - La dirección de la web se fija al compilar: `CABINA_WEB_URL`, por defecto `https://1stpleiss.github.io/cabina/`.
+  - Los cambios de la web llegan sin recompilar el plugin.
+  - La página deja la dirección pública en `window.CABINA_WEB`. La web la usa para *Copiar enlace*, que siempre da el enlace público, y para el icono.
+- En Safari, desde la web `https`, al elegir el plugin, pulsar *Emitir DAW* o *Buscar retornos* sale un aviso con el botón **Abrir Cabina desde el plugin**. Lleva a `http://127.0.0.1:47800/?sala=…&nombre=…&daw=plugin`: la misma sala, con el nombre y el plugin ya elegidos. Desde ahí todo funciona sin ventanas intermedias.
+- Esa copia solo existe mientras el plugin está abierto. Su `localStorage` es aparte (otro origen), así que las preferencias no se comparten con la web publicada.
+- Si solo hay un Cabina Retorno abierto, la dirección es `http://127.0.0.1:47801/`.
 
-- **Safari prueba antes `https://`** al abrir `http://127.0.0.1:<puerto>/puente`. Hasta el 21-10-2026, el plugin se quedaba esperando sin responder a esa conexión TLS y Safari mostraba *"no ha podido conectarse al servidor"*. Ahora el servidor cierra al instante cualquier conexión cuyo primer byte no sea una letra mayúscula (inicio de `GET`), y Safari vuelve a `http`. También cierra las conexiones que no envían nada en 5 s.
-- **Abrir la ventana gasta el clic** en Safari. Si se abre antes de arrancar el `AudioContext`, `resume()` no termina y la web se queda en la pantalla de entrada. Por eso, al pulsar *Entrar*, primero se llama a `resume()` y después se abre el puente; además, no se espera más de 1 s a `resume()`, y si el audio sigue parado, arranca con el siguiente clic.
-- Si la ventana puente no avisa de que está lista en 5 s (plugin cerrado), la web la cierra y muestra el aviso de que no encuentra el plugin.
+> Hasta el 23-10-2026 se usaba una **ventanita puente**: el plugin servía `/puente`, la web la abría en un popup y le pasaba los mensajes con `postMessage`. Daba problemas:
+> - Se abría sola al entrar con el plugin elegido.
+> - Si el plugin no estaba escuchando, Safari mostraba *"no ha podido conectarse al servidor"*.
+> - Abrir la ventana gastaba el clic que Safari necesita para arrancar el audio.
+>
+> Se quitó.
+
+Detalles del servidor de los plugins:
+
+- **Safari prueba antes `https://`** al abrir `http://127.0.0.1:<puerto>`. Hasta el 21-10-2026, el plugin se quedaba esperando sin responder a esa conexión TLS. Ahora cierra al instante cualquier conexión cuyo primer byte no sea una letra mayúscula (el inicio de `GET`), y Safari vuelve a `http`. También cierra las conexiones que no envían nada en 5 s.
+- **Si el puerto deja de aceptar conexiones** (20 fallos seguidos de `accept`), el servidor lo cierra y lo vuelve a abrir. Antes se quedaba esperando para siempre, con el plugin cargado pero sin escuchar.
+- Al pulsar *Entrar* no se espera más de 1 s a `AudioContext.resume()`: en Safari, sin un clic reciente, no termina nunca. Si el audio sigue parado, arranca con el siguiente clic.
 
 Todo el remuestreo se hace en la web, en un `AudioWorklet`, para que el plugin sea más simple:
 
@@ -348,7 +363,7 @@ cabina/
 
 - **Malla**: con más de 5–6 personas, la subida de cada uno se satura, porque se manda una copia del DAW por persona. Para grupos grandes haría falta un SFU (LiveKit, mediasoup).
 - **Servidor público de PeerJS**: sin garantías de disponibilidad. Si falla, montar uno propio (§16).
-- **Safari**: la captura estéreo del cable virtual es poco fiable. Con los plugins funciona, pero a través de la ventana puente (§6), que hay que dejar abierta. Si Safari bloquea ventanas emergentes, hay que permitirlas para la web de Cabina.
+- **Safari**: la captura estéreo del cable virtual es poco fiable. Con los plugins funciona, pero abriendo Cabina desde el propio plugin (§6), con el DAW y el plugin ya abiertos. **Pendiente de probar en un Safari real** (las pruebas se hicieron imitando el plugin en Chrome).
 - **Grabación en la web**: se guarda en memoria; ~230 MB por cada 10 minutos. Es para tomas, no para sesiones de horas.
 - **Retorno**: si los relojes de audio derivan, puede haber un pequeño clic cada varios minutos al reajustar el colchón.
 - **Safari y la cancelación de eco**: con la cancelación de eco del micro activada, Safari usa el procesado de voz de macOS, que también procesa y baja todo lo que suena, el DAW que escuchas incluido. Por eso en Safari va apagada (`talkAudio()`), y hay que usar auriculares o, si no, los demás oirán eco. En Chrome y Edge sigue activada, porque allí no afecta a lo que se escucha.
@@ -378,6 +393,8 @@ cabina/
 | Archivo aleatorio de 12 MB por el chat | Llega idéntico (SHA-256) en 3 s; el emisor ve "Enviado a 1 persona" |
 | Emitir con Cabina Send cerrado → abrirlo → cerrarlo → reabrirlo | Espera, empieza sola, avisa al cerrarse y sigue sola al volver; el oyente no deja de recibir y el nivel llega exacto |
 | Reducción de ruido normal ↔ fuerte | La cadena RNNoise se monta, se quita y se vuelve a montar sin errores |
+| Abrir Cabina desde el plugin (página de carga del plugin servida igual que en C++, Safari imitado en Chrome) | Aviso con el enlace correcto; la página del plugin carga la web, es segura, trae nombre y sala, emite sin ventanita, y *Copiar enlace* da el enlace público; un oyente en la web normal recibe el DAW |
+| Espejo | Por defecto los demás te ven en espejo, igual que tú; al quitarlo, cambia para ti y para ellos |
 | Brillo al hablar | Sigue los pitidos del micro de prueba; con el micro silenciado no se enciende |
 | Estado de conexión y volumen por persona | Punto verde con la latencia; el volumen se aplica y se recuerda por nombre |
 
@@ -406,8 +423,8 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 |---|---|---|
 | "No encuentro el plugin Cabina Send" | Plugin no cargado, o Chrome bloqueó el acceso local | Cargar el plugin en el máster; aceptar el aviso de red local de Chrome |
 | El plugin dice "Puerto ocupado" | Otro proyecto o instancia lo está usando | Cerrar la otra instancia |
-| Safari: la ventanita puente dice "no ha podido conectarse al servidor" | Plugin cerrado, o plugin anterior al 21-10-2026 (se colgaba con el intento https de Safari) | Abrir Cabina Send en el DAW; reinstalar los plugins desde la release `plugins` |
-| Safari: se queda en la pantalla de entrada al pulsar *Entrar* | Web anterior al 21-10-2026 (la ventana puente gastaba el clic y el audio no arrancaba) | Recargar la web |
+| Safari: "no puede conectarse al servidor 127.0.0.1" | Cabina Send no está en el máster o no escucha (en la ventana del plugin debe poner la dirección `127.0.0.1:47800`) | Poner el plugin en el máster; si estaba y no escucha, quitarlo y volver a ponerlo; plugins de antes del 23-10-2026: reinstalar |
+| Safari: se abre sola una ventanita con ese error | Web anterior al 23-10-2026 (ventanita puente) | Recargar la web; ahora se abre Cabina desde el plugin |
 | Llega en mono | Safari, o cable virtual configurado en mono | Usar Chrome; revisar el dispositivo en Audio MIDI |
 | kbps muy por debajo de 400 | Red congestionada; WebRTC baja la calidad solo | Cable de red en vez de wifi; cerrar descargas |
 | Suena desfasado, como con un canal de más | El micro de quien emite capta el DAW (altavoces, monitorización directa, loopback de la interfaz) y llega dos veces | Auriculares o silenciar el micro. La web avisa al emisor si lo detecta |

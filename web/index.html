@@ -67,6 +67,8 @@ main{padding:12px;overflow:auto}
 .tile .avatar{display:none;position:absolute;inset:0;place-items:center;font-size:44px;font-weight:700;color:var(--muted);background:var(--panel)}
 .tile.novideo .avatar{display:grid}
 .tile.novideo video{visibility:hidden}
+.tile.mirror video{transform:scaleX(-1)}
+.tile .mir{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6)}
 .tile .kick{display:none;position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6)}
 #studio.host .tile:not(.me) .kick{display:block}
 .tile .tag{position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.6);padding:3px 9px;border-radius:7px;font-size:12.5px;font-weight:500;display:flex;align-items:center;gap:6px;max-width:calc(100% - 20px)}
@@ -237,6 +239,18 @@ aside{border-left:1px solid var(--line);overflow:auto;padding:12px;display:flex;
   </div>
 </div>
 
+<div id="safari" class="modal" hidden>
+  <div class="card">
+    <h2>Plugins en Safari</h2>
+    <p class="sub">Safari no deja que esta página hable con los plugins de Cabina. La solución es abrir Cabina desde el propio plugin: es la misma web y la misma sala, pero servida por el plugin desde tu ordenador, sin ventanas intermedias.</p>
+    <div class="tips">
+      <p>Antes, pon <b>Cabina Send</b> en el máster del DAW. Si solo tienes un <b>Cabina Retorno</b>, abre <span class="mono">http://127.0.0.1:47801</span>.</p>
+      <p>En Chrome o Edge funciona desde aquí, sin esto.</p>
+    </div>
+    <div class="actions"><a class="btn primary" id="safariGo">Abrir Cabina desde el plugin</a><button class="btn" id="safariNo">Ahora no</button></div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -261,11 +275,14 @@ if (new URLSearchParams(location.search).has('expulsado')) {
   setTimeout(() => toast('Quien creó la sala te ha sacado de ella.', false, 8000), 300);
 }
 try { $('#name').value = localStorage.getItem('cabina-name') || ''; } catch {}
+// Al abrir Cabina desde el plugin (Safari) llegan el nombre y la sala por la URL
+if (new URLSearchParams(location.search).get('nombre')) $('#name').value = new URLSearchParams(location.search).get('nombre').slice(0, 40);
 
 // Últimos dispositivos y calidad usados, guardados solo en este navegador
 let prefs = {};
 try { prefs = JSON.parse(localStorage.getItem('cabina-prefs')) || {}; } catch {}
 function savePrefs(){ try { localStorage.setItem('cabina-prefs', JSON.stringify(prefs)); } catch {} }
+if (new URLSearchParams(location.search).get('daw') === 'plugin') prefs.dawIn = 'plugin';
 S.quality = ['opus', '16', '24'].includes(prefs.quality) ? prefs.quality : 'opus';
 $('#quality').value = S.quality;
 function qInfo(){
@@ -409,13 +426,12 @@ $('#enter').onclick = async () => {
   prefs.cam = $('#cam').value; prefs.mic = $('#mic').value; prefs.dawIn = $('#dawIn').value; prefs.out = $('#out').value;
   savePrefs();
   history.replaceState(null, '', '?sala=' + S.room);
-  // El audio se arranca antes de abrir la ventana puente: en Safari abrir una ventana gasta el clic,
-  // y sin clic resume() no termina nunca y nos quedábamos en esta pantalla
+  // Sin esperar más de 1 s a resume(): en Safari, sin un clic reciente no termina nunca y nos quedábamos
+  // en esta pantalla. Si el audio no ha arrancado, arranca con el siguiente clic.
   const AC = window.AudioContext || window.webkitAudioContext;
   S.ctx = WEBKIT ? new AC() : new AC({ sampleRate: 48000 });
   const resumed = S.ctx.resume().catch(() => {});
   if (S.ctx.sampleRate !== 48000) { $('#ns option[value=fuerte]').disabled = true; if (S.ns === 'fuerte') { S.ns = 'normal'; $('#ns').value = 'normal'; } }
-  if ($('#dawIn').value === 'plugin') openBridge(SEND_PORT);
   await Promise.race([resumed, new Promise(r => setTimeout(r, 1000))]);
   if (S.ctx.state !== 'running') addEventListener('pointerdown', () => S.ctx.resume().catch(() => {}), { once: true });
   try { S.talk = await cleanMic(await getTalk()); } catch (e) { toast('No se pudo abrir el micro: ' + e.message); S.entering = false; $('#enter').disabled = false; return; }
@@ -488,7 +504,7 @@ function wireConn(c){
   if (c.metadata && c.metadata.name) setName(p, c.metadata.name);
   c.on('open', () => {
     p.lastSeen = Date.now();
-    send(c, { type: 'hello', name: S.name, cam: camOn() });
+    send(c, { type: 'hello', name: S.name, cam: camOn(), mirror: S.mirror });
     if (S.isHost) send(c, { type: 'roster', ids: [...peers.keys()].filter(id => id !== c.peer) });
     if (S.daw) callDaw(c.peer);
     if (S.screen) callScreen(c.peer);
@@ -506,7 +522,8 @@ function onData(p, d){
   if (d.type === 'ping') p.pings = true;
   else if (d.type === 'kick') { if (fromHost) kicked(); }
   else if (d.type === 'kicked') { if (fromHost && typeof d.id === 'string' && d.id !== S.peer.id) { banned.add(d.id); removePeer(d.id); } }
-  else if (d.type === 'hello') { setName(p, d.name); setCam(p, d.cam !== false); }
+  else if (d.type === 'hello') { setName(p, d.name); setCam(p, d.cam !== false); p.tile && p.tile.classList.toggle('mirror', d.mirror === true); }
+  else if (d.type === 'mirror') { p.tile && p.tile.classList.toggle('mirror', !!d.on); }
   else if (d.type === 'roster' && Array.isArray(d.ids)) d.ids.filter(x => typeof x === 'string' && x.startsWith(PREFIX + S.room)).forEach(connectTo);
   else if (d.type === 'chat' && typeof d.text === 'string') addMsg(p.name, d.text.slice(0,500), d.t);
   else if (d.type === 'cam') setCam(p, !!d.on);
@@ -678,6 +695,7 @@ async function startDaw(){
   if (id === $('#mic').value) toast('Ojo: la entrada del DAW es la misma que tu micro.');
   stopDaw();
   if (id === 'plugin') {
+    if (safariPlugin()) return;
     try { S.daw = await pluginStream(); } catch (e) { setDawWaiting(false); toast(e.message); return; }
     if (!S.daw) return; // cancelado mientras esperaba al plugin
   } else {
@@ -712,9 +730,9 @@ function stopDaw(){
   $('#dawInfo').textContent = '';
   const b = $('#dawBtn'); b.textContent = 'Emitir DAW'; b.classList.add('primary'); b.classList.remove('off');
 }
-$('#dawBtn').onclick = () => { if (S.daw || S.dawWaiting) { stopDaw(); return; } if ($('#dawIn2').value === 'plugin') openBridge(SEND_PORT); startDaw(); };
+$('#dawBtn').onclick = () => { if (S.daw || S.dawWaiting) { stopDaw(); return; } startDaw(); };
 
-/* ---------- puente con los plugins (ws://127.0.0.1) ---------- */
+/* ---------- conexión con los plugins (ws://127.0.0.1) ---------- */
 // Dos procesadores de audio: "cabina-in" convierte lo que manda Cabina Send en una pista
 // de audio (remuestreando a 48 kHz y absorbiendo jitter); "cabina-out" captura el DAW de un
 // colega y lo remuestrea al sample rate del plugin Cabina Retorno.
@@ -828,71 +846,26 @@ function ensureWorklet(){
   if (!workletReady) workletReady = S.ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET], { type: 'application/javascript' })));
   return workletReady;
 }
-/* ---------- puente para Safari ---------- */
-// Safari bloquea ws://127.0.0.1 desde una web https (contenido mixto). El plugin sirve una página
-// en http://127.0.0.1:<puerto>/puente que sí puede conectarse; la abrimos en una ventanita y nos
-// pasa los mensajes con postMessage. Imita lo justo de WebSocket para que el resto no cambie.
-const NEED_BRIDGE = WEBKIT && location.protocol === 'https:';
-const bridgeSocks = new Map(); let bridgeSeq = 0, bridgeWaiters = [];
-// Hay que llamarla directamente desde un clic: Safari solo deja abrir ventanas así
-function openBridge(port){
-  if (!NEED_BRIDGE || (S.bridge && !S.bridge.closed && S.bridgeReady)) return;
-  S.bridgeReady = false; S.bridgeOrigin = 'http://127.0.0.1:' + port;
-  S.bridge = window.open(S.bridgeOrigin + '/puente#' + encodeURIComponent(location.origin), 'cabina-puente', 'popup,width=380,height=220');
-  if (!S.bridge) toast('Safari ha bloqueado la ventana puente con el plugin. Permite las ventanas emergentes para esta web.', false, 8000);
+/* ---------- Safari y los plugins ---------- */
+// Safari no deja que una web https hable con ws://127.0.0.1 (contenido mixto). Los plugins sirven la propia
+// Cabina en http://127.0.0.1:<puerto>, desde donde sí se puede (y cuenta como segura para micro y cámara).
+// En Safari se ofrece abrirla desde allí, en la misma sala. Esa copia la descarga el plugin de la web
+// publicada y deja su dirección en window.CABINA_WEB.
+const ON_PLUGIN = !!window.CABINA_WEB;
+const PUBLIC_URL = ON_PLUGIN ? window.CABINA_WEB : location.origin + location.pathname;
+const NEED_LOCAL = WEBKIT && location.protocol === 'https:';
+function safariPlugin(){
+  if (!NEED_LOCAL) return false;
+  const name = $('#name').value.trim();
+  const q = new URLSearchParams({ sala: S.room || slug($('#room').value) || '', daw: 'plugin' });
+  if (name) q.set('nombre', name);
+  $('#safariGo').href = `http://127.0.0.1:${SEND_PORT}/?${q}`;
+  $('#safari').hidden = false;
+  return true;
 }
-function waitBridge(ms){
-  if (S.bridgeReady && S.bridge && !S.bridge.closed) return Promise.resolve();
-  return new Promise((res, rej) => {
-    const t = setTimeout(() => { bridgeWaiters = bridgeWaiters.filter(f => f !== ok); rej(new Error('sin puente')); }, ms);
-    const ok = () => { clearTimeout(t); res(); };
-    bridgeWaiters.push(ok);
-  });
-}
-const bridgePost = (m, t) => { try { S.bridge.postMessage(m, S.bridgeOrigin, t || []); } catch {} };
-async function bridgeSocket(port, timeout){
-  try { await waitBridge(5000); }
-  catch (e) {
-    // La ventana no llegó a cargar (plugin cerrado): quitarla para que no quede el error de Safari
-    if (S.bridge && !S.bridgeReady) { try { S.bridge.close(); } catch {} S.bridge = null; }
-    throw e;
-  }
-  return new Promise((res, rej) => {
-    const id = ++bridgeSeq;
-    const sock = { readyState: 0, bufferedAmount: 0, binaryType: 'arraybuffer', onopen: null, onmessage: null, onclose: null, onerror: null,
-      send(d){
-        if (this.readyState !== 1) return;
-        if (typeof d === 'string') { bridgePost({ cab: 'send', id, data: d }); return; }
-        const buf = d instanceof ArrayBuffer ? d : d.buffer.slice(d.byteOffset, d.byteOffset + d.byteLength);
-        bridgePost({ cab: 'send', id, data: buf }, [buf]);
-      },
-      close(){ if (this.readyState < 2) { this.readyState = 2; bridgePost({ cab: 'close', id }); } } };
-    const t = setTimeout(() => { bridgeSocks.delete(id); bridgePost({ cab: 'close', id }); rej(new Error('timeout')); }, timeout || 1500);
-    sock._open = () => { clearTimeout(t); sock.readyState = 1; res(sock); };
-    sock._fail = () => { clearTimeout(t); bridgeSocks.delete(id); rej(new Error('closed')); };
-    bridgeSocks.set(id, sock);
-    bridgePost({ cab: 'open', id, port });
-  });
-}
-function bridgeClosed(id){
-  const s = bridgeSocks.get(id); if (!s) return;
-  const was = s.readyState; s.readyState = 3; bridgeSocks.delete(id);
-  if (was === 0) s._fail(); else if (s.onclose) s.onclose();
-}
-window.addEventListener('message', e => {
-  if (!S.bridge || e.source !== S.bridge || e.origin !== S.bridgeOrigin) return;
-  const m = e.data; if (!m || !m.cab) return;
-  if (m.cab === 'ready') { S.bridgeReady = true; const w = bridgeWaiters; bridgeWaiters = []; w.forEach(f => f()); try { window.focus(); } catch {} return; }
-  const s = bridgeSocks.get(m.id); if (!s) return;
-  if (m.cab === 'open') s._open();
-  else if (m.cab === 'msg') { if (s.onmessage) s.onmessage({ data: m.data }); }
-  else if (m.cab === 'close') bridgeClosed(m.id);
-});
-// Si alguien cierra la ventana puente, se cortan sus conexiones
-setInterval(() => { if (S.bridge && S.bridge.closed) { S.bridge = null; S.bridgeReady = false; [...bridgeSocks.keys()].forEach(bridgeClosed); } }, 1000);
+$('#safariNo').onclick = () => { $('#safari').hidden = true; };
 
 function openWs(port, timeout){
-  if (NEED_BRIDGE) return bridgeSocket(port, timeout);
   return new Promise((res, rej) => {
     let ws; try { ws = new WebSocket('ws://127.0.0.1:' + port); } catch (e) { rej(e); return; }
     ws.binaryType = 'arraybuffer';
@@ -907,7 +880,6 @@ function silentSink(node){ const g = S.ctx.createGain(); g.gain.value = 0; node.
 // se cierra mientras se emite (al cerrar y abrir el proyecto, por ejemplo) se sigue solo en cuanto vuelve.
 // La pista que reciben los demás es siempre la misma, así que la llamada no se corta.
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const bridgeUp = () => S.bridge && !S.bridge.closed && S.bridgeReady;
 function setDawWaiting(on){
   S.dawWaiting = on;
   const b = $('#dawBtn');
@@ -923,8 +895,6 @@ async function pluginStream(){
     try { ws = await openWs(SEND_PORT, 2500); }
     catch {
       if (S.dawTry !== gen) return null;
-      // En Safari la ventana puente la sirve el propio plugin: sin él no carga y solo se puede abrir con un clic
-      if (NEED_BRIDGE && !bridgeUp()) throw new Error('No encuentro el plugin Cabina Send. Ábrelo en el máster del DAW y vuelve a pulsar Emitir DAW.');
       $('#dawInfo').textContent = 'Esperando a Cabina Send en el máster del DAW…';
       await sleep(2000);
       if (S.dawTry !== gen) return null;
@@ -965,7 +935,6 @@ async function reconnectPlugin(src){
   while (S.pluginSrc === src) {
     await sleep(2000);
     if (S.pluginSrc !== src) return;
-    if (NEED_BRIDGE && !bridgeUp()) { $('#dawInfo').textContent = 'Cabina Send se ha cerrado y la ventana puente también. Pulsa Parar emisión y vuelve a emitir.'; return; }
     try {
       const ws = await openWs(SEND_PORT, 2500);
       if (S.pluginSrc !== src) { ws.close(); return; }
@@ -1027,8 +996,8 @@ function detachReturn(r){
   r.node.port.onmessage = null; r.node.disconnect(); r.g.disconnect();
   r.node = null; r.peer = null; r.src = null;
 }
-$('#scanRet').onclick = () => { openBridge(RETURN_PORTS[0]); scanReturns().catch(e => toast('No se pudo buscar: ' + e.message)); };
-$('#dawIn2').onchange = e => { prefs.dawIn = e.target.value; savePrefs(); if (S.daw || S.dawWaiting) { if (e.target.value === 'plugin') openBridge(SEND_PORT); startDaw(); } };
+$('#scanRet').onclick = () => { if (safariPlugin()) return; scanReturns().catch(e => toast('No se pudo buscar: ' + e.message)); };
+$('#dawIn2').onchange = e => { prefs.dawIn = e.target.value; savePrefs(); if (S.daw || S.dawWaiting) startDaw(); };
 $('#quality').onchange = e => { S.quality = e.target.value; prefs.quality = S.quality; savePrefs(); qInfo(); if (S.daw) startDaw(); };
 
 /* ---------- medidores L/R ---------- */
@@ -1204,12 +1173,16 @@ function wav24(L, R, sr){
 /* ---------- vídeo ---------- */
 function addLocalTile(){
   const t = document.createElement('div'); t.className = 'tile me';
-  t.innerHTML = '<video autoplay playsinline muted></video><div class="avatar"></div><span class="tag"></span>';
-  t.querySelector('.tag').textContent = S.name + ' (tú)';
+  t.innerHTML = '<video autoplay playsinline muted></video><div class="avatar"></div>'
+    + '<span class="tag"><i class="net mid" title="Conectando…"></i><span class="nm"></span></span>'
+    + '<button class="btn sm mir" title="Verte en espejo (y que los demás te vean igual)">Espejo</button>';
+  t.querySelector('.nm').textContent = S.name + ' (tú)';
+  t.querySelector('.mir').onclick = () => setMirror(!S.mirror);
   t.querySelector('.avatar').textContent = S.name[0].toUpperCase();
   t.querySelector('video').srcObject = S.talk;
   if (!S.talk.getVideoTracks().length) { t.classList.add('novideo'); $('#camBtn').disabled = true; }
   $('#grid').prepend(t); S.localTile = t;
+  setMirror(S.mirror);
 }
 function addTile(p){
   const t = document.createElement('div'); t.className = 'tile novideo';
@@ -1237,6 +1210,20 @@ function attachTalk(p, s){
   p.tile.classList.toggle('novideo', !(p.hasVideo && p.camOn !== false));
 }
 function setCam(p, on){ p.camOn = on; if (p.tile) p.tile.classList.toggle('novideo', !(p.hasVideo && on)); }
+// Espejo: tu imagen se ve igual para ti y para los demás (en espejo, como en FaceTime, salvo que lo quites).
+// No se toca el vídeo que se envía: cada uno lo gira en su pantalla según lo que diga quien emite.
+S.mirror = prefs.mirror !== false;
+function setMirror(on){
+  S.mirror = on; prefs.mirror = on; savePrefs();
+  if (S.localTile) { S.localTile.classList.toggle('mirror', on); S.localTile.querySelector('.mir').classList.toggle('on', on); }
+  peers.forEach(p => send(p.dc, { type: 'mirror', on }));
+}
+// Tu propio punto: conexión con el servidor que reúne la sala
+setInterval(() => {
+  if (!S.localTile) return;
+  const ok = S.peer && !S.peer.disconnected && !S.peer.destroyed, n = S.localTile.querySelector('.net');
+  n.className = 'net ' + (ok ? 'ok' : 'mid'); n.title = ok ? 'Conectado a la sala' : 'Reconectando con la sala…';
+}, 1000);
 // Volumen de la voz de cada uno: es tu mezcla, solo cambia lo que oyes tú. Se recuerda por nombre.
 let vols = {}; try { vols = JSON.parse(localStorage.getItem('cabina-vols')) || {}; } catch {}
 function saveVols(){ try { localStorage.setItem('cabina-vols', JSON.stringify(vols)); } catch {} }
@@ -1421,7 +1408,7 @@ $('#out').onchange = e => {
   peers.forEach(p => p.dawIn && setSink(p.dawIn.audio));
   ctxSink();
 };
-$('#copy').onclick = () => navigator.clipboard.writeText(location.href).then(() => toast('Enlace copiado. Pásaselo a tus colegas.', true), () => toast(location.href));
+$('#copy').onclick = () => { const url = PUBLIC_URL + '?sala=' + S.room; navigator.clipboard.writeText(url).then(() => toast('Enlace copiado. Pásaselo a tus colegas.', true), () => toast(url)); };
 $('#leave').onclick = () => { try { S.peer && S.peer.destroy(); } catch {} location.href = location.pathname; };
 window.addEventListener('beforeunload', () => { try { S.peer && S.peer.destroy(); } catch {} });
 
