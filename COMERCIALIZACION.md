@@ -43,7 +43,7 @@ Escrita el 26/10/2026. Precios y condiciones de terceros comprobados en esa fech
 ### Fase 3 · Crecer
 - **Salas grandes**: un servidor que reparta el audio (SFU, como LiveKit). Hoy cada uno manda una copia a cada persona y con más de 5–6 no da abasto.
 - **AAX para Pro Tools**: requiere firmarlo con Avid y PACE.
-- **App de escritorio con el plugin integrado**: elimina los problemas de Safari y de los permisos del navegador, y permitiría cosas que una web no puede (por ejemplo, dar control del ordenador).
+- **App de escritorio**: ya existe una primera versión (Electron, sin firmar, ver MEMORIA.md §5). Para venderla: firmarla (Apple 99 €/año; Windows, certificado aparte), actualizaciones automáticas y dar control del ordenador.
 
 ## Precio y competencia
 

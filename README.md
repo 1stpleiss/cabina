@@ -3,6 +3,7 @@
 Estudio virtual privado: escuchar el DAW de un colega en estéreo a 510 kbps (o sin pérdidas), hablar, verse, compartir pantalla y grabarlo en tu DAW.
 
 - `web/index.html` — la web (súbela a Netlify o GitHub Pages).
+- `app/` — Cabina como app de escritorio para Mac y Windows (Electron).
 - `plugin/` — **Cabina Send** (máster → web) y **Cabina Retorno** (web → pista), VST3/AU con JUCE.
 - **[MEMORIA.md](MEMORIA.md)** — documentación completa: arquitectura, puesta en marcha, compilación, limitaciones y hoja de ruta.
 

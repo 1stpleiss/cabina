@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Cabina</title>
+<style>
+body{margin:0;height:100vh;display:grid;place-items:center;background:#0d0e10;color:#8d929a;font:14px/1.45 system-ui,sans-serif;text-align:center}
+h1{color:#ebe8e3;font-size:18px;margin:0 0 6px}
+button{margin-top:14px;background:#213ACE;border:0;color:#fff;border-radius:8px;padding:8px 16px;font:600 14px system-ui,sans-serif;cursor:pointer}
+</style>
+</head>
+<body>
+<div>
+  <h1>No se ha podido cargar Cabina</h1>
+  <p>Comprueba la conexión a internet y vuelve a intentarlo.</p>
+  <button id="retry">Reintentar</button>
+</div>
+<script>
+const web = new URLSearchParams(location.search).get('web');
+document.getElementById('retry').onclick = () => { if (web) location.href = web; };
+</script>
+</body>
+</html>

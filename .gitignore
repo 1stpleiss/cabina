@@ -2,3 +2,6 @@ build/
 dist/
 .DS_Store
 *.wav
+
+# Recursos de la app de escritorio (icono)
+!app/build/

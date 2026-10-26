@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>Compartir pantalla</title>
+<style>
+body{margin:0;background:#0d0e10;color:#ebe8e3;font:14px/1.45 system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+header{display:flex;align-items:center;gap:8px;padding:16px 20px 10px}
+h1{font-size:16px;margin:0 auto 0 0}
+.tabs button,.actions button{background:#1d2024;border:1px solid #2a2e34;color:inherit;border-radius:8px;padding:6px 12px;font:inherit;cursor:pointer}
+.tabs button.on{background:#121a40;border-color:#213ACE;color:#8C9EF7}
+#list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:6px 20px;height:400px;overflow:auto;align-content:start}
+.src{background:#16181b;border:2px solid #2a2e34;border-radius:10px;padding:6px;cursor:pointer;text-align:left;color:inherit;font:inherit}
+.src:hover{border-color:#3b4048}
+.src.on{border-color:#4A66F0}
+.src img{width:100%;aspect-ratio:16/9;object-fit:contain;background:#000;border-radius:6px;display:block}
+.src span{display:block;margin-top:5px;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.actions{display:flex;justify-content:flex-end;gap:8px;padding:12px 20px}
+.actions .go{background:#213ACE;border-color:#213ACE;color:#fff;font-weight:600}
+.actions .go:disabled{opacity:.4;cursor:not-allowed}
+</style>
+</head>
+<body>
+<header><h1>Compartir pantalla</h1><div class="tabs"><button id="tWin" class="on">Ventanas</button> <button id="tScr">Pantallas</button></div></header>
+<div id="list"></div>
+<div class="actions"><button id="cancel">Cancelar</button><button id="go" class="go" disabled>Compartir</button></div>
+<script>
+let all = [], screens = false, sel = null;
+function render(){
+  const list = document.getElementById('list'); list.innerHTML = '';
+  all.filter(s => s.screen === screens).forEach(s => {
+    const b = document.createElement('button'); b.className = 'src' + (s.id === sel ? ' on' : '');
+    const img = document.createElement('img'); img.src = s.thumb; img.alt = '';
+    const n = document.createElement('span'); n.textContent = s.name;
+    b.append(img, n);
+    b.onclick = () => { sel = s.id; document.getElementById('go').disabled = false; render(); };
+    b.ondblclick = () => picker.choose(s.id);
+    list.append(b);
+  });
+  document.getElementById('tWin').classList.toggle('on', !screens);
+  document.getElementById('tScr').classList.toggle('on', screens);
+}
+document.getElementById('tWin').onclick = () => { screens = false; render(); };
+document.getElementById('tScr').onclick = () => { screens = true; render(); };
+document.getElementById('cancel').onclick = () => picker.choose(null);
+document.getElementById('go').onclick = () => sel && picker.choose(sel);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') picker.choose(null); });
+picker.sources().then(s => { all = s; if (!all.some(x => !x.screen)) screens = true; render(); });
+</script>
+</body>
+</html>

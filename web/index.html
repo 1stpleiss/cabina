@@ -51,6 +51,8 @@ h1{font-size:22px;margin:0;letter-spacing:-.01em}
 .tips{margin-top:14px;padding:9px 12px;border-radius:10px;background:var(--panel2);color:var(--muted);font-size:12.5px}
 .tips b{color:var(--text);font-weight:600}
 .tips p{margin:2px 0}
+#appOffer{margin:12px 0 0}
+#appOffer a{color:var(--accent-text)}
 .warn{color:#ffb4a0}
 
 /* Studio */
@@ -251,6 +253,7 @@ audio.fprev{color-scheme:dark;height:36px}
       <p><b>Windows:</b> si sale <i>Windows protegió su PC</i>, pulsa <i>Más información → Ejecutar de todas formas</i>.</p>
       <p>Después, vuelve a escanear los plugins en tu DAW. Para solo escuchar no hace falta instalar nada.</p>
     </div>
+    <p class="sub" id="appOffer">También está <b>Cabina para escritorio</b>: la misma web en una app, que no se ralentiza en segundo plano y funciona con los plugins sin trucos en Mac. <a href="https://github.com/1stpleiss/cabina/releases/download/app/Cabina-App-Mac.dmg">Mac</a> · <a href="https://github.com/1stpleiss/cabina/releases/download/app/Cabina-App-Windows.exe">Windows</a></p>
     <div class="actions"><button class="btn" id="plugHave">Ya lo tengo</button><button class="btn" id="plugSkip">Solo voy a escuchar</button></div>
   </div>
 </div>
@@ -278,6 +281,8 @@ const peers = new Map();
 const meters = new Set();
 
 /* ---------- utilidades ---------- */
+// En la sala se puede pegar el enlace entero (en la app de escritorio no hay barra de direcciones)
+const roomOf = s => { const m = /[?&]sala=([^&#\s]+)/.exec(s); return m ? decodeURIComponent(m[1]) : s; };
 const slug = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40);
 const rid = () => Math.random().toString(36).slice(2,8);
 const hhmm = t => new Date(t).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
@@ -310,6 +315,7 @@ qInfo();
 
 /* ---------- aviso del plugin ---------- */
 const isWin = /windows/i.test(navigator.userAgent);
+if (window.CABINA_APP) $('#appOffer').hidden = true;
 if (isWin) { $('#dlBtns').prepend($('#dlWin')); $('#dlWin').classList.add('primary'); $('#dlMac').classList.remove('primary'); }
 function plugModal(show){
   $('#plug').hidden = !show;
@@ -437,7 +443,7 @@ $('#enter').onclick = async () => {
   if (S.entering) return;
   S.entering = true; $('#enter').disabled = true;
   S.name = $('#name').value.trim() || 'Anónimo';
-  S.room = slug($('#room').value) || rid();
+  S.room = slug(roomOf($('#room').value)) || rid();
   try { localStorage.setItem('cabina-name', $('#name').value.trim()); } catch {}
   prefs.cam = $('#cam').value; prefs.mic = $('#mic').value; prefs.dawIn = $('#dawIn').value; prefs.out = $('#out').value;
   savePrefs();
@@ -1516,7 +1522,8 @@ if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) $('#screen
 async function startScreen(){
   let s;
   try { s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 30, max: 30 } }, audio: false }); }
-  catch (e) { if (e.name !== 'NotAllowedError') toast('No se pudo compartir la pantalla: ' + e.message); return; }
+  // Cancelar la elección no es un error (en la app de escritorio llega como AbortError)
+  catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') toast('No se pudo compartir la pantalla: ' + e.message); return; }
   const tr = s.getVideoTracks()[0];
   try { tr.contentHint = 'detail'; } catch {}
   tr.onended = stopScreen; // "Dejar de compartir" del propio navegador

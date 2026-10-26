@@ -48,7 +48,8 @@ Lo que **no** pretende: tocar en sincronía en tiempo real. La latencia de inter
 | **Web Cabina** | Sala por enlace con vídeo, voz, chat, envío del DAW en alta calidad, medidores, grabación WAV | `web/index.html` |
 | **Cabina Send** (VST3/AU) | Va en el máster. Deja pasar el audio intacto y lo entrega a la web, sin BlackHole ni VB-Cable | `plugin/` |
 | **Cabina Retorno** (VST3/AU) | Va en una pista. Recibe de la web el DAW de un colega para escucharlo o grabarlo | `plugin/` |
-| **Compilación automática** | GitHub compila los plugins para Mac y Windows | `.github/workflows/compilar.yml` |
+| **App de escritorio** (Mac y Windows) | La misma web dentro de una app (Electron), sin los límites del navegador | `app/` |
+| **Compilación automática** | GitHub compila los plugins y la app para Mac y Windows | `.github/workflows/compilar.yml`, `app.yml` |
 
 Los plugins son **opcionales**: la web funciona sola con un cable de audio virtual.
 
@@ -177,6 +178,27 @@ Hechos con **JUCE 8** (C++17). Un mismo código fuente genera los dos plugins; l
 ### Interfaz
 
 Ventana de 400×190 con estado (esperando / conectado / emitiendo / recibiendo), origen de la conexión, puerto y medidores L/R.
+
+### App de escritorio
+
+Carpeta `app/`. Es Cabina dentro de una app hecha con **Electron 44.7.0** (empaquetada con electron-builder 26.17.0). Creada el 26-10-2026.
+
+- **Carga la web publicada** (`https://1stpleiss.github.io/cabina/`), igual que la página de carga del plugin: los cambios de la web llegan sin reinstalar la app. Para probar con la web local: `CABINA_WEB=http://localhost:8765/ npm start`.
+- **Por qué Electron y no Tauri**: Tauri usa el motor del navegador del sistema, que en Mac es el de Safari, justo el que da problemas con los plugins y el audio. Electron lleva Chrome dentro, donde Cabina está probada. La pega es el tamaño: el `.dmg` universal (Intel + Apple Silicon) pesa ~224 MB.
+- **Qué gana frente al navegador**:
+  - Habla con los plugins en `127.0.0.1` directamente desde la web publicada, también en Mac (Electron trae desactivado el permiso de red local de Chrome). Probado con un Cabina Send simulado: conecta y un oyente en Chrome recibe el DAW.
+  - `backgroundThrottling: false`: con la ventana tapada o minimizada no se ralentiza la página, que era una causa de cortes en el audio.
+  - El audio suena sin esperar a un clic (`autoplay-policy`).
+- **Permisos** (micro, cámara, salida de audio...): se conceden solos, pero solo a la web de Cabina (`setPermissionRequestHandler`/`setPermissionCheckHandler`). En Mac, el sistema pide permiso de micro y cámara la primera vez (textos en `NSMicrophoneUsageDescription`/`NSCameraUsageDescription`).
+- **Compartir pantalla**: ventana propia para elegir ventana o pantalla, con miniaturas (`picker.html`, `desktopCapturer`). Cancelar llega a la web como `AbortError`, que la web ya no trata como error.
+- **Enlaces externos** (descargas, créditos) se abren en el navegador; la app no navega fuera de Cabina.
+- **Sin internet**: página propia con *Reintentar* (`offline.html`).
+- Una sola instancia; menú con *Volver a cargar* (Cmd/Ctrl+R), herramientas de desarrollo, zoom y pantalla completa.
+- La web sabe que está en la app por `window.CABINA_APP` (lo pone `preload.js`): entonces no ofrece descargarla. Como no hay barra de direcciones, en el campo *Sala* se puede **pegar el enlace entero** de una sala (`roomOf`); esto vale también en la web.
+- **Firma**: ad-hoc (`identity: "-"`, `hardenedRuntime: false`). Sin ella, el `.dmg` descargado diría que la app "está dañada" y no se podría abrir. Con ella, macOS pide *Abrir igualmente* (como los plugins), y Windows *Más información → Ejecutar de todas formas*.
+- **Actualizaciones**: la web se actualiza sola. La app en sí (la "carcasa") hay que reinstalarla a mano cuando cambie; en Mac, las actualizaciones automáticas de Electron requieren firma de Apple. Sin firma de verdad, macOS puede volver a pedir los permisos tras instalar una versión nueva.
+- **Compilación**: `.github/workflows/app.yml`, con cada cambio en `app/`. Publica `Cabina-App-Mac.dmg` y `Cabina-App-Windows.exe` en la release **`app`**; la web los enlaza en el aviso de los plugins. En local: `cd app && npm install && npx electron-builder --mac`.
+- **Ojo en VS Code**: el terminal de VS Code define `ELECTRON_RUN_AS_NODE=1`, y con eso Electron arranca como Node y falla (`app` sin definir). Lanzarlo con `env -u ELECTRON_RUN_AS_NODE npm start`.
 
 ## 6. Protocolo entre la web y los plugins
 
@@ -367,7 +389,15 @@ cabina/
 │   └── settings.json
 ├── .github/workflows/
 │   ├── compilar.yml            ← compila los plugins, crea instaladores y los publica
+│   ├── app.yml                 ← compila la app de escritorio y la publica
 │   └── web.yml                 ← publica web/ en GitHub Pages
+├── app/                        ← app de escritorio (Electron)
+│   ├── package.json            ← versiones y configuración del empaquetado
+│   ├── main.js                 ← ventana, permisos, compartir pantalla, enlaces
+│   ├── preload.js              ← window.CABINA_APP para la web
+│   ├── picker.html, picker-preload.js ← elegir ventana o pantalla
+│   ├── offline.html            ← sin internet
+│   └── build/icon.png          ← icono (logo de 1st, 512×512)
 ├── web/
 │   ├── index.html              ← toda la web en un archivo
 │   ├── icono.png               ← icono de la pestaña (logo de 1st, 180×180)
@@ -390,6 +420,7 @@ cabina/
 | TURN de relevo (el que trae PeerJS por defecto) | 0 € |
 | Compilación (GitHub Actions, repositorio público o cuota gratuita) | 0 € |
 | JUCE para uso personal | 0 € (ver §18) |
+| App de escritorio sin firmar | 0 € |
 | **Opcional**: servidor PeerJS + TURN propios en un VPS | ~4–6 €/mes |
 
 ## 13. Seguridad y privacidad
@@ -446,6 +477,8 @@ cabina/
 | Sala con 4 navegadores: corte de red, la anfitriona sale, entra alguien nuevo, la anfitriona nueva cierra la pestaña | Siempre se vuelven a ver todos (en 6–15 s); quien entra después llega a la misma sala |
 | Archivos WAV, PNG y FLP por el chat | Tarjetas con extensión y estado; el WAV se puede escuchar y el PNG se ve; quien envía ve "Enviado a 2 personas" |
 | Pantalla compartida con 3 personas | Cámaras pequeñas y centradas bajo la pantalla |
+| App de escritorio en Mac (cargando la web publicada y la local) con Cabina Send simulado | Conecta con el plugin; pegando el enlace entero entra en la sala buena; un oyente en Chrome recibe el DAW; compartir pantalla con la ventana propia llega al oyente; cancelar no da error |
+| App empaquetada (`.dmg` universal, firma ad-hoc) | `codesign --verify --deep --strict` correcto; arranca y carga Cabina |
 
 Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y los plugins en Reaper en Mac y Windows.
 
@@ -466,7 +499,9 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 
 **Largo plazo**
 - [ ] SFU para salas grandes.
-- [ ] App de escritorio (Tauri) con el plugin integrado y sin depender del navegador. Permitiría también dar control del ordenador a otro participante.
+- [x] App de escritorio (Electron) que carga la web y habla con los plugins sin los límites del navegador (26-10-2026).
+- [ ] Dar control del ordenador a otro participante desde la app (ratón y teclado; en Mac, permiso de accesibilidad).
+- [ ] Enlaces `cabina://` para abrir una sala en la app directamente.
 
 ## 17. Solución de problemas
 
@@ -497,4 +532,5 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 - **MediaPipe tasks-vision** y el modelo Face Landmarker: Apache 2.0.
 - **Logo de 1st** (`web/icono.png`): propio.
 - **hitmarker.mp3**: CC0 (aruscio28, Freesound 322640).
+- **Electron** y **electron-builder**: MIT. Electron incluye Chromium (licencias BSD y otras, listadas en la propia app).
 - El código de Cabina es tuyo. Si lo publicas, AGPLv3 por coherencia con JUCE.

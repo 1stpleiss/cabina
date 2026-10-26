@@ -1,0 +1,37 @@
+{
+  "name": "cabina",
+  "productName": "Cabina",
+  "version": "0.1.0",
+  "description": "Cabina como app de escritorio: la misma web, sin los límites del navegador",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "mac": "electron-builder --mac",
+    "win": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "44.7.0",
+    "electron-builder": "26.17.0"
+  },
+  "build": {
+    "appId": "com.cabina.app",
+    "productName": "Cabina",
+    "files": ["main.js", "preload.js", "picker.html", "picker-preload.js", "offline.html"],
+    "directories": { "output": "dist", "buildResources": "build" },
+    "mac": {
+      "target": [{ "target": "dmg", "arch": ["universal"] }],
+      "category": "public.app-category.music",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "artifactName": "Cabina-App-Mac.${ext}",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Cabina usa el micro para que tus colegas te oigan en la sala.",
+        "NSCameraUsageDescription": "Cabina usa la cámara para que tus colegas te vean en la sala."
+      }
+    },
+    "dmg": { "title": "Cabina" },
+    "win": { "target": ["nsis"], "artifactName": "Cabina-App-Windows.${ext}" },
+    "nsis": { "oneClick": true, "perMachine": false, "shortcutName": "Cabina" }
+  }
+}
