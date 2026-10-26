@@ -93,7 +93,8 @@ main{padding:12px;overflow:auto}
 #stage .tag{position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.6);padding:3px 9px;border-radius:7px;font-size:12.5px;font-weight:500}
 #stage .full{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6)}
 #stage:fullscreen{max-height:none;border:0;border-radius:0}
-main.sharing #grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
+main.sharing #grid{display:flex;flex-wrap:wrap;justify-content:center}
+main.sharing .tile{width:220px;max-width:100%;flex:none}
 aside{border-left:1px solid var(--line);overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
 .box{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;flex:none}
 .box h3{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
@@ -124,10 +125,21 @@ aside{border-left:1px solid var(--line);overflow:auto;padding:12px;display:flex;
 #fileBtn{padding:7px 9px;display:grid;place-items:center}
 #fileBtn svg{width:16px;height:16px}
 .box.chat.drop{border-color:var(--accent-glow);box-shadow:0 0 0 1px var(--accent-glow)}
-.msg .fname{font-weight:500;word-break:break-all}
-.msg .fsize{color:var(--muted);font-size:11px}
-.msg .fst{color:var(--muted);font-size:11.5px;margin-top:3px}
-.msg .fst .btn{margin-top:2px}
+.fcard{position:relative;display:flex;align-items:center;gap:10px;margin-top:4px;padding:9px 11px;max-width:340px;overflow:hidden;background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--accent-glow);border-radius:10px;color:var(--text);text-decoration:none}
+a.fcard[href]{cursor:pointer}
+a.fcard[href]:hover{background:#22262b;border-color:#3b4048;border-left-color:var(--accent-glow)}
+.fcard.err{border-left-color:var(--red)}
+.fcard .fext{flex:none;width:38px;height:38px;border-radius:8px;display:grid;place-items:center;background:#121a40;color:var(--accent-text);font:700 10px/1 "JetBrains Mono",ui-monospace,monospace}
+.fcard .fmeta{flex:1;min-width:0;display:flex;flex-direction:column}
+.fcard .fname{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fcard .fsub{color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fcard .fdl{flex:none;width:18px;height:18px;color:var(--muted)}
+a.fcard[href]:hover .fdl{color:var(--accent-text)}
+a.fcard:not([href]) .fdl{display:none}
+.fcard .fbar{position:absolute;left:0;bottom:0;width:0;height:2px;background:var(--accent-glow);transition:width .2s}
+.fprev{display:block;margin-top:6px;max-width:340px;width:100%}
+img.fprev{width:auto;max-height:200px;border-radius:8px;border:1px solid var(--line)}
+audio.fprev{color-scheme:dark;height:36px}
 .modal{position:fixed;inset:0;z-index:8;display:grid;place-items:center;padding:16px;background:rgba(5,6,8,.72)}
 .modal h2{font-size:18px;margin:0 0 4px}
 .modal .actions{margin-top:14px}
@@ -261,7 +273,7 @@ aside{border-left:1px solid var(--line);overflow:auto;padding:12px;display:flex;
 <script>
 const $ = s => document.querySelector(s);
 const PREFIX = 'cabina-v1-';
-const S = { peer:null, isHost:false, room:'', name:'', talk:null, daw:null, dawMeter:null, ctx:null, sinkId:'', hostRetries:0 };
+const S = { peer:null, isHost:false, room:'', name:'', talk:null, daw:null, dawMeter:null, ctx:null, sinkId:'' };
 const peers = new Map();
 const meters = new Set();
 
@@ -357,7 +369,7 @@ $('#detect').onclick = async () => {
     $('#devs').hidden = false; $('#enter').disabled = false;
   } catch {}
 })();
-navigator.mediaDevices?.addEventListener?.('devicechange', () => fillDevices().catch(()=>{}));
+navigator.mediaDevices?.addEventListener?.('devicechange', () => fillDevices().then(followDevices).catch(()=>{}));
 
 /* ---------- entrar ---------- */
 async function getTalk(){
@@ -447,6 +459,7 @@ $('#enter').onclick = async () => {
   S.sinkId = $('#out').value;
   ctxSink();
   $('#cam2').dataset.cur = $('#cam2').value; $('#mic2').dataset.cur = $('#mic2').value;
+  watchMic(); S.talk.getVideoTracks().forEach(t => t.onended = () => followDevices());
   addLocalTile();
   connect();
   if ($('#dawIn').value) startDaw();
@@ -474,19 +487,31 @@ function wirePeer(p){
   p.on('connection', c => {
     if (banned.has(c.peer)) { c.on('open', () => c.close()); return; }
     const kind = c.metadata && c.metadata.kind;
-    kind === 'pcm' ? wirePcmIn(c) : kind === 'file' ? wireFileIn(c) : wireConn(c);
+    if (kind === 'pcm') wirePcmIn(c); else if (kind === 'file') wireFileIn(c);
+    else { wireConn(c); if (c.metadata && c.metadata.name) setName(peers.get(c.peer), c.metadata.name); }
   });
   p.on('call', call => { if (banned.has(call.peer)) { call.close(); return; } onCall(call); });
-  p.on('disconnected', () => { setStatus('Reconectando…'); try { p.reconnect(); } catch {} });
+  p.on('disconnected', () => { if (S.peer !== p || p.destroyed) return; setStatus('Reconectando…'); try { p.reconnect(); } catch {} });
+}
+// El anfitrión es quien reúne la sala. Si un invitado pierde la conexión con él (red caída, se ha ido...),
+// vuelve a buscarlo cada 2 s. Si ya no está, el primero de los que quedan (por orden de nombre interno)
+// pasa a ser el anfitrión y los demás se conectan a él. Antes no se reconectaba nadie y cada uno se
+// quedaba solo en su sala creyendo que se había ido el otro.
+const HOST = () => PREFIX + S.room;
+function lostHost(){
+  if (S.isHost || S.leaving || S.rejoinT || !S.peer) return;
+  S.rejoinT = setTimeout(() => { S.rejoinT = null; if (!S.isHost && !S.leaving && S.peer && !peers.has(HOST())) connectTo(HOST()); }, 2000);
 }
 function handleErr(e){
   if (e.type === 'peer-unavailable') {
-    // el anfitrión de la sala se ha ido: si estamos solos, pasamos a ser anfitrión
-    if (!S.isHost && peers.size <= 1 && S.hostRetries < 2) {
-      S.hostRetries++; peers.forEach((_, id) => removePeer(id));
-      try { S.peer.destroy(); } catch {} S.peer = null;
-      setTimeout(connect, 1500); return;
-    }
+    if (S.isHost || S.leaving || !String(e.message).includes(HOST())) return;
+    removePeer(HOST());
+    const first = [S.peer.id, ...peers.keys()].sort()[0] === S.peer.id;
+    if (!first) { lostHost(); return; }
+    peers.forEach((_, id) => removePeer(id));
+    const old = S.peer; S.peer = null; try { old.destroy(); } catch {}
+    setStatus('Reconectando…');
+    setTimeout(connect, 500); // si otro se adelanta, connect() entra como invitado
     return;
   }
   toast('Error de conexión: ' + (e.type || e.message));
@@ -499,13 +524,16 @@ function ensurePeer(id){
 function connectTo(id){
   if (!S.peer || id === S.peer.id || peers.has(id) || banned.has(id)) return;
   ensurePeer(id);
-  wireConn(S.peer.connect(id, { reliable: true, metadata: { name: S.name } }));
+  const c = S.peer.connect(id, { reliable: true, metadata: { name: S.name } });
+  wireConn(c);
   const call = S.peer.call(id, S.talk, { metadata: { kind: 'talk' } });
   wireTalk(peers.get(id), call);
+  // Si no responde (por ejemplo, un anfitrión que acaba de irse y el servidor aún no lo sabe), se descarta
+  // y, si era el anfitrión, se vuelve a buscar
+  setTimeout(() => { const p = peers.get(id); if (p && p.dc === c && !c.open) removePeer(id); }, 8000);
 }
 function wireConn(c){
   const p = ensurePeer(c.peer); p.dc = c;
-  if (c.metadata && c.metadata.name) setName(p, c.metadata.name);
   c.on('open', () => {
     p.lastSeen = Date.now();
     send(c, { type: 'hello', name: S.name, cam: camOn(), mirror: S.mirror });
@@ -525,6 +553,7 @@ function onData(p, d){
   const fromHost = p.id === PREFIX + S.room;
   if (d.type === 'ping') p.pings = true;
   else if (d.type === 'kick') { if (fromHost) kicked(); }
+  else if (d.type === 'bye') removePeer(p.id);
   else if (d.type === 'kicked') { if (fromHost && typeof d.id === 'string' && d.id !== S.peer.id) { banned.add(d.id); removePeer(d.id); } }
   else if (d.type === 'hello') { setName(p, d.name); setCam(p, d.cam !== false); p.tile && p.tile.classList.toggle('mirror', d.mirror === true); }
   else if (d.type === 'mirror') { p.tile && p.tile.classList.toggle('mirror', !!d.on); }
@@ -560,6 +589,7 @@ function removePeer(id){
   try { p.dc && p.dc.close(); } catch {}
   p.tile && p.tile.remove();
   peers.delete(id); updateCount();
+  if (id === HOST()) lostHost();
 }
 
 /* ---------- presencia y expulsar ---------- */
@@ -580,8 +610,9 @@ function kick(id){
   toast(`${p.name} ya no está en la sala.`, true);
 }
 function kicked(){
+  S.leaving = true;
   try { S.peer && S.peer.destroy(); } catch {}
-  location.href = location.pathname + '?expulsado=1';
+  goHome('?expulsado=1');
 }
 function setStatus(t, ok){ const s = $('#status'); s.textContent = t; s.classList.toggle('ok', !!ok); }
 function updateCount(){ if (S.peer) setStatus(`${peers.size + 1} en la sala`, true); }
@@ -1307,11 +1338,12 @@ async function switchTalk(kind, id, sel){
       track = (kind === 'audio' ? await cleanMic(s) : s).getTracks()[0];
     } catch (e) {
       toast(`No se pudo abrir ${kind === 'video' ? 'la cámara' : 'el micro'}: ${e.message}`);
-      sel.value = sel.dataset.cur || ''; return;
+      sel.value = sel.dataset.cur || ''; return false;
     }
   }
   if (old) { if (track) track.enabled = kind === 'video' || old.enabled; S.talk.removeTrack(old); old.stop(); }
   if (track) S.talk.addTrack(track);
+  if (kind === 'audio') watchMic(); else if (track) track.onended = () => followDevices();
   sel.dataset.cur = id;
   if (kind === 'video') prefs.cam = id; else prefs.mic = id;
   savePrefs();
@@ -1323,6 +1355,7 @@ async function switchTalk(kind, id, sel){
     peers.forEach(p => send(p.dc, { type: 'cam', on: !!track }));
     if (dog && track) startDog();
   }
+  return true;
 }
 // Cambia lo que se envía a todos sin rehacer las llamadas (si se puede)
 function sendTrack(kind, track){
@@ -1334,6 +1367,33 @@ function sendTrack(kind, track){
   });
 }
 function refreshLocal(){ const v = S.localTile.querySelector('video'); v.srcObject = null; v.srcObject = S.talk; }
+// Al conectar o quitar auriculares, interfaces o la cámara del iPhone, el micro o la cámara que se usaban
+// pueden desaparecer, y los demás dejaban de oírte o verte. Se cambia solo al que toque: al nuevo del
+// sistema si usabas el del sistema, o a otro si el tuyo ya no está.
+const micRaw = () => S.micChain ? S.micChain.raw : S.talk && S.talk.getAudioTracks()[0];
+function watchMic(){ const t = micRaw(); if (t) t.onended = () => followDevices(); }
+async function followDevices(){
+  if (!S.talk) return;
+  if (S.following) { S.followAgain = true; return; }
+  S.following = true; S.followAgain = false;
+  try {
+    const mic = $('#mic2'), t = micRaw();
+    let sysMoved = false;
+    if (mic.value === 'default' && t && t.readyState === 'live' && t.getSettings) {
+      const def = (await navigator.mediaDevices.enumerateDevices()).find(d => d.kind === 'audioinput' && d.deviceId === 'default');
+      sysMoved = !!(def && def.groupId && t.getSettings().groupId && def.groupId !== t.getSettings().groupId);
+    }
+    if (mic.value !== mic.dataset.cur || sysMoved || !t || t.readyState === 'ended') {
+      const ok = await switchTalk('audio', mic.value, mic);
+      const name = mic.selectedOptions[0] ? mic.selectedOptions[0].textContent : '';
+      if (ok) toast('Micro cambiado' + (name ? ' a ' + name : '') + '.', true);
+    }
+    const cam = $('#cam2'), v = S.talk.getVideoTracks()[0];
+    if (cam.value !== cam.dataset.cur || (v && v.readyState === 'ended')) await switchTalk('video', cam.value, cam);
+    if (!$('#out').disabled && $('#out').value !== S.sinkId) $('#out').onchange({ target: $('#out') });
+  } finally { S.following = false; }
+  if (S.followAgain) followDevices();
+}
 
 /* ---------- filtro del perrito ---------- */
 // Orejas, nariz y lengua (al abrir la boca) dibujadas sobre la cámara siguiendo cada cara con el detector
@@ -1534,7 +1594,22 @@ $('#out').onchange = e => {
   ctxSink();
 };
 $('#copy').onclick = () => { const url = PUBLIC_URL + '?sala=' + S.room; navigator.clipboard.writeText(url).then(() => toast('Enlace copiado. Pásaselo a tus colegas.', true), () => toast(url)); };
-$('#leave').onclick = () => { try { S.peer && S.peer.destroy(); } catch {} location.href = location.pathname; };
+// Al salir se avisa a los demás (para que no se queden esperando a que vuelvas) y se vuelve a la portada.
+// En la Cabina servida por el plugin (Safari), si el DAW ya está cerrado la portada no cargaría y Safari
+// daba error: entonces se vuelve a la web publicada.
+async function goHome(query){
+  let to = location.pathname;
+  if (ON_PLUGIN) to = await fetch('/', { cache: 'no-store' }).then(r => r.ok ? '/' : PUBLIC_URL, () => PUBLIC_URL);
+  location.href = to + (query || '');
+}
+$('#leave').onclick = async () => {
+  if (S.leaving) return;
+  S.leaving = true; $('#leave').disabled = true;
+  peers.forEach(p => send(p.dc, { type: 'bye' }));
+  await sleep(150);
+  try { S.peer && S.peer.destroy(); } catch {}
+  goHome();
+};
 window.addEventListener('beforeunload', () => { try { S.peer && S.peer.destroy(); } catch {} });
 
 /* ---------- easter egg ---------- */
@@ -1569,12 +1644,32 @@ $('#chatForm').onsubmit = e => {
 const FILE_MAX = 1024 ** 3, CHUNK = 64 * 1024;
 const fmtSize = n => n < 1048576 ? Math.max(1, Math.round(n / 1024)) + ' KB'
   : n < 1073741824 ? (n / 1048576).toFixed(1).replace('.', ',') + ' MB' : (n / 1073741824).toFixed(2).replace('.', ',') + ' GB';
+// Cada archivo sale como una tarjeta (extensión, nombre, tamaño y estado) que se pulsa para descargarlo.
+// Los audios y las imágenes, además, se pueden escuchar o ver ahí mismo.
 function fileMsg(who, name, size){
   const m = document.createElement('div'); m.className = 'msg';
-  m.innerHTML = '<span class="who"></span><span class="fname"></span> <span class="fsize mono"></span><div class="fst mono"></div>';
-  m.querySelector('.who').textContent = who; m.querySelector('.fname').textContent = name; m.querySelector('.fsize').textContent = fmtSize(size);
+  m.innerHTML = '<span class="who"></span><span class="t"></span><a class="fcard"><span class="fext"></span>'
+    + '<span class="fmeta"><span class="fname"></span><span class="fsub mono"></span></span>'
+    + '<svg class="fdl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-5-5 5 5 5-5M5 21h14"/></svg><i class="fbar"></i></a>';
+  const card = m.querySelector('.fcard'), sub = m.querySelector('.fsub'), bar = m.querySelector('.fbar');
+  m.querySelector('.who').textContent = who; m.querySelector('.t').textContent = hhmm(Date.now());
+  m.querySelector('.fname').textContent = name; card.title = name;
+  m.querySelector('.fext').textContent = ((name.match(/\.([a-z0-9]{1,4})$/i) || [])[1] || 'FILE').toUpperCase();
   $('#chatLog').append(m); $('#chatLog').scrollTop = 1e9;
-  return m.querySelector('.fst');
+  const ui = {
+    status(text, frac){ sub.textContent = fmtSize(size) + (text ? ' · ' + text : ''); bar.style.width = frac > 0 && frac < 1 ? frac * 100 + '%' : '0'; },
+    fail(text){ card.classList.add('err'); ui.status(text); },
+    ready(url, type){
+      card.href = url; card.download = name; card.title = 'Descargar ' + name;
+      let pv = null;
+      if (/^audio\//.test(type)) { pv = document.createElement('audio'); pv.controls = true; pv.preload = 'metadata'; setSink(pv); }
+      else if (/^image\//.test(type)) { pv = document.createElement('img'); pv.alt = name; }
+      if (pv) { pv.className = 'fprev'; pv.src = url; m.append(pv); }
+      $('#chatLog').scrollTop = 1e9;
+    },
+  };
+  ui.status('');
+  return ui;
 }
 function sendFiles(files){
   const to = [...peers.keys()].filter(id => peers.get(id).dc && peers.get(id).dc.open);
@@ -1582,11 +1677,13 @@ function sendFiles(files){
   for (const f of files) {
     if (!f.size) continue;
     if (f.size > FILE_MAX) { toast(`${f.name} pesa ${fmtSize(f.size)}: el límite es 1 GB por archivo.`); continue; }
-    const st = fileMsg('Tú', f.name, f.size), prog = new Map();
+    const ui = fileMsg('Tú', f.name, f.size), prog = new Map();
+    ui.ready(URL.createObjectURL(f), f.type);
     const show = () => {
       const v = [...prog.values()], ok = v.filter(x => x === 1).length, bad = v.filter(x => x < 0).length;
-      if (ok + bad < v.length) { st.textContent = `Enviando… ${Math.floor(Math.min(...v.filter(x => x >= 0)) * 100)} %`; return; }
-      st.textContent = (ok ? `Enviado a ${ok === 1 ? '1 persona' : ok + ' personas'}` : '') + (bad ? `${ok ? ' · ' : ''}no llegó a ${bad}` : '');
+      if (ok + bad < v.length) { const x = Math.min(...v.filter(x => x >= 0)); ui.status(`Enviando… ${Math.floor(x * 100)} %`, x); return; }
+      const text = (ok ? `Enviado a ${ok === 1 ? '1 persona' : ok + ' personas'}` : '') + (bad ? `${ok ? ' · ' : ''}no llegó a ${bad}` : '');
+      ok ? ui.status(text) : ui.fail(text);
     };
     to.forEach(id => { prog.set(id, 0); sendFile(id, f, x => { prog.set(id, x); show(); }); });
     show();
@@ -1613,20 +1710,20 @@ function wireFileIn(c){
   const p = ensurePeer(c.peer), m = c.metadata || {};
   const size = +m.size || 0, name = String(m.name || 'archivo').slice(0, 200);
   if (!(size > 0 && size <= FILE_MAX)) { c.on('open', () => c.close()); return; }
-  const st = fileMsg(p.name, name, size), parts = [];
+  const ui = fileMsg(p.name, name, size), parts = [];
+  const type = typeof m.type === 'string' && /^[\w.+-]+\/[\w.+-]+$/.test(m.type) ? m.type : 'application/octet-stream';
   let got = 0, last = 0, done = false;
-  st.textContent = 'Recibiendo… 0 %';
+  ui.status('Recibiendo… 0 %');
   c.on('data', d => {
     if (done || !(d instanceof ArrayBuffer)) return;
     parts.push(d); got += d.byteLength;
-    const now = performance.now(); if (now - last > 200) { last = now; st.textContent = `Recibiendo… ${Math.floor(got / size * 100)} %`; }
+    const now = performance.now(); if (now - last > 200) { last = now; ui.status(`Recibiendo… ${Math.floor(got / size * 100)} %`, got / size); }
     if (got < size) return;
     done = true; c.close();
-    const a = document.createElement('a'); a.className = 'btn sm'; a.textContent = 'Descargar'; a.download = name;
-    a.href = URL.createObjectURL(new Blob(parts, { type: m.type || 'application/octet-stream' })); parts.length = 0;
-    st.textContent = ''; st.append(a);
+    ui.status('Pulsa para descargar');
+    ui.ready(URL.createObjectURL(new Blob(parts, { type })), type); parts.length = 0;
   });
-  c.on('close', () => { if (!done) { parts.length = 0; st.textContent = 'Se cortó antes de terminar.'; } });
+  c.on('close', () => { if (!done) { parts.length = 0; ui.fail('Se cortó antes de terminar'); } });
   c.on('error', () => {});
 }
 $('#fileBtn').onclick = () => $('#fileIn').click();

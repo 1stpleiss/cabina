@@ -15,6 +15,14 @@ jobs:
       matrix:
         os: [macos-14, windows-2022]
     runs-on: ${{ matrix.os }}
+    # Firma de Apple (opcional). Sin estos secretos se firma "ad-hoc" y macOS pide "Abrir igualmente" al
+    # instalar. Con una cuenta de desarrollador de Apple (99 €/año), ver MEMORIA.md §5 para crearlos.
+    env:
+      MAC_CERT_P12: ${{ secrets.MAC_CERT_P12 }}
+      MAC_CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
     defaults:
       run:
         shell: bash
@@ -32,8 +40,31 @@ jobs:
       - name: Compilar
         run: cmake --build build --config Release --parallel
 
+      - name: Preparar certificados de Apple
+        if: runner.os == 'macOS' && env.MAC_CERT_P12 != ''
+        run: |
+          echo "$MAC_CERT_P12" | base64 --decode > cert.p12
+          security create-keychain -p ci firma.keychain
+          security set-keychain-settings -lut 3600 firma.keychain
+          security unlock-keychain -p ci firma.keychain
+          security import cert.p12 -k firma.keychain -P "$MAC_CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/pkgbuild -T /usr/bin/productsign
+          security set-key-partition-list -S apple-tool:,apple: -s -k ci firma.keychain >/dev/null
+          security list-keychains -d user -s firma.keychain $(security list-keychains -d user | tr -d '"')
+          rm cert.p12
+          app=$(security find-identity -v -p codesigning firma.keychain | grep -o '"Developer ID Application: [^"]*"' | head -1 | tr -d '"')
+          inst=$(security find-identity -v firma.keychain | grep -o '"Developer ID Installer: [^"]*"' | head -1 | tr -d '"')
+          echo "FIRMA_APP=$app" >> "$GITHUB_ENV"
+          echo "FIRMA_PKG=$inst" >> "$GITHUB_ENV"
+          echo "Firmando como: $app / $inst"
+
+      - name: Firmar en Mac
+        if: runner.os == 'macOS' && env.FIRMA_APP != ''
+        run: |
+          find build -path "*Release*" \( -name "*.vst3" -o -name "*.component" \) -maxdepth 5 -type d \
+            -exec codesign --force --deep --timestamp --options runtime --sign "$FIRMA_APP" {} \;
+
       - name: Firmar (ad-hoc) en Mac
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && env.FIRMA_APP == ''
         run: |
           find build -path "*Release*" \( -name "*.vst3" -o -name "*.component" \) -maxdepth 5 -type d \
             -exec codesign --force --deep --sign - {} \;
@@ -62,8 +93,15 @@ jobs:
           # refrescar la caché de Audio Units para que el DAW vea el AU nuevo
           printf '#!/bin/sh\nkillall -9 AudioComponentRegistrar 2>/dev/null\nexit 0\n' > scripts/postinstall
           chmod +x scripts/postinstall
-          pkgbuild --root root --component-plist comp.plist --scripts scripts \
+          firma=(); [ -n "$FIRMA_PKG" ] && firma=(--sign "$FIRMA_PKG" --timestamp)
+          pkgbuild --root root --component-plist comp.plist --scripts scripts "${firma[@]}" \
             --identifier com.cabina.plugins --version 0.1.0 --install-location / paquetes/Cabina-Mac.pkg
+          # Notarizar: Apple revisa el instalador y macOS deja de pedir "Abrir igualmente"
+          if [ -n "$FIRMA_PKG" ] && [ -n "$APPLE_ID" ]; then
+            xcrun notarytool submit paquetes/Cabina-Mac.pkg --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
+              --password "$APPLE_APP_PASSWORD" --wait
+            xcrun stapler staple paquetes/Cabina-Mac.pkg
+          fi
           (cd dist && zip -qry ../paquetes/Cabina-Mac.zip .)
 
       # Instalador .exe (Inno Setup): copia los plugins a C:\Program Files\Common Files\VST3

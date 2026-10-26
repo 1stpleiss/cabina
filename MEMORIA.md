@@ -83,7 +83,11 @@ Un único archivo HTML (más el icono `icono.png`, el logo de 1st), sin build. D
 - El primero en entrar reserva el ID `cabina-v1-<sala>` en PeerJS y hace de **anfitrión**. Los demás se conectan a él, reciben la lista de quién hay y se conectan con todos (**malla**).
 - *Entrar en la sala* se desactiva al pulsarlo (`S.entering`). Pedir micro y cámara tarda un momento, y hasta el 22-10-2026 un segundo clic metía a la misma persona dos veces: los demás la veían duplicada y ella se veía dos veces.
 - Sin nombre se entra como "Anónimo", pero no se guarda como nombre para la próxima vez.
-- Si el anfitrión se va, los que ya están siguen conectados entre ellos. Si un recién llegado no encuentra al anfitrión, pasa a serlo él.
+- **Si se pierde el anfitrión** (se va, cierra la pestaña o se le corta la red), los invitados lo vuelven a buscar cada 2 s (`lostHost`). Si ya no está, el primero de los que quedan, por orden de ID, reserva el ID de la sala y pasa a ser anfitrión; los demás se conectan a él y vuelven a verse todos. Una conexión que no se abre en 8 s se descarta y se reintenta (pasa si el servidor aún no sabe que el anfitrión se ha ido).
+  - Hasta el 26-10-2026 nadie se reconectaba: tras un corte, cada uno se quedaba solo en su sala creyendo que se había ido el otro, y quien entraba después acababa en otra sala distinta.
+  - Probado con 4 navegadores: un corte de red, la anfitriona que sale con *Salir*, alguien que entra después y la anfitriona que cierra la pestaña de golpe. En todos los casos se vuelven a ver en 6–15 s.
+- **Salir** avisa a los demás (`bye`) para que te quiten al momento y vuelve a la portada. En la Cabina servida por el plugin (Safari), si el DAW ya está cerrado la portada no cargaría y Safari daba error: entonces se vuelve a la web publicada (`goHome`).
+- El nombre de cada persona llega en su saludo (`hello`) o en los datos de la conexión que abre ella. Hasta el 26-10-2026, al conectarte tú a alguien, se le ponía tu nombre hasta que llegaba su saludo.
 - **Presencia**: cada participante manda una señal de vida (`ping`) cada 3 s por el canal de datos. Quien lleve 15 s sin darla (conexión caída, móvil bloqueado) sale de la sala para los demás.
 - **Echar**: el anfitrión ve un botón *Echar* en cada vídeo. Manda `kick` a esa persona (su web sale de la sala) y `kicked` al resto, que la quitan y no vuelven a conectar con ella. Solo se obedecen si vienen del ID del anfitrión. Si la persona vuelve a entrar con el enlace, puede hacerlo (no es un bloqueo permanente).
 
@@ -101,6 +105,7 @@ Un único archivo HTML (más el icono `icono.png`, el logo de 1st), sin build. D
 ### Funciones
 
 - Selector de cámara, micro, entrada del DAW y salida de escucha. Se recuerdan en el navegador de cada persona (`localStorage`, clave `cabina-prefs`). Si ya dio permiso de micro y cámara, se rellenan solos al abrir la página.
+- **Dispositivos que aparecen o desaparecen** (auriculares, interfaces, la cámara del iPhone): si el micro o la cámara que usas desaparecen, o usas el micro del sistema y el sistema cambia a otro, la página cambia sola sin cortar a los demás y avisa (`followDevices`, al cambiar la lista de dispositivos o al terminarse la pista). Lo mismo con la salida de escucha. Hasta el 26-10-2026 la pista se quedaba muerta y los demás dejaban de oírte, y el desplegable mostraba otro dispositivo sin haberlo cambiado de verdad. Cambiar de micro a mano ya funcionaba (probado: el otro sigue oyendo con los tres micros de prueba y con la reducción de ruido fuerte).
 - **Calidad de emisión**: Opus 510 kbps (por defecto) o sin pérdidas a 16 o 24 bit (ver §7).
 - Aviso la primera vez que se abre la web con los enlaces de descarga de los plugins (botón *Plugin de transmisión* para volver a verlo).
 - Medidores de pico L/R (−60 a 0 dBFS) del DAW propio y de cada DAW entrante.
@@ -119,7 +124,10 @@ Un único archivo HTML (más el icono `icono.png`, el logo de 1st), sin build. D
   - Se carga con la ruta completa (`window.CABINA_WEB`) para que también suene en la Cabina servida por el plugin.
   - Solo suena para quien la pulsa.
   - Antes era un "uhh!" sintetizado al estilo del de Roblox; el original no se podía usar por derechos.
-- **Archivos por el chat** (clip o arrastrando sobre el chat): van directos de ordenador a ordenador, sin servidor y **sin coste**. Límite de **1 GB por archivo**, porque quien recibe lo guarda en memoria hasta pulsar *Descargar*. Se ve el progreso; el que envía ve "Enviado a N personas". Solo llega a quienes estén en la sala en ese momento. Quien recibe cierra la conexión al tenerlo entero, y así sabe el emisor que llegó. El emisor no llena la memoria más rápido de lo que sube (espera si hay más de 8 MB pendientes). Probado: 12 MB llegan idénticos en 3 s en local. Por internet, la velocidad es la de la subida de quien envía; si la conexión va por el servidor de relevo (TURN), puede ser bastante más lenta.
+- **Archivos por el chat** (clip o arrastrando sobre el chat): van directos de ordenador a ordenador, sin servidor y **sin coste**. Límite de **1 GB por archivo**, porque quien recibe lo guarda en memoria hasta descargarlo.
+  - Cada archivo sale como una **tarjeta**, como en Muse o Discord: recuadro con borde azul, la extensión (WAV, FLP...), el nombre, el tamaño y el estado, con una barra de progreso abajo. Cuando está entero, se pulsa la tarjeta para descargarlo (quien lo envía, desde el principio). Los **audios** llevan un reproductor para escucharlos ahí mismo y las **imágenes** se ven en pequeño. Si falla, el borde se pone rojo.
+  - El tipo de archivo que dice el emisor solo se usa si tiene forma de tipo MIME; si no, se guarda como binario.
+  - Se ve el progreso; el que envía ve "Enviado a N personas". Solo llega a quienes estén en la sala en ese momento. Quien recibe cierra la conexión al tenerlo entero, y así sabe el emisor que llegó. El emisor no llena la memoria más rápido de lo que sube (espera si hay más de 8 MB pendientes). Probado: 12 MB llegan idénticos en 3 s en local. Por internet, la velocidad es la de la subida de quien envía; si la conexión va por el servidor de relevo (TURN), puede ser bastante más lenta.
 - **Tarjeta de cada participante**:
   - **Estado de la conexión** junto al nombre: punto verde con la latencia de ida y vuelta (ámbar si pasa de 250 ms), ámbar mientras conecta, reconecta o lleva más de 6 s sin dar señales, y rojo sin conexión. Al pasar el ratón dice si la conexión es directa o por el servidor de relevo. Es la conexión **con cada persona**, así que si estás solo no hay ninguno. Tu propia tarjeta lleva otro punto: verde si estás conectado al servidor que reúne la sala, ámbar si está reconectando.
   - **Brillo azul en el borde** mientras habla (voz por encima de −50 dBFS, con 350 ms de margen). También en tu propia tarjeta; con el micro silenciado no se enciende.
@@ -136,7 +144,7 @@ Un único archivo HTML (más el icono `icono.png`, el logo de 1st), sin build. D
   - Si el plugin se cierra mientras se emite (al cerrar y abrir el proyecto, por ejemplo), la emisión sigue sola cuando vuelve. La pista que reciben los demás es la misma, así que la llamada no se corta.
   - Esa pausa no cuenta como corte y no hace crecer el colchón (mensaje `idle` al `AudioWorklet`).
   - Igual en Safari, siempre que Cabina se haya abierto desde el plugin (§6).
-- **Compartir pantalla** (botón *Pantalla*): el navegador deja elegir una ventana (el DAW) o la pantalla entera. Los demás la ven en grande encima de las cámaras, con botón de *Pantalla completa*. Va sin audio, porque el sonido ya va por el DAW. Quien entra a mitad también la recibe. Si comparten varios a la vez, se ve la última. Al parar, se manda `screen-stop` con un número de generación para no cerrar por error una pantalla compartida después.
+- **Compartir pantalla** (botón *Pantalla*): el navegador deja elegir una ventana (el DAW) o la pantalla entera. Los demás la ven en grande encima de las cámaras, que pasan a tamaño pequeño y **centradas** debajo, con botón de *Pantalla completa*. Va sin audio, porque el sonido ya va por el DAW. Quien entra a mitad también la recibe. Si comparten varios a la vez, se ve la última. Al parar, se manda `screen-stop` con un número de generación para no cerrar por error una pantalla compartida después.
 
 ## 5. Los plugins
 
@@ -164,6 +172,7 @@ Hechos con **JUCE 8** (C++17). Un mismo código fuente genera los dos plugins; l
 - Un hilo para aceptar conexiones y uno por cliente para leer.
 - Soporta mensajes binarios, texto, ping/pong, fragmentación y cierre.
 - Límite de 8 MB por mensaje.
+- Tras servir la página de carga (§6), cierra con calma en Mac (`shutdown` de escritura y espera a que Safari cierre). Cerrar de golpe podía cortar la página a medias.
 
 ### Interfaz
 
@@ -267,7 +276,7 @@ Para probar en local desde VS Code: extensión *Live Server* → clic derecho en
 
 Lo más fácil: los **instaladores** de la release `plugins` del repositorio. La web los enlaza en su aviso inicial y en el botón *Plugins*.
 
-- **Mac**: `Cabina-Mac.pkg` instala VST3 y AU en `/Library/Audio/Plug-Ins/`. No está firmado: macOS pedirá ir a *Ajustes del Sistema → Privacidad y seguridad → Abrir igualmente*. Al instalar con `.pkg` no hace falta quitar la cuarentena.
+- **Mac**: `Cabina-Mac.pkg` instala VST3 y AU en `/Library/Audio/Plug-Ins/`. Mientras no esté firmado con una cuenta de desarrollador de Apple, macOS pedirá ir a *Ajustes del Sistema → Privacidad y seguridad → Abrir igualmente* con cada versión nueva (§10.1 para firmarlo). Al instalar con `.pkg` no hace falta quitar la cuarentena.
 - **Windows**: `Cabina-Windows.exe` instala los VST3 en `C:\Program Files\Common Files\VST3\`. Sin firmar: *Más información → Ejecutar de todas formas*.
 - También hay `.zip` con los plugins sueltos para instalarlos a mano:
 
@@ -310,6 +319,23 @@ Después, en Reaper: *Options → Preferences → Plug-ins → VST → Re-scan*.
 
 Así no necesitas un PC con Windows para tus colegas de Windows.
 
+**Firmar y notarizar en Mac** (para que macOS no pida *Abrir igualmente* con cada versión). El flujo ya está preparado, pero solo se activa si existen estos secretos en *Settings → Secrets and variables → Actions*; sin ellos se firma "ad-hoc", como hasta ahora:
+
+1. Darse de alta en el Apple Developer Program (99 €/año).
+2. En Xcode o en developer.apple.com, crear los certificados **Developer ID Application** y **Developer ID Installer**. En *Acceso a Llaveros*, exportar los dos juntos en un `.p12` con contraseña.
+3. Crear una contraseña de app en account.apple.com (*Inicio de sesión y seguridad → Contraseñas de apps*).
+4. Secretos:
+
+| Secreto | Valor |
+|---|---|
+| `MAC_CERT_P12` | el `.p12` en Base64: `base64 -i certificados.p12 \| pbcopy` |
+| `MAC_CERT_PASSWORD` | la contraseña del `.p12` |
+| `APPLE_ID` | el correo de la cuenta de Apple |
+| `APPLE_TEAM_ID` | el Team ID (10 caracteres, en developer.apple.com → Membership) |
+| `APPLE_APP_PASSWORD` | la contraseña de app |
+
+Con ellos, los plugins se firman con *Developer ID Application* (con sello de tiempo y *hardened runtime*), el `.pkg` con *Developer ID Installer*, y el `.pkg` se manda a notarizar a Apple y se le grapa el resultado (`stapler`). Los `.zip` sueltos van firmados pero no notarizados. En Windows, quitar el aviso de SmartScreen requiere un certificado de firma de código aparte; no está preparado.
+
 ### 10.2 En tu Mac
 
 Requisitos: Xcode Command Line Tools (`xcode-select --install`) y CMake (`brew install cmake`).
@@ -333,6 +359,7 @@ Visual Studio 2022 (carga "Desarrollo para el escritorio con C++") + CMake. Los 
 ```
 cabina/
 ├── MEMORIA.md                  ← este documento
+├── COMERCIALIZACION.md         ← hoja de ruta para venderla (legal, precios, fases)
 ├── README.md
 ├── Cabina.code-workspace       ← doble clic para abrir en VS Code
 ├── .vscode/
@@ -389,7 +416,8 @@ cabina/
 - **Un solo Cabina Send** abierto a la vez (puerto 47800 fijo). Si hay dos, el segundo muestra "Puerto ocupado" y toma el relevo solo en cuanto se cierra el primero.
   - Por qué importa en Mac: JUCE abre el puerto con `SO_REUSEADDR`. En Windows esa opción deja que una segunda instancia comparta el puerto, pero en macOS no. Algunos DAW (FL Studio en Mac, por ejemplo) crean una instancia temporal del plugin y luego la destruyen. Hasta la v0.1, la instancia buena se quedaba sin puerto para siempre, y la web y el plugin no se veían. Ahora el servidor reintenta cada 0,5 s.
 - **AAX / Pro Tools**: no incluido, porque requiere firma de Avid.
-- **Plugins sin firmar en Mac**: hay que quitar la cuarentena (§8.3). Firmar y notarizar requiere cuenta de desarrollador de Apple (99 €/año).
+- **Plugins sin firmar en Mac**: macOS pide *Abrir igualmente* con cada versión (§8.3). Firmar y notarizar requiere cuenta de desarrollador de Apple (99 €/año); el flujo está listo (§10.1).
+- **Dar control del ordenador a otro participante** (para hacer beats en el mismo PC): una web no puede mover el ratón ni pulsar teclas en el ordenador de nadie; los navegadores lo impiden por seguridad. Haría falta la app de escritorio (§16). Mientras, se puede usar algo aparte a la vez que Cabina: *Compartir pantalla* de macOS (permite controlar entre Macs), Chrome Remote Desktop o Parsec.
 
 ## 15. Pruebas realizadas
 
@@ -414,6 +442,10 @@ cabina/
 | Filtro de perrito (cámara de prueba con un retrato) | Detecta la cara, dibuja orejas, nariz y lengua; el otro participante lo recibe; al quitarlo vuelve la cámara normal |
 | Brillo al hablar | Sigue los pitidos del micro de prueba; con el micro silenciado no se enciende |
 | Estado de conexión y volumen por persona | Punto verde con la latencia; el volumen se aplica y se recuerda por nombre |
+| Cambiar de micro dentro de la sala (3 micros de prueba, ruido normal y fuerte) | El otro sigue oyendo en todos los casos |
+| Sala con 4 navegadores: corte de red, la anfitriona sale, entra alguien nuevo, la anfitriona nueva cierra la pestaña | Siempre se vuelven a ver todos (en 6–15 s); quien entra después llega a la misma sala |
+| Archivos WAV, PNG y FLP por el chat | Tarjetas con extensión y estado; el WAV se puede escuchar y el PNG se ve; quien envía ve "Enviado a 2 personas" |
+| Pantalla compartida con 3 personas | Cámaras pequeñas y centradas bajo la pantalla |
 
 Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y los plugins en Reaper en Mac y Windows.
 
@@ -427,12 +459,14 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 
 **Medio plazo**
 - [ ] Servidor PeerJS + TURN propios (coturn) en un VPS barato.
-- [ ] Compartir archivos arrastrando (stems, bounces) por el canal de datos.
+- [x] Compartir archivos arrastrando (stems, bounces) por el canal de datos.
+- [ ] Cuenta de desarrollador de Apple para firmar los plugins (el flujo ya está listo, §10.1).
+- [ ] Lo necesario para venderla: ver `COMERCIALIZACION.md`.
 - [ ] Talkback desde el plugin (botón para hablar sin salir del DAW).
 
 **Largo plazo**
 - [ ] SFU para salas grandes.
-- [ ] App de escritorio (Tauri) con el plugin integrado y sin depender del navegador.
+- [ ] App de escritorio (Tauri) con el plugin integrado y sin depender del navegador. Permitiría también dar control del ordenador a otro participante.
 
 ## 17. Solución de problemas
 

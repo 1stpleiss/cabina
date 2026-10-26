@@ -1,6 +1,6 @@
 #include "WebSocketServer.h"
 #include <cstring>
-#if JUCE_MAC || JUCE_IOS
+#if ! JUCE_WINDOWS
  #include <sys/socket.h>
 #endif
 
@@ -182,6 +182,13 @@ private:
             else
                 resp = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
             socket->write (resp.data(), (int) resp.size());
+           #if ! JUCE_WINDOWS
+            // Cerrar con calma: avisar de que ya no mandamos más y esperar a que Safari cierre. Cerrar de
+            // golpe puede cortar la página a medias y Safari da error al cargarla.
+            ::shutdown (socket->getRawSocketHandle(), SHUT_WR);
+            char drain[512];
+            while (socket->waitUntilReady (true, 1000) == 1 && socket->read (drain, sizeof (drain), false) > 0) {}
+           #endif
             return false;
         }
 
