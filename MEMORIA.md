@@ -76,13 +76,13 @@ Los plugins son **opcionales**: la web funciona sola con un cable de audio virtu
 
 ## 4. La web
 
-Un único archivo HTML (más el icono `icono.png`, el logo de 1st), sin build. Dependencias desde CDN: PeerJS y, solo si se elige *Ruido: fuerte*, la reducción de ruido RNNoise (`@sapphi-red/web-noise-suppressor@0.4.1`, MIT, desde jsDelivr).
+Un único archivo HTML (más el icono `icono.png`, el logo de 1st), sin build. Dependencias desde CDN: PeerJS y, solo si se elige la reducción de ruido *Fuerte*, la reducción de ruido RNNoise (`@sapphi-red/web-noise-suppressor@0.4.1`, MIT, desde jsDelivr).
 
 ### Sala
 
-- La sala es el parámetro `?sala=nombre` de la URL. "Copiar enlace" lo pone en el portapapeles.
+- La sala es el parámetro `?sala=nombre` de la URL. *Invitar* (arriba a la derecha) copia el enlace. En el campo *Sala* se puede pegar el enlace entero (admite hasta 300 caracteres; hasta el 27-10-2026 el límite era 40 y un enlace pegado se cortaba).
 - El primero en entrar reserva el ID `cabina-v1-<sala>` en PeerJS y hace de **anfitrión**. Los demás se conectan a él, reciben la lista de quién hay y se conectan con todos (**malla**).
-- *Entrar en la sala* se desactiva al pulsarlo (`S.entering`). Pedir micro y cámara tarda un momento, y hasta el 22-10-2026 un segundo clic metía a la misma persona dos veces: los demás la veían duplicada y ella se veía dos veces.
+- *Entrar* se desactiva al pulsarlo (`S.entering`). Pedir micro y cámara tarda un momento, y hasta el 22-10-2026 un segundo clic metía a la misma persona dos veces: los demás la veían duplicada y ella se veía dos veces.
 - Sin nombre se entra como "Anónimo", pero no se guarda como nombre para la próxima vez.
 - **Si se pierde el anfitrión** (se va, cierra la pestaña o se le corta la red), los invitados lo vuelven a buscar cada 2 s (`lostHost`). Si ya no está, el primero de los que quedan, por orden de ID, reserva el ID de la sala y pasa a ser anfitrión; los demás se conectan a él y vuelven a verse todos. Una conexión que no se abre en 8 s se descarta y se reintenta (pasa si el servidor aún no sabe que el anfitrión se ha ido).
   - Hasta el 26-10-2026 nadie se reconectaba: tras un corte, cada uno se quedaba solo en su sala creyendo que se había ido el otro, y quien entraba después acababa en otra sala distinta.
@@ -103,18 +103,38 @@ Un único archivo HTML (más el icono `icono.png`, el logo de 1st), sin build. D
 | Datos "file" | un archivo del chat (una conexión por archivo y persona) | fiable y ordenado, trozos de 64 KB |
 | Llamada "screen" | pantalla compartida (solo vídeo) | hasta 30 fps, 4 Mbps, prioriza nitidez (`contentHint = detail`, `maintain-resolution`) |
 
+### Interfaz (rehecha el 27-10-2026)
+
+Antes había diez controles sueltos en la cabecera y cajas fijas a la derecha. Ahora:
+- **Entrada**: nombre y sala; *Activar micro y cámara* (si ya hay permiso, sale solo) muestra la **prueba de dispositivos**: vista previa de la cámara (en espejo si lo tienes puesto), nivel del micro y nivel de la entrada del DAW, para comprobar que funcionan antes de entrar. Con *Cabina Send (plugin)* elegido, la página lo busca cada 2 s y el nivel sale del propio audio del plugin (en Safari sin acceso a la red local dice "Se conecta al entrar"). Todo se apaga al pulsar *Entrar* (`pvStop`); si entrar falla, vuelve. Debajo, una línea: "Usa auriculares · Plugin para emitir".
+- **Cabecera**: solo la sala, cuánta gente hay e *Invitar*.
+- **Barra de abajo** (`#bar`), con iconos (el nombre sale al pasar el ratón; trazos de Lucide, ISC, en `ICONS`) y una flecha que abre las opciones de cada uno (`.pop`, se cierran al pulsar fuera o con Escape):
+  - Micro (rojo al silenciarlo) ▾ micro y reducción de ruido.
+  - Cámara ▾ cámara, *Espejo* y *Perrito* (antes estaban encima de tu vídeo).
+  - Compartir pantalla.
+  - **Emitir DAW** (botón principal) ▾ entrada y calidad, con la explicación del modo sin pérdidas y el estado del plugin. Estados (`dawState`): *Emitir DAW* · *Esperando…* (a Cabina Send; pulsar cancela) · *Parar DAW* con un medidor fino dentro.
+  - Chat, con el número de mensajes sin leer.
+  - Ajustes ▾ salida de escucha, buscar Cabina Retorno y descargar los plugins.
+  - Salir.
+- **Panel derecho**: solo aparece con el chat abierto o cuando alguien emite su DAW (`layoutAside`); si no, las cámaras ocupan todo el ancho.
+  - *DAW en directo*: una tarjeta compacta por persona (punto rojo, nombre, silenciar, grabar, medidor, volumen y, si hay retornos, *A mi DAW*). Los datos técnicos (kbps, pérdidas, colchón) salen al pasar el ratón.
+  - **Chat**: se abre con su botón y **se cierra solo tras 30 s sin tocarlo** (`CHAT_IDLE`; mover el ratón encima, escribir o hacer scroll cuenta como actividad, y no se cierra si estás escribiendo un mensaje). Con él cerrado, los mensajes de otros se cuentan en el botón. Se pueden soltar archivos en cualquier parte de la sala: se abre el chat y se mandan.
+- **Vídeos de los demás**: el volumen de su voz y *Echar* salen solo al pasar el ratón.
+- **Textos** recortados en toda la página (avisos, ventanas de los plugins y de Safari, opciones de calidad).
+- Probado el 27-10-2026 en Chrome con dos participantes simulados: vista previa (vídeo y nivel del micro), entrar, contador de mensajes, DAW de otro en el panel, menús y cierre del chat a los 30 s, sin errores en la consola.
+
 ### Funciones
 
 - Selector de cámara, micro, entrada del DAW y salida de escucha. Se recuerdan en el navegador de cada persona (`localStorage`, clave `cabina-prefs`). Si ya dio permiso de micro y cámara, se rellenan solos al abrir la página.
 - **Dispositivos que aparecen o desaparecen** (auriculares, interfaces, la cámara del iPhone): si el micro o la cámara que usas desaparecen, o usas el micro del sistema y el sistema cambia a otro, la página cambia sola sin cortar a los demás y avisa (`followDevices`, al cambiar la lista de dispositivos o al terminarse la pista). Lo mismo con la salida de escucha. Hasta el 26-10-2026 la pista se quedaba muerta y los demás dejaban de oírte, y el desplegable mostraba otro dispositivo sin haberlo cambiado de verdad. Cambiar de micro a mano ya funcionaba (probado: el otro sigue oyendo con los tres micros de prueba y con la reducción de ruido fuerte).
 - **Calidad de emisión**: Opus 510 kbps (por defecto) o sin pérdidas a 16 o 24 bit (ver §7).
-- Aviso la primera vez que se abre la web con los enlaces de descarga de los plugins (botón *Plugin de transmisión* para volver a verlo).
-- Medidores de pico L/R (−60 a 0 dBFS) del DAW propio y de cada DAW entrante.
-- Por cada DAW entrante: volumen, silenciar, kbps reales, estéreo/mono y paquetes perdidos.
+- Aviso la primera vez que se abre la web con los enlaces de descarga de los plugins (se vuelve a ver desde *Plugin para emitir* en la entrada o desde *Ajustes*).
+- Medidores de pico L/R (−60 a 0 dBFS) del DAW propio (dentro del botón) y de cada DAW entrante.
+- Por cada DAW entrante: volumen, silenciar y, al pasar el ratón, kbps reales, estéreo/mono y paquetes perdidos.
 - **Grabar**: graba lo que llega en WAV estéreo de 24 bits a 48 kHz y lo descarga.
-- **Mandar a mi DAW**: envía ese audio a un plugin Cabina Retorno.
+- **A mi DAW**: envía ese audio a un plugin Cabina Retorno.
 - Chat con hora, útil para notas tipo "1:42 baja la voz 1 dB".
-- **Filtro de perrito** (botón *Perrito* en tu tarjeta):
+- **Filtro de perrito** (*Perrito*, en las opciones de la cámara):
   - Orejas, nariz y lengua (al abrir la boca) que siguen cada cara. El dibujo es propio, no el de Snapchat, que tiene derechos.
   - Detecta las caras con MediaPipe Face Landmarker (`@mediapipe/tasks-vision@0.10.21` desde jsDelivr, modelo de Google Storage, 3,7 MB, se descarga al activarlo).
   - Se envía el vídeo ya con el filtro (canvas → `captureStream`), así que los demás lo ven igual. El espejo lo sigue poniendo cada pantalla.
@@ -229,7 +249,7 @@ Conexión: `ws://127.0.0.1:<puerto>`.
   - La dirección de la web se fija al compilar: `CABINA_WEB_URL`, por defecto `https://1stpleiss.github.io/cabina/`.
   - Los cambios de la web llegan sin recompilar el plugin.
   - La página deja la dirección pública en `window.CABINA_WEB`. La web la usa para *Copiar enlace*, que siempre da el enlace público, y para el icono.
-- En Safari, desde la web `https`, al usar el plugin (*Emitir DAW* o *Buscar retornos*), primero **se prueba a conectar directamente** (`localAllowed()`):
+- En Safari, desde la web `https`, al usar el plugin (*Emitir DAW*, buscar retornos o la prueba del plugin antes de entrar), primero **se prueba a conectar directamente** (`localAllowed()`):
   - WebKit quitó el bloqueo de las direcciones locales el 4-9-2026 ([PR 72974](https://github.com/WebKit/WebKit/pull/72974), [bug 171934](https://bugs.webkit.org/show_bug.cgi?id=171934)). No consta en qué versión de Safari llega; Safari 27.0.1 seguramente aún no lo trae.
   - Si ya lo permite, se usa directamente y no se cambia de página.
   - Si no, sale un aviso con el botón **Abrir Cabina desde el plugin**. Lleva, en la misma pestaña, a `http://127.0.0.1:47800/?sala=…&nombre=…&daw=plugin&entrar=1`: la misma sala, con el nombre y el plugin ya elegidos, y **entrando sola en la sala** (`entrar`). La primera vez, Safari pedirá permiso de micro y cámara para esa dirección.
@@ -325,14 +345,14 @@ Después, en Reaper: *Options → Preferences → Plug-ins → VST → Re-scan*.
 
 ## 9. Uso en sesión
 
-1. Abre la web, pon nombre y sala → *Detectar dispositivos* → *Entrar en la sala*.
-2. *Copiar enlace* y pásaselo a los demás.
-3. **Para emitir**: en *Tu DAW* elige *Plugin Cabina Send* (o BlackHole/VB-Cable) → *Emitir DAW*. Con el plugin no hace falta volver a pulsar aunque lo cierres y lo abras: la web lo espera.
+1. Abre la web, pon nombre y sala → *Activar micro y cámara* → comprueba la vista previa y los niveles → *Entrar*.
+2. *Invitar* y pásales el enlace.
+3. **Para emitir**: en *DAW* (al entrar, o en la flecha de *Emitir DAW*) elige *Cabina Send (plugin)* (o BlackHole/VB-Cable) → *Emitir DAW*. Con el plugin no hace falta volver a pulsar aunque lo cierres y lo abras: la web lo espera.
    - Coloca Cabina Send **el último** de la cadena del máster para que salga post-limitador.
 4. **Para recibir en tu DAW**:
    1. Crea una pista con **Cabina Retorno** (una por colega).
-   2. En la web: *Buscar plugins de retorno*.
-   3. En el DAW entrante del colega: *Mandar a mi DAW → Retorno (:47801)*.
+   2. En la web: *Ajustes → Cabina Retorno → Buscar*.
+   3. En la tarjeta del DAW del colega: *A mi DAW → Retorno 1*.
    4. Para grabarlo en Reaper: arma la pista con modo *Record: output (stereo)*. También puedes renderizar o mandar esa pista a otra.
 5. **Auriculares siempre.** Si suena por altavoces, el micro lo recoge.
 
@@ -502,6 +522,7 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 **Medio plazo**
 - [ ] Servidor PeerJS + TURN propios (coturn) en un VPS barato.
 - [x] Compartir archivos arrastrando (stems, bounces) por el canal de datos.
+- [x] Interfaz ordenada: barra de controles abajo, chat que se abre y se cierra solo, prueba de dispositivos antes de entrar y textos más cortos (27-10-2026).
 - [ ] Cuenta de desarrollador de Apple para firmar los plugins (el flujo ya está listo, §10.1).
 - [ ] Lo necesario para venderla: ver `COMERCIALIZACION.md`.
 - [ ] Talkback desde el plugin (botón para hablar sin salir del DAW).

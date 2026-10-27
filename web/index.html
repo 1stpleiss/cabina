@@ -45,10 +45,25 @@ input[type=range]{accent-color:var(--accent-glow);flex:1;min-width:60px}
 h1{font-size:22px;margin:0;letter-spacing:-.01em}
 .sub{color:var(--muted);margin:0 0 4px;font-size:13px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+#join .card{max-width:720px}
 .actions{display:flex;gap:10px;margin-top:16px}
 .actions .btn{flex:1}
 .tips{margin-top:14px;padding:9px 12px;border-radius:10px;background:var(--panel2);color:var(--muted);font-size:12.5px}
+.foot{margin:12px 0 0;color:var(--muted);font-size:12.5px;text-align:center}
+/* Prueba de dispositivos antes de entrar: vista previa de la cámara y nivel del micro y del DAW */
+.setup{display:grid;grid-template-columns:1.15fr 1fr;gap:16px;margin-top:14px}
+.setup .side>div:first-child label{margin-top:0}
+#pv{position:relative;aspect-ratio:16/9;background:#000;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;align-self:start}
+#pv video{width:100%;height:100%;object-fit:cover;display:block}
+#pv.mirror video{transform:scaleX(-1)}
+#pv .pvoff{display:none;position:absolute;inset:0;place-items:center;color:var(--muted);font-size:13px}
+#pv.none .pvoff{display:grid}
+#pv.none video{visibility:hidden}
+.lvl{height:5px;border-radius:3px;background:var(--panel2);margin-top:6px;overflow:hidden}
+.lvl i{display:block;height:100%;background:linear-gradient(90deg,var(--green) 0 70%,var(--amber) 70% 90%,var(--red) 90%);transform-origin:left;transform:scaleX(var(--v,0));transition:transform 60ms linear}
+.pvnote{font-size:12px;color:var(--muted);margin-top:5px}
+.pvnote:empty{display:none}
+@media (max-width:640px){.setup{grid-template-columns:1fr}}
 .tips b{color:var(--text);font-weight:600}
 .tips p{margin:2px 0}
 #appOffer{margin:12px 0 0}
@@ -56,14 +71,16 @@ h1{font-size:22px;margin:0;letter-spacing:-.01em}
 .warn{color:#ffb4a0}
 
 /* Studio */
-#studio{height:100%;display:grid;grid-template-rows:auto 1fr}
+#studio{height:100%;display:grid;grid-template-rows:auto 1fr auto}
 header{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 header .room{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:0}
 header .room h2{font-size:16px;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-header select{width:auto;max-width:170px;padding:5px 8px;font-size:12.5px;border-radius:7px}
+header .btn{display:flex;align-items:center;gap:6px}
+header .btn svg{width:15px;height:15px}
 .pill{font-size:12px;padding:3px 9px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
 .pill.ok{color:var(--green);border-color:#1f4a3a}
 .layout{display:grid;grid-template-columns:1fr 340px;min-height:0}
+.layout.solo{grid-template-columns:1fr}
 main{padding:12px;overflow:auto}
 #grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
 .tile{position:relative;aspect-ratio:16/9;max-height:calc(100vh - 80px);background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
@@ -72,10 +89,12 @@ main{padding:12px;overflow:auto}
 .tile.novideo .avatar{display:grid}
 .tile.novideo video{visibility:hidden}
 .tile.mirror video{transform:scaleX(-1)}
-.tile .tbtns{position:absolute;top:8px;right:8px;display:flex;gap:6px}
-.tile .tbtns .btn{background:rgba(0,0,0,.6)}
-.tile .tbtns .btn.on{background:rgba(18,26,64,.85)}
-.tile .kick{display:none;position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6)}
+/* Volumen y Echar: solo al pasar el ratón por encima */
+.tile .tctl{position:absolute;top:8px;right:8px;display:flex;align-items:center;gap:8px;opacity:0;transition:opacity .15s}
+.tile:hover .tctl,.tile .tctl:focus-within{opacity:1}
+@media (hover:none){.tile .tctl{opacity:1}}
+.tile .tctl .vol{width:90px}
+.tile .kick{display:none;background:rgba(0,0,0,.6)}
 #studio.host .tile:not(.me) .kick{display:block}
 .tile .tag{position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.6);padding:3px 9px;border-radius:7px;font-size:12.5px;font-weight:500;display:flex;align-items:center;gap:6px;max-width:calc(100% - 20px)}
 .tile .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -86,10 +105,6 @@ main{padding:12px;overflow:auto}
 .net.mid{background:var(--amber)}
 .net.bad{background:var(--red)}
 .tile .ms{color:var(--muted);font-size:11px;flex:none}
-.tile .vol{position:absolute;right:10px;top:10px;width:90px;opacity:0;transition:opacity .15s}
-.tile:hover .vol,.tile .vol:focus{opacity:1}
-#studio.host .tile:not(.me) .vol{top:44px}
-@media (hover:none){.tile .vol{opacity:1}}
 #stage{position:relative;aspect-ratio:16/9;max-height:calc(100vh - 150px);margin:0 auto 10px;background:#000;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
 #stage video{width:100%;height:100%;object-fit:contain;display:block}
 #stage .tag{position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.6);padding:3px 9px;border-radius:7px;font-size:12.5px;font-weight:500}
@@ -105,20 +120,55 @@ aside{border-left:1px solid var(--line);overflow:auto;padding:12px;display:flex;
 .line select{flex:1;min-width:0}
 .line .lbl{font-size:12px;color:var(--muted);width:52px;flex:none}
 #dawInfo:empty{display:none}
+/* Barra de controles de abajo: iconos (el nombre sale al pasar el ratón) y una flecha con las opciones de cada uno */
+#bar{display:flex;justify-content:center;align-items:center;gap:8px;padding:10px 14px;border-top:1px solid var(--line);flex-wrap:wrap;background:var(--bg)}
+#bar .ctl{position:relative;display:flex}
+#bar .ib{width:44px;height:42px;padding:0;display:grid;place-items:center;border-radius:12px;position:relative}
+#bar .ib svg{width:20px;height:20px}
+#bar .ctl>.ib:first-child,#bar .ctl>#dawBtn{border-radius:12px 0 0 12px}
+#bar .ib.chev{width:24px;border-radius:0 12px 12px 0;border-left:0;color:var(--muted)}
+#bar .ib.chev svg{width:14px;height:14px}
+#bar .ib.chev.on{color:var(--text)}
+#bar .ctl>[data-pop]:only-of-type:first-child{border-radius:12px}
+#bar .gap{width:14px}
+#dawBtn{height:42px;display:flex;align-items:center;gap:8px;padding:0 16px;position:relative;min-width:150px;justify-content:center}
+#dawBtn svg{width:18px;height:18px}
+#dawBtn.primary+.chev{background:var(--accent);border-color:var(--accent);color:#cfd6ff}
+#dawBtn.on+.chev{border-color:var(--accent)}
+#dawBtn.off+.chev{border-color:#5a2a2d}
+.meter.mini{position:absolute;left:12px;right:12px;bottom:5px;margin:0;gap:2px}
+.meter.mini i{height:2px}
+#dawBtn:not(.on) .meter.mini{display:none}
+#bar .ib.danger{color:#ff8a8d}
+.badge{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--red);color:#fff;font:700 11px/18px Inter,system-ui,sans-serif}
+.pop{position:absolute;bottom:calc(100% + 10px);left:0;z-index:7;width:260px;max-width:calc(100vw - 32px);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;box-shadow:0 12px 32px rgba(0,0,0,.5)}
+.pop.right{left:auto;right:0}
+.pop label:first-child{margin-top:0}
+.pop .tg{display:flex;gap:8px;margin-top:12px}
+.pop .tg .btn{flex:1}
+.pop .linkbtn{margin-top:12px}
 .meter{display:grid;gap:3px;margin-top:8px}
 .meter i{display:block;height:6px;border-radius:3px;background:var(--panel2);position:relative;overflow:hidden}
 .meter i::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,var(--green) 0 70%,var(--amber) 70% 90%,var(--red) 90%);transform-origin:left;transform:scaleX(var(--v,0));transition:transform 60ms linear}
 .info{color:var(--muted);margin-top:6px}
-#dawList{max-height:34vh;overflow:auto}
+#dawList{max-height:40vh;overflow:auto}
 .dawin{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
 .dawin:first-child{border-top:0;padding-top:0;margin-top:0}
 .dawin .head{display:flex;align-items:center;gap:8px}
-.dawin .head b{margin-right:auto}
-.live{font-size:10.5px;font-weight:700;letter-spacing:.08em;color:var(--red)}
+.dawin .head b{margin-right:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.livedot{width:8px;height:8px;border-radius:50%;background:var(--red);flex:none;animation:live 1.6s ease-in-out infinite}
+@keyframes live{50%{opacity:.35}}
+.dawin .head .btn{display:grid;place-items:center;min-width:32px;height:28px;padding:0 8px}
+.dawin .head .btn svg{width:15px;height:15px}
+.btn.rec{color:var(--red)}
 .btn.rec.on{background:#3a1416;border-color:var(--red);color:#ff8a8d}
-.empty{color:var(--muted);font-size:13px}
-.dawin select.ret{margin-top:6px;padding:5px 8px;font-size:12.5px}
+.dawin select.ret{margin-top:8px;padding:5px 8px;font-size:12.5px}
 .box.chat{flex:1;min-height:180px;display:flex;flex-direction:column}
+.chathead{display:flex;align-items:center;justify-content:space-between}
+.chathead h3{margin:0}
+.x{background:none;border:0;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:0 2px}
+.x:hover{color:var(--text)}
+#chatLog{margin-top:8px}
 #chatLog{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:5px;margin-bottom:8px}
 .msg{font-size:13px;word-wrap:break-word}
 .msg .who{font-weight:600;margin-right:6px}
@@ -146,7 +196,7 @@ audio.fprev{color-scheme:dark;height:36px}
 .modal h2{font-size:18px;margin:0 0 4px}
 .modal .actions{margin-top:14px}
 .linkbtn{background:none;border:0;padding:0;color:var(--accent-text);cursor:pointer;font-size:12.5px;text-decoration:underline}
-#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#2b1416;border:1px solid #5a2a2d;color:#ffd0d1;padding:10px 16px;border-radius:10px;max-width:calc(100% - 32px);opacity:0;pointer-events:none;transition:opacity .2s;z-index:9}
+#toast{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);background:#2b1416;border:1px solid #5a2a2d;color:#ffd0d1;padding:10px 16px;border-radius:10px;max-width:calc(100% - 32px);opacity:0;pointer-events:none;transition:opacity .2s;z-index:9}
 #toast.show{opacity:1}
 #toast.good{background:#10261d;border-color:#1f4a3a;color:#c6f3df}
 @media (max-width:860px){
@@ -156,8 +206,8 @@ audio.fprev{color-scheme:dark;height:36px}
   #grid{grid-template-columns:1fr}
   .box.chat{min-height:280px}
   #dawList{max-height:none}
+  #bar{position:sticky;bottom:0;z-index:6}
 }
-@media (max-width:560px){.row3{grid-template-columns:1fr;gap:0}}
 /* App de escritorio: la ventana no tiene barra de título. La cabecera hace de barra (se arrastra
    desde los huecos y el nombre de la sala) y deja sitio a los botones de la ventana: a la izquierda
    en Mac (salvo en pantalla completa, donde no hay) y a la derecha en Windows */
@@ -175,108 +225,127 @@ html.app #join .card{-webkit-app-region:no-drag}
 <section id="join">
   <div class="card">
     <div class="brand"><span class="dot"></span><h1>Cabina</h1></div>
-    <p class="sub">Sala privada para escuchar el DAW en calidad alta, hablar y verse.</p>
+    <p class="sub">Tu DAW en directo, con tu gente.</p>
 
     <div class="row2">
       <div><label for="name">Tu nombre</label><input id="name" type="text" maxlength="40" placeholder="Fran"></div>
-      <div><label for="room">Sala</label><input id="room" type="text" maxlength="40" placeholder="mezcla-ep"></div>
+      <div><label for="room">Sala</label><input id="room" type="text" maxlength="300" placeholder="mezcla-ep"></div>
     </div>
 
-    <div id="devs" class="row3" hidden>
-      <div><label for="cam">Cámara</label><select id="cam"></select></div>
-      <div><label for="mic">Micro para hablar</label><select id="mic"></select></div>
-      <div><label for="dawIn">Entrada del DAW</label><select id="dawIn"></select></div>
+    <div id="devs" class="setup" hidden>
+      <div id="pv"><video id="pvVideo" autoplay playsinline muted></video><div class="pvoff">Sin cámara</div></div>
+      <div class="side">
+        <div><label for="cam">Cámara</label><select id="cam"></select></div>
+        <div><label for="mic">Micro</label><select id="mic"></select><div class="lvl" id="pvMic"><i></i></div></div>
+        <div><label for="dawIn">DAW</label><select id="dawIn"></select><div class="lvl" id="pvDaw" hidden><i></i></div><div class="pvnote" id="pvDawNote"></div></div>
+      </div>
     </div>
 
     <div class="actions">
-      <button class="btn" id="detect">Detectar dispositivos</button>
-      <button class="btn primary" id="enter" disabled>Entrar en la sala</button>
+      <button class="btn" id="detect">Activar micro y cámara</button>
+      <button class="btn primary" id="enter" disabled>Entrar</button>
     </div>
 
-    <div class="tips">
-      <p><b>Emitir:</b> plugin <b>Cabina Send</b> en el máster, o <b>BlackHole</b> (Mac) / <b>VB-Cable</b> (Windows). Para escuchar no hace falta nada.</p>
-      <p>Usad <b>Chrome</b> o Edge y <b>auriculares</b>.</p>
-      <p><button class="linkbtn" type="button" id="plugOpen1">Descargar el plugin Cabina</button></p>
-      <p id="secure" class="warn" hidden>Esta página tiene que abrirse por https para poder usar micro y cámara.</p>
-    </div>
+    <p class="foot">Usa auriculares · <button class="linkbtn" type="button" id="plugOpen1">Plugin para emitir</button></p>
+    <p id="secure" class="warn foot" hidden>Abre la página por https para usar micro y cámara.</p>
   </div>
 </section>
 
 <section id="studio" hidden>
   <header>
     <div class="room"><span class="dot"></span><h2 id="roomName"></h2><span class="pill" id="status">Conectando…</span></div>
-    <button class="btn sm" id="plugOpen2">Plugin de transmisión</button>
-    <button class="btn sm" id="copy">Copiar enlace</button>
-    <select id="mic2" aria-label="Micro"></select>
-    <button class="btn sm on" id="micBtn">Micro</button>
-    <select id="ns" aria-label="Reducción de ruido del micro" title="Reducción de ruido del micro">
-      <option value="normal">Ruido: normal</option><option value="fuerte">Ruido: fuerte</option><option value="off">Ruido: sin filtro</option></select>
-    <select id="cam2" aria-label="Cámara"></select>
-    <button class="btn sm on" id="camBtn">Cámara</button>
-    <button class="btn sm" id="screenBtn" hidden>Pantalla</button>
-    <button class="btn sm danger" id="leave">Salir</button>
+    <button class="btn sm" id="copy" title="Copiar el enlace de la sala"><i data-i="link"></i>Invitar</button>
   </header>
-  <div class="layout">
+  <div class="layout solo">
     <main>
       <div id="stage" hidden><video autoplay playsinline muted></video><span class="tag"></span><button class="btn sm full">Pantalla completa</button></div>
       <div id="grid"></div>
     </main>
-    <aside>
-      <div class="box">
-        <h3>Tu DAW</h3>
-        <div class="line" style="margin:0"><select id="dawIn2" aria-label="Entrada del DAW"></select><button class="btn primary sm" id="dawBtn">Emitir DAW</button></div>
-        <div class="info mono" id="dawInfo"></div>
-        <div class="meter" id="dawMeter"><i></i><i></i></div>
-        <div class="line"><span class="lbl">Calidad</span><select id="quality" aria-label="Calidad de emisión">
-          <option value="opus">Opus 510 kbps</option>
-          <option value="16">Sin pérdidas 16 bit</option>
-          <option value="24">Sin pérdidas 24 bit</option></select></div>
-        <div class="info" id="qInfo" hidden></div>
-        <div class="line"><span class="lbl">Escuchar</span><select id="out" aria-label="Escuchar por"></select></div>
+    <aside hidden>
+      <div class="box" id="dawBox" hidden>
+        <h3>DAW en directo</h3>
+        <div id="dawList"></div>
       </div>
-      <div class="box">
-        <h3>DAW entrante</h3>
-        <div class="line" style="margin:0 0 8px"><button class="btn sm" id="scanRet">Buscar retornos</button><span class="info mono" id="retInfo" style="margin:0"></span></div>
-        <div id="dawList"><p class="empty" id="dawEmpty">Nadie está emitiendo ahora mismo.</p></div>
-      </div>
-      <div class="box chat">
-        <h3>Chat</h3>
+      <div class="box chat" id="chatBox" hidden>
+        <div class="chathead"><h3>Chat</h3><button class="x" id="chatClose" title="Cerrar" aria-label="Cerrar el chat">×</button></div>
         <div id="chatLog"></div>
-        <form id="chatForm"><input type="text" id="chatIn" maxlength="500" placeholder="Escribe o arrastra archivos" autocomplete="off">
-          <button type="button" class="btn" id="fileBtn" title="Mandar archivos (hasta 1 GB cada uno)" aria-label="Mandar archivos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.1 12.2 20.3a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg></button>
+        <form id="chatForm"><input type="text" id="chatIn" maxlength="500" placeholder="Escribe…" autocomplete="off">
+          <button type="button" class="btn" id="fileBtn" title="Mandar archivos (hasta 1 GB)" aria-label="Mandar archivos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.1 12.2 20.3a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg></button>
           <button class="btn">Enviar</button><input type="file" id="fileIn" multiple hidden></form>
       </div>
     </aside>
   </div>
+  <nav id="bar">
+    <div class="ctl">
+      <button class="btn ib" id="micBtn" title="Silenciar micro" data-i="mic"></button>
+      <button class="btn ib chev" data-pop="popMic" title="Micro" data-i="up"></button>
+      <div class="pop" id="popMic" hidden>
+        <label for="mic2">Micro</label><select id="mic2"></select>
+        <label for="ns">Reducción de ruido</label>
+        <select id="ns"><option value="normal">Normal</option><option value="fuerte">Fuerte</option><option value="off">Sin filtro</option></select>
+      </div>
+    </div>
+    <div class="ctl">
+      <button class="btn ib" id="camBtn" title="Apagar cámara" data-i="cam"></button>
+      <button class="btn ib chev" data-pop="popCam" title="Cámara" data-i="up"></button>
+      <div class="pop" id="popCam" hidden>
+        <label for="cam2">Cámara</label><select id="cam2"></select>
+        <div class="tg"><button class="btn sm" id="mirBtn" title="Verte en espejo (y que los demás te vean igual)">Espejo</button><button class="btn sm" id="dogBtn" title="Filtro de perrito (los demás también lo ven)">Perrito</button></div>
+      </div>
+    </div>
+    <button class="btn ib" id="screenBtn" title="Compartir pantalla" data-i="screen" hidden></button>
+    <span class="gap"></span>
+    <div class="ctl">
+      <button class="btn primary" id="dawBtn"><i data-i="daw"></i><span class="lbl">Emitir DAW</span><span class="meter mini" id="dawMeter"><i></i><i></i></span></button>
+      <button class="btn ib chev" data-pop="popDaw" title="DAW" data-i="up"></button>
+      <div class="pop" id="popDaw" hidden>
+        <label for="dawIn2">Entrada</label><select id="dawIn2"></select>
+        <label for="quality">Calidad</label>
+        <select id="quality"><option value="opus">Opus</option><option value="16">16 bit sin pérdidas</option><option value="24">24 bit sin pérdidas</option></select>
+        <div class="info" id="qInfo" hidden></div>
+        <div class="info mono" id="dawInfo"></div>
+      </div>
+    </div>
+    <span class="gap"></span>
+    <button class="btn ib" id="chatBtn" title="Chat" data-i="chat"><b class="badge" id="unread" hidden></b></button>
+    <div class="ctl">
+      <button class="btn ib" data-pop="popSet" title="Ajustes" data-i="set"></button>
+      <div class="pop right" id="popSet" hidden>
+        <label for="out">Escuchar por</label><select id="out"></select>
+        <label>Cabina Retorno</label>
+        <div class="line" style="margin:0"><button class="btn sm" id="scanRet">Buscar</button><span class="info mono" id="retInfo" style="margin:0"></span></div>
+        <button class="linkbtn" type="button" id="plugOpen2">Descargar los plugins</button>
+      </div>
+    </div>
+    <button class="btn ib danger" id="leave" title="Salir" data-i="leave"></button>
+  </nav>
 </section>
 
 <div id="plug" class="modal" hidden>
   <div class="card">
-    <h2>Plugin Cabina para tu DAW</h2>
-    <p class="sub">Para emitir tu DAW sin BlackHole ni VB-Cable. Instala <b>Cabina Send</b> (va en el máster) y <b>Cabina Retorno</b> (recibe el DAW de un colega en una pista). VST3 en Mac y Windows, y AU en Mac.</p>
+    <h2>Plugins de Cabina</h2>
+    <p class="sub"><b>Cabina Send</b> en el máster para emitir. <b>Cabina Retorno</b> en una pista para recibir. VST3 y AU.</p>
     <div class="actions" id="dlBtns">
-      <a class="btn primary" id="dlMac" href="https://github.com/1stpleiss/cabina/releases/download/plugins/Cabina-Mac.pkg">Descargar para Mac</a>
-      <a class="btn" id="dlWin" href="https://github.com/1stpleiss/cabina/releases/download/plugins/Cabina-Windows.exe">Descargar para Windows</a>
+      <a class="btn primary" id="dlMac" href="https://github.com/1stpleiss/cabina/releases/download/plugins/Cabina-Mac.pkg">Mac</a>
+      <a class="btn" id="dlWin" href="https://github.com/1stpleiss/cabina/releases/download/plugins/Cabina-Windows.exe">Windows</a>
     </div>
     <div class="tips">
-      <p><b>Mac:</b> si dice que no puede comprobar el desarrollador, ve a <i>Ajustes del Sistema → Privacidad y seguridad</i> y pulsa <i>Abrir igualmente</i>.</p>
-      <p><b>Windows:</b> si sale <i>Windows protegió su PC</i>, pulsa <i>Más información → Ejecutar de todas formas</i>.</p>
-      <p>Después, vuelve a escanear los plugins en tu DAW. Para solo escuchar no hace falta instalar nada.</p>
+      <p><b>¿No se abre?</b> Mac: <i>Ajustes → Privacidad y seguridad → Abrir igualmente</i>. Windows: <i>Más información → Ejecutar de todas formas</i>.</p>
+      <p>Luego, vuelve a escanear los plugins en el DAW.</p>
     </div>
-    <p class="sub" id="appOffer">También está <b>Cabina para escritorio</b>: la misma web en una app, que no se ralentiza en segundo plano y funciona con los plugins sin trucos en Mac. <a href="https://github.com/1stpleiss/cabina/releases/download/app/Cabina-App-Mac.dmg">Mac</a> · <a href="https://github.com/1stpleiss/cabina/releases/download/app/Cabina-App-Windows.exe">Windows</a></p>
-    <div class="actions"><button class="btn" id="plugHave">Ya lo tengo</button><button class="btn" id="plugSkip">Solo voy a escuchar</button></div>
+    <p class="sub" id="appOffer">O usa <b>la app de escritorio</b>: <a href="https://github.com/1stpleiss/cabina/releases/download/app/Cabina-App-Mac.dmg">Mac</a> · <a href="https://github.com/1stpleiss/cabina/releases/download/app/Cabina-App-Windows.exe">Windows</a></p>
+    <div class="actions"><button class="btn" id="plugHave">Ya los tengo</button><button class="btn" id="plugSkip">Solo escucho</button></div>
   </div>
 </div>
 
 <div id="safari" class="modal" hidden>
   <div class="card">
     <h2>Plugins en Safari</h2>
-    <p class="sub">Safari no deja que esta página hable con los plugins de Cabina. La solución es abrir Cabina desde el propio plugin: es la misma web, servida por el plugin desde tu ordenador. Se abre en esta misma pestaña y entras directamente en la sala.</p>
+    <p class="sub">Safari no deja que esta página hable con los plugins. Ábrela desde el plugin: es la misma sala.</p>
     <div class="tips">
-      <p>Antes, pon <b>Cabina Send</b> en el máster del DAW. Si solo tienes un <b>Cabina Retorno</b>, abre <span class="mono">http://127.0.0.1:47801</span>.</p>
-      <p>En Chrome o Edge funciona desde aquí, sin esto.</p>
+      <p>Antes, pon <b>Cabina Send</b> en el máster. Con solo un <b>Cabina Retorno</b>: <span class="mono">http://127.0.0.1:47801</span>.</p>
     </div>
-    <div class="actions"><a class="btn primary" id="safariGo">Abrir Cabina desde el plugin</a><button class="btn" id="safariNo">Ahora no</button></div>
+    <div class="actions"><a class="btn primary" id="safariGo">Abrir desde el plugin</a><button class="btn" id="safariNo">Ahora no</button></div>
   </div>
 </div>
 
@@ -289,6 +358,27 @@ const PREFIX = 'cabina-v1-';
 const S = { peer:null, isHost:false, room:'', name:'', talk:null, daw:null, dawMeter:null, ctx:null, sinkId:'' };
 const peers = new Map();
 const meters = new Set();
+
+/* ---------- iconos ---------- */
+// Trazos de Lucide (ISC). Un elemento con data-i recibe su icono al cargar: un <i> se cambia por él, a un botón se le pone delante.
+const ICONS = {
+  mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/>',
+  micOff: '<path d="m2 2 20 20"/><path d="M18.89 13.23A7 7 0 0 0 19 12v-2"/><path d="M5 10v2a7 7 0 0 0 12 5"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><path d="M12 19v3"/>',
+  cam: '<path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/>',
+  camOff: '<path d="M10.66 6H14a2 2 0 0 1 2 2v2.5l5.248-3.062A.5.5 0 0 1 22 7.87v8.196"/><path d="M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2"/><path d="m2 2 20 20"/>',
+  screen: '<path d="m9 10 3-3 3 3"/><path d="M12 13V7"/><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M12 17v4"/><path d="M8 21h8"/>',
+  daw: '<path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/>',
+  chat: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  set: '<path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/>',
+  leave: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
+  up: '<path d="m18 15-6-6-6 6"/>',
+  link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  vol: '<path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/>',
+  volOff: '<path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/>',
+};
+const svg = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
+function setIcon(el, name){ const o = el.querySelector(':scope > svg'); if (o) o.outerHTML = svg(name); else el.insertAdjacentHTML('afterbegin', svg(name)); }
+document.querySelectorAll('[data-i]').forEach(el => { if (el.tagName === 'I') el.outerHTML = svg(el.dataset.i); else setIcon(el, el.dataset.i); });
 
 /* ---------- utilidades ---------- */
 // En la sala se puede pegar el enlace entero (en la app de escritorio no hay barra de direcciones)
@@ -303,7 +393,7 @@ if (!window.isSecureContext) $('#secure').hidden = false;
 $('#room').value = new URLSearchParams(location.search).get('sala') || '';
 if (new URLSearchParams(location.search).has('expulsado')) {
   history.replaceState(null, '', location.pathname);
-  setTimeout(() => toast('Quien creó la sala te ha sacado de ella.', false, 8000), 300);
+  setTimeout(() => toast('Te han sacado de la sala.', false, 8000), 300);
 }
 try { $('#name').value = localStorage.getItem('cabina-name') || ''; } catch {}
 // Al abrir Cabina desde el plugin (Safari) llegan el nombre y la sala por la URL
@@ -319,7 +409,7 @@ $('#quality').value = S.quality;
 function qInfo(){
   const q = S.quality;
   $('#qInfo').hidden = q === 'opus';
-  $('#qInfo').textContent = q === 'opus' ? '' : `Necesita ~${q === '16' ? '1,5' : '2,3'} Mbps de subida por cada oyente. Unos 0,3 s más de retardo.`;
+  $('#qInfo').textContent = q === 'opus' ? '' : `~${q === '16' ? '1,5' : '2,3'} Mbps de subida por oyente · +0,3 s de retardo`;
 }
 qInfo();
 
@@ -344,7 +434,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#plug'
 
 /* ---------- dispositivos ---------- */
 const LOOPBACK = /blackhole|vb-?audio|cable output|loopback|soundflower|voicemeeter/i;
-const PLUGIN_OPT = ['Plugin Cabina Send', 'plugin'];
+const PLUGIN_OPT = ['Cabina Send (plugin)', 'plugin'];
 function fill(sel, list, noneLabel, pick, extra, saved){
   const prev = sel.value; sel.innerHTML = '';
   if (noneLabel) sel.add(new Option(noneLabel, ''));
@@ -364,8 +454,8 @@ async function fillDevices(){
   fill($('#mic'), ins, null, d => !LOOPBACK.test(d.label), null, prefs.mic);
   fill($('#cam2'), cams, 'Sin cámara', () => true, null, prefs.cam);
   fill($('#mic2'), ins, null, d => !LOOPBACK.test(d.label), null, prefs.mic);
-  fill($('#dawIn'), ins, 'Ninguna (solo escuchar)', d => LOOPBACK.test(d.label), [PLUGIN_OPT], prefs.dawIn);
-  fill($('#dawIn2'), ins, 'Elige la entrada…', d => LOOPBACK.test(d.label), [PLUGIN_OPT], prefs.dawIn);
+  fill($('#dawIn'), ins, 'Ninguno, solo escucho', d => LOOPBACK.test(d.label), [PLUGIN_OPT], prefs.dawIn);
+  fill($('#dawIn2'), ins, 'Elige…', d => LOOPBACK.test(d.label), [PLUGIN_OPT], prefs.dawIn);
   if ('setSinkId' in HTMLMediaElement.prototype && outs.length) fill($('#out'), outs, null, () => true, null, prefs.out);
   else { $('#out').innerHTML = '<option value="">Salida del sistema</option>'; $('#out').disabled = true; }
 }
@@ -374,10 +464,11 @@ $('#detect').onclick = async () => {
     const s = await navigator.mediaDevices.getUserMedia({audio:true, video:true})
       .catch(() => navigator.mediaDevices.getUserMedia({audio:true}));
     s.getTracks().forEach(t => t.stop());
-  } catch (e) { toast('Sin permiso para el micro: ' + e.message); return; }
+  } catch (e) { toast('Sin permiso para el micro.'); return; }
   await fillDevices();
-  $('#devs').hidden = false; $('#enter').disabled = false;
+  showDevs();
 };
+function showDevs(){ $('#devs').hidden = false; $('#detect').hidden = true; $('#enter').disabled = false; pvAll(); }
 // Si ya diste permiso a micro y cámara antes, rellena los dispositivos sin pulsar nada
 (async () => {
   try {
@@ -385,10 +476,87 @@ $('#detect').onclick = async () => {
     const [mic, cam] = await Promise.all([q('microphone'), q('camera')]);
     if (mic !== 'granted' || cam === 'prompt') return;
     await fillDevices();
-    $('#devs').hidden = false; $('#enter').disabled = false;
+    showDevs();
   } catch {}
 })();
 navigator.mediaDevices?.addEventListener?.('devicechange', () => fillDevices().then(followDevices).catch(()=>{}));
+
+/* ---------- prueba de dispositivos ---------- */
+// Antes de entrar: vista previa de la cámara y nivel del micro y de la entrada del DAW, para ver que
+// funcionan. Con el plugin, el nivel llega directamente de Cabina Send. Al entrar se apaga todo.
+const PV = { ctx: null, raf: 0, n: { cam: 0, mic: 0, daw: 0 } };
+const pvSel = { cam: '#cam', mic: '#mic', daw: '#dawIn' };
+function pvDrop(k){
+  const x = PV[k]; PV[k] = null; if (!x) return;
+  if (x.stream) x.stream.getTracks().forEach(t => t.stop());
+  if (x.src) x.src.disconnect();
+  if (x.ws) { x.ws.onclose = null; x.ws.close(); }
+  if (x.bar) x.bar.style.setProperty('--v', 0);
+}
+function pvMeter(k, x){
+  PV[k] = x; x.hold = 0;
+  if (!PV.raf) PV.raf = requestAnimationFrame(pvDraw);
+}
+function pvDraw(){
+  ['mic', 'daw'].forEach(k => {
+    const x = PV[k]; if (!x || !x.bar) return;
+    let pk = x.pk || 0; x.pk = 0;
+    if (x.an) { x.an.getFloatTimeDomainData(x.buf); for (const v of x.buf) pk = Math.max(pk, Math.abs(v)); }
+    const v = Math.max(0, Math.min(1, (20 * Math.log10(pk || 1e-9) + 60) / 60));
+    x.hold = Math.max(v, x.hold - 0.02);
+    x.bar.style.setProperty('--v', x.hold.toFixed(3));
+  });
+  PV.raf = PV.mic || PV.daw ? requestAnimationFrame(pvDraw) : 0;
+}
+async function pvOpen(k){
+  const n = ++PV.n[k]; pvDrop(k);
+  const id = $(pvSel[k]).value, live = () => n === PV.n[k];
+  if (k === 'cam') { $('#pvVideo').srcObject = null; $('#pv').classList.toggle('none', !id); $('#pv').classList.toggle('mirror', prefs.mirror !== false); if (!id) return; }
+  if (k === 'daw') { $('#pvDaw').hidden = !id; $('#pvDawNote').textContent = ''; if (!id) return; if (id === 'plugin') return pvPlugin(live); }
+  let s;
+  try {
+    s = await navigator.mediaDevices.getUserMedia(k === 'cam'
+      ? { video: { deviceId: { exact: id }, width: { ideal: 640 }, height: { ideal: 360 } } }
+      : { audio: { deviceId: id ? { exact: id } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+  } catch {
+    if (!live()) return;
+    if (k === 'cam') $('#pv').classList.add('none');
+    if (k === 'daw') $('#pvDawNote').textContent = 'No se puede abrir';
+    return;
+  }
+  if (!live()) { s.getTracks().forEach(t => t.stop()); return; }
+  if (k === 'cam') { PV.cam = { stream: s }; $('#pvVideo').srcObject = s; return; }
+  if (!PV.ctx) {
+    const AC = window.AudioContext || window.webkitAudioContext; PV.ctx = new AC();
+    if (PV.ctx.state !== 'running') addEventListener('pointerdown', () => PV.ctx && PV.ctx.resume().catch(() => {}), { once: true });
+  }
+  const src = PV.ctx.createMediaStreamSource(s), an = PV.ctx.createAnalyser(); an.fftSize = 1024; src.connect(an);
+  pvMeter(k, { stream: s, src, an, buf: new Float32Array(1024), bar: $(k === 'mic' ? '#pvMic i' : '#pvDaw i') });
+}
+// Cabina Send: se le espera mientras esté elegido y su audio mueve el medidor
+async function pvPlugin(live){
+  const note = $('#pvDawNote'), bar = $('#pvDaw i');
+  if (NEED_LOCAL && !(await localAllowed())) { $('#pvDaw').hidden = true; note.textContent = 'Se conecta al entrar'; return; }
+  while (live()) {
+    let ws;
+    try { ws = await openWs(SEND_PORT, 1500); } catch { if (!live()) return; note.textContent = 'Abre Cabina Send en el máster'; await sleep(2000); continue; }
+    if (!live()) { ws.close(); return; }
+    note.textContent = 'Cabina Send conectado';
+    const x = { ws, bar };
+    ws.onmessage = e => { if (typeof e.data === 'string') return; const f = new Float32Array(e.data); for (const v of f) x.pk = Math.max(x.pk || 0, Math.abs(v)); };
+    pvMeter('daw', x);
+    await new Promise(r => { ws.onclose = r; });
+    if (PV.daw === x) PV.daw = null;
+    bar.style.setProperty('--v', 0);
+  }
+}
+const pvAll = () => Object.keys(pvSel).forEach(pvOpen);
+function pvStop(){
+  Object.keys(pvSel).forEach(k => { PV.n[k]++; pvDrop(k); });
+  $('#pvVideo').srcObject = null;
+  if (PV.ctx) { PV.ctx.close().catch(() => {}); PV.ctx = null; }
+}
+Object.keys(pvSel).forEach(k => $(pvSel[k]).addEventListener('change', () => pvOpen(k)));
 
 /* ---------- entrar ---------- */
 async function getTalk(){
@@ -443,7 +611,7 @@ async function cleanMic(stream){
     src.connect(mono); mono.connect(node); node.connect(dest);
     S.micChain = { raw, src, node };
     stream.removeTrack(raw); stream.addTrack(dest.stream.getAudioTracks()[0]);
-  } catch (e) { toast('No se pudo activar la reducción de ruido fuerte: ' + e.message); }
+  } catch (e) { toast('Reducción de ruido fuerte no disponible: ' + e.message); }
   return stream;
 }
 function dropMicChain(){
@@ -455,6 +623,7 @@ $('#enter').onclick = async () => {
   // Pedir micro y cámara tarda un momento: un segundo clic metía a la misma persona dos veces en la sala
   if (S.entering) return;
   S.entering = true; $('#enter').disabled = true;
+  pvStop();
   S.name = $('#name').value.trim() || 'Anónimo';
   S.room = slug(roomOf($('#room').value)) || rid();
   try { localStorage.setItem('cabina-name', $('#name').value.trim()); } catch {}
@@ -469,7 +638,7 @@ $('#enter').onclick = async () => {
   if (S.ctx.sampleRate !== 48000) { $('#ns option[value=fuerte]').disabled = true; if (S.ns === 'fuerte') { S.ns = 'normal'; $('#ns').value = 'normal'; } }
   await Promise.race([resumed, new Promise(r => setTimeout(r, 1000))]);
   if (S.ctx.state !== 'running') addEventListener('pointerdown', () => S.ctx.resume().catch(() => {}), { once: true });
-  try { S.talk = await cleanMic(await getTalk()); } catch (e) { toast('No se pudo abrir el micro: ' + e.message); S.entering = false; $('#enter').disabled = false; return; }
+  try { S.talk = await cleanMic(await getTalk()); } catch (e) { toast('No se pudo abrir el micro: ' + e.message); S.entering = false; $('#enter').disabled = false; pvAll(); return; }
   $('#join').hidden = true; $('#studio').hidden = false;
   $('#roomName').textContent = S.room;
   $('#dawIn2').value = $('#dawIn').value;
@@ -693,7 +862,7 @@ async function startCap(){
   node.port.onmessage = e => peers.forEach(p => {
     const c = p.pcmOut; if (!c || !c.open) return;
     if (c.bufferSize > 0 || c.dataChannel.bufferedAmount > 192000) {
-      if (!S.lagWarned) { S.lagWarned = true; toast('Tu subida no da para sin pérdidas con todos: se pierden trozos. Prueba 16 bit u Opus.'); }
+      if (!S.lagWarned) { S.lagWarned = true; toast('Tu subida no da para sin pérdidas: se pierden trozos. Prueba 16 bit u Opus.'); }
       return;
     }
     c.send(e.data);
@@ -745,8 +914,8 @@ function wirePcmIn(c){
 }
 async function startDaw(){
   const id = $('#dawIn2').value;
-  if (!id) { toast('Elige la entrada del DAW: el plugin Cabina Send, BlackHole o VB-Cable.'); return; }
-  if (id === $('#mic').value) toast('Ojo: la entrada del DAW es la misma que tu micro.');
+  if (!id) { toast('Elige la entrada del DAW.'); openPop('popDaw'); return; }
+  if (id === $('#mic').value) toast('La entrada del DAW es la misma que tu micro.');
   stopDaw();
   if (id === 'plugin') {
     if (await safariPlugin()) return;
@@ -766,11 +935,11 @@ async function startDaw(){
   if (id !== 'plugin') {
     const st = tr.getSettings ? tr.getSettings() : {};
     $('#dawInfo').textContent = `${st.channelCount || '?'} ch · ${st.sampleRate ? st.sampleRate/1000 + ' kHz' : '?'}`;
-    if (st.channelCount === 1) toast('La entrada llega en mono. En Safari pasa a menudo: usa Chrome.');
+    if (st.channelCount === 1) toast('La entrada del DAW llega en mono.');
   }
   S.dawMeter = makeMeter(S.daw, $('#dawMeter'));
   peers.forEach((p, pid) => { if (p.dc && p.dc.open) callDaw(pid); });
-  const b = $('#dawBtn'); b.textContent = 'Parar emisión'; b.classList.remove('primary'); b.classList.add('off');
+  dawState('live');
 }
 function stopDaw(){
   S.dawTry = (S.dawTry || 0) + 1; // cancela la espera del plugin, si la había
@@ -782,7 +951,14 @@ function stopDaw(){
   if (S.pluginSrc) { const x = S.pluginSrc; S.pluginSrc = null; try { x.ws.close(); } catch {} x.node.port.onmessage = null; x.node.disconnect(); x.g.disconnect(); }
   S.dawMeter && S.dawMeter.dispose(); S.dawMeter = null;
   $('#dawInfo').textContent = '';
-  const b = $('#dawBtn'); b.textContent = 'Emitir DAW'; b.classList.add('primary'); b.classList.remove('off');
+  dawState('idle');
+}
+// Botón del DAW: Emitir DAW · Esperando… (a Cabina Send; pulsar cancela) · Parar DAW (con medidor)
+function dawState(st){
+  const b = $('#dawBtn');
+  b.classList.toggle('primary', st === 'idle'); b.classList.toggle('off', st === 'wait'); b.classList.toggle('on', st === 'live');
+  b.querySelector('.lbl').textContent = st === 'idle' ? 'Emitir DAW' : st === 'wait' ? 'Esperando…' : 'Parar DAW';
+  b.title = st === 'wait' ? 'Esperando a Cabina Send. Pulsa para cancelar' : '';
 }
 $('#dawBtn').onclick = () => { if (S.daw || S.dawWaiting) { stopDaw(); return; } startDaw(); };
 
@@ -948,9 +1124,8 @@ function silentSink(node){ const g = S.ctx.createGain(); g.gain.value = 0; node.
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function setDawWaiting(on){
   S.dawWaiting = on;
-  const b = $('#dawBtn');
-  if (on) { b.textContent = 'Cancelar'; b.classList.remove('primary'); b.classList.add('off'); }
-  else if (!S.daw) { b.textContent = 'Emitir DAW'; b.classList.add('primary'); b.classList.remove('off'); $('#dawInfo').textContent = ''; }
+  if (on) dawState('wait');
+  else if (!S.daw) { dawState('idle'); $('#dawInfo').textContent = ''; }
 }
 async function pluginStream(){
   await ensureWorklet();
@@ -961,7 +1136,7 @@ async function pluginStream(){
     try { ws = await openWs(SEND_PORT, 2500); }
     catch {
       if (S.dawTry !== gen) return null;
-      $('#dawInfo').textContent = 'Esperando a Cabina Send en el máster del DAW…';
+      $('#dawInfo').textContent = 'Esperando a Cabina Send en el máster…';
       await sleep(2000);
       if (S.dawTry !== gen) return null;
     }
@@ -993,7 +1168,7 @@ function wirePluginWs(src, ws){
   ws.onclose = () => {
     if (S.pluginSrc !== src || src.ws !== ws) return;
     src.node.port.postMessage({ idle: 1 }); // es una pausa, no un atasco: que no crezca el colchón
-    $('#dawInfo').textContent = 'Cabina Send se ha cerrado. La emisión seguirá sola en cuanto vuelva a abrirse.';
+    $('#dawInfo').textContent = 'Cabina Send cerrado. Seguirá solo al volver.';
     reconnectPlugin(src);
   };
 }
@@ -1030,7 +1205,7 @@ async function scanReturns(){
     ws.onclose = () => { detachReturn(r); returns.delete(port); refreshReturnSelects(); };
   }));
   refreshReturnSelects();
-  $('#retInfo').textContent = returns.size ? `${returns.size} retorno${returns.size > 1 ? 's' : ''} listo${returns.size > 1 ? 's' : ''}` : 'No hay ningún Cabina Retorno abierto';
+  $('#retInfo').textContent = returns.size ? `${returns.size} retorno${returns.size > 1 ? 's' : ''} listo${returns.size > 1 ? 's' : ''}` : 'Ninguno abierto';
 }
 function refreshReturnSelects(){
   peers.forEach(p => {
@@ -1038,8 +1213,8 @@ function refreshReturnSelects(){
     const sel = p.dawIn.el.querySelector('.ret');
     const cur = [...returns.values()].find(r => r.peer === p);
     sel.innerHTML = '';
-    sel.add(new Option('Mandar a mi DAW: no', ''));
-    returns.forEach(r => sel.add(new Option(`Mandar a mi DAW: ${r.name} (:${r.port})`, String(r.port))));
+    sel.add(new Option('A mi DAW: no', ''));
+    returns.forEach(r => sel.add(new Option(`A mi DAW: ${r.name}`, String(r.port))));
     sel.value = cur ? String(cur.port) : '';
     sel.hidden = returns.size === 0;
   });
@@ -1098,12 +1273,11 @@ function attachDaw(p, stream, call, gen, pcm){
   if (p.dawIn && gen != null && p.dawIn.gen > gen) return false;
   removeDawIn(p);
   const el = document.createElement('div'); el.className = 'dawin';
-  el.innerHTML = `<div class="head"><b></b><span class="live">EN DIRECTO</span></div>
+  el.innerHTML = `<div class="head"><i class="livedot" title="En directo"></i><b></b>
+      <button class="btn sm mute" title="Silenciar">${svg('vol')}</button><button class="btn sm rec" title="Grabar en WAV">●</button></div>
     <div class="meter"><i></i><i></i></div>
-    <div class="line"><input type="range" min="0" max="1" step="0.01" value="1" aria-label="Volumen">
-      <button class="btn sm mute">Silenciar</button><button class="btn sm rec">● Grabar</button></div>
-    <select class="ret" hidden aria-label="Mandar a mi DAW"></select>
-    <div class="info mono stats">—</div>`;
+    <div class="line"><input type="range" min="0" max="1" step="0.01" value="1" aria-label="Volumen"></div>
+    <select class="ret" hidden aria-label="Mandar a mi DAW"></select>`;
   el.querySelector('b').textContent = p.name;
   const audio = new Audio(); audio.autoplay = true; audio.srcObject = stream; setSink(audio);
   audio.play().catch(() => toast('Pulsa en la página para activar el sonido.'));
@@ -1111,10 +1285,10 @@ function attachDaw(p, stream, call, gen, pcm){
   p.dawIn = { stream, el, audio, meter, call, gen, pcm, rec: null, lastBytes: 0, lastT: 0 };
   el.querySelector('input').oninput = e => { audio.volume = +e.target.value; };
   const mute = el.querySelector('.mute');
-  mute.onclick = () => { audio.muted = !audio.muted; mute.textContent = audio.muted ? 'Activar' : 'Silenciar'; mute.classList.toggle('off', audio.muted); };
+  mute.onclick = () => { audio.muted = !audio.muted; setIcon(mute, audio.muted ? 'volOff' : 'vol'); mute.title = audio.muted ? 'Activar' : 'Silenciar'; mute.classList.toggle('off', audio.muted); };
   el.querySelector('.rec').onclick = () => p.dawIn.rec ? stopRec(p) : startRec(p);
   el.querySelector('.ret').onchange = e => assignReturn(p, e.target.value);
-  $('#dawEmpty').hidden = true; $('#dawList').append(el);
+  $('#dawList').append(el); $('#dawBox').hidden = false; layoutAside();
   refreshReturnSelects();
   return true;
 }
@@ -1126,14 +1300,15 @@ function removeDawIn(p){
   if (x) { x.node.port.onmessage = null; x.node.disconnect(); x.g.disconnect(); }
   p.dawIn.meter.dispose(); p.dawIn.audio.srcObject = null; p.dawIn.el.remove(); p.dawIn = null;
   if (x) try { x.conn.close(); } catch {}
-  if (![...peers.values()].some(x => x.dawIn)) $('#dawEmpty').hidden = false;
+  if (![...peers.values()].some(x => x.dawIn)) { $('#dawBox').hidden = true; layoutAside(); }
 }
 // kbps y canales reales de lo que llega
 setInterval(() => peers.forEach(async p => {
   const d = p.dawIn; if (!d) return;
   if (d.pcm) {
     const x = d.pcm, now = performance.now();
-    if (d.lastT) d.el.querySelector('.stats').textContent =
+    // Los datos técnicos salen al pasar el ratón por la tarjeta
+    if (d.lastT) d.el.title =
       `${Math.round((x.bytes - d.lastBytes) * 8 / (now - d.lastT))} kbps · PCM ${x.bits} bit · colchón ${Math.round(x.ms)} ms · ${x.under} cortes`;
     d.lastBytes = x.bytes; d.lastT = now;
     return;
@@ -1154,7 +1329,7 @@ setInterval(() => peers.forEach(async p => {
       const ch = codec && codec.channels ? (codec.channels === 2 ? 'estéreo' : 'mono') : '';
       const lost = inb.packetsLost || 0;
       const pct = total > d.lastTotal ? (touched - d.lastTouched) / (total - d.lastTotal) * 100 : 0;
-      d.el.querySelector('.stats').textContent = `${kbps} kbps · Opus ${ch} · ${lost} perdidos · ${pct.toFixed(1)} % retocado`;
+      d.el.title = `${kbps} kbps · Opus ${ch} · ${lost} perdidos · ${pct.toFixed(1)} % retocado`;
     }
     d.lastBytes = bytes; d.lastT = now; d.lastTouched = touched; d.lastTotal = total;
   } catch {}
@@ -1188,7 +1363,7 @@ setInterval(() => {
   for (let i = 0; i < n; i++) { const x = b.hm[i] - mm, y = b.hd[i] - md; sxy += x * y; sxx += x * x; syy += y * y; }
   if (sxy / Math.sqrt(sxx * syy + 1e-9) > 0.75) {
     S.bleedWarned = true; dropBleed();
-    toast('Tu micro está captando el audio del DAW: a los demás les llega doble y suena desfasado. Usa auriculares o silencia el micro mientras escucháis.', false, 12000);
+    toast('Tu micro capta el DAW y a los demás les llega doble. Usa auriculares o silencia el micro.', false, 12000);
   }
 }, 100);
 
@@ -1200,7 +1375,7 @@ function startRec(p){
   node.onaudioprocess = e => { L.push(new Float32Array(e.inputBuffer.getChannelData(0))); R.push(new Float32Array(e.inputBuffer.getChannelData(1))); };
   const g = ctx.createGain(); g.gain.value = 0;
   d.meter.src.connect(node); node.connect(g); g.connect(ctx.destination);
-  const btn = d.el.querySelector('.rec'); btn.classList.add('on');
+  const btn = d.el.querySelector('.rec'); btn.classList.add('on'); btn.title = 'Parar y guardar';
   const t0 = Date.now();
   const tick = setInterval(() => { const s = Math.floor((Date.now() - t0) / 1000); btn.textContent = `■ ${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; }, 500);
   d.rec = { node, g, L, R, tick };
@@ -1210,7 +1385,7 @@ function stopRec(p){
   clearInterval(r.tick);
   try { d.meter.src.disconnect(r.node); } catch {} r.node.disconnect(); r.g.disconnect();
   d.rec = null;
-  const btn = d.el.querySelector('.rec'); btn.classList.remove('on'); btn.textContent = '● Grabar';
+  const btn = d.el.querySelector('.rec'); btn.classList.remove('on'); btn.textContent = '●'; btn.title = 'Grabar en WAV';
   if (!r.L.length) return;
   const blob = wav24(r.L, r.R, S.ctx.sampleRate);
   const a = document.createElement('a');
@@ -1240,12 +1415,8 @@ function wav24(L, R, sr){
 function addLocalTile(){
   const t = document.createElement('div'); t.className = 'tile me';
   t.innerHTML = '<video autoplay playsinline muted></video><div class="avatar"></div>'
-    + '<span class="tag"><i class="net mid" title="Conectando…"></i><span class="nm"></span></span>'
-    + '<div class="tbtns"><button class="btn sm dogb" title="Filtro de perrito (los demás también lo ven)">Perrito</button>'
-    + '<button class="btn sm mir" title="Verte en espejo (y que los demás te vean igual)">Espejo</button></div>';
+    + '<span class="tag"><i class="net mid" title="Conectando…"></i><span class="nm"></span></span>';
   t.querySelector('.nm').textContent = S.name + ' (tú)';
-  t.querySelector('.mir').onclick = () => setMirror(!S.mirror);
-  t.querySelector('.dogb').onclick = () => S.dog || S.dogLoading ? stopDog() : startDog();
   t.querySelector('.avatar').textContent = S.name[0].toUpperCase();
   t.querySelector('video').srcObject = S.talk;
   if (!S.talk.getVideoTracks().length) { t.classList.add('novideo'); $('#camBtn').disabled = true; }
@@ -1257,8 +1428,8 @@ function addTile(p){
   const t = document.createElement('div'); t.className = 'tile novideo';
   t.innerHTML = '<video autoplay playsinline></video><div class="avatar"></div>'
     + '<span class="tag"><i class="net mid" title="Conectando…"></i><span class="nm"></span><span class="ms mono"></span></span>'
-    + '<input type="range" class="vol" min="0" max="1" step="0.01" value="1" aria-label="Volumen de su voz" title="Volumen de su voz (solo para ti)">'
-    + '<button class="btn sm danger kick">Echar</button>';
+    + '<div class="tctl"><input type="range" class="vol" min="0" max="1" step="0.01" value="1" aria-label="Volumen de su voz" title="Volumen de su voz (solo para ti)">'
+    + '<button class="btn sm danger kick">Echar</button></div>';
   t.querySelector('.kick').onclick = () => kick(p.id);
   t.querySelector('.vol').oninput = e => { const v = +e.target.value; t.querySelector('video').volume = v; vols[p.name] = v; saveVols(); };
   p.tile = t; setName(p, p.name); $('#grid').append(t);
@@ -1284,7 +1455,8 @@ function setCam(p, on){ p.camOn = on; if (p.tile) p.tile.classList.toggle('novid
 S.mirror = prefs.mirror !== false;
 function setMirror(on){
   S.mirror = on; prefs.mirror = on; savePrefs();
-  if (S.localTile) { S.localTile.classList.toggle('mirror', on); S.localTile.querySelector('.mir').classList.toggle('on', on); }
+  if (S.localTile) S.localTile.classList.toggle('mirror', on);
+  $('#mirBtn').classList.toggle('on', on);
   peers.forEach(p => send(p.dc, { type: 'mirror', on }));
 }
 // Tu propio punto: conexión con el servidor que reúne la sala
@@ -1370,7 +1542,7 @@ async function switchTalk(kind, id, sel){
   if (kind === 'video') {
     refreshLocal();
     S.localTile.classList.toggle('novideo', !track);
-    const b = $('#camBtn'); b.disabled = !track; b.classList.add('on'); b.classList.remove('off');
+    const b = $('#camBtn'); b.disabled = !track; b.classList.remove('off'); setIcon(b, 'cam'); b.title = 'Apagar cámara';
     peers.forEach(p => send(p.dc, { type: 'cam', on: !!track }));
     if (dog && track) startDog();
   }
@@ -1432,11 +1604,13 @@ function loadFace(){
   }
   return faceLoad;
 }
-function dogButton(){ const b = S.localTile && S.localTile.querySelector('.dogb'); if (b) { b.classList.toggle('on', !!(S.dog || S.dogLoading)); b.textContent = S.dogLoading ? 'Perrito…' : 'Perrito'; } }
+function dogButton(){ const b = $('#dogBtn'); b.classList.toggle('on', !!(S.dog || S.dogLoading)); b.textContent = S.dogLoading ? 'Perrito…' : 'Perrito'; }
+$('#mirBtn').onclick = () => setMirror(!S.mirror);
+$('#dogBtn').onclick = () => S.dog || S.dogLoading ? stopDog() : startDog();
 async function startDog(){
   const raw = S.talk && S.talk.getVideoTracks()[0];
   if (S.dog || S.dogLoading) return;
-  if (!raw) { toast('Activa una cámara para usar el filtro.'); return; }
+  if (!raw) { toast('Necesitas una cámara para el filtro.'); return; }
   prefs.dog = true; savePrefs();
   S.dogLoading = true; dogButton();
   let fl;
@@ -1542,13 +1716,13 @@ async function startScreen(){
   tr.onended = stopScreen; // "Dejar de compartir" del propio navegador
   S.screen = s; S.screenGen = (S.screenGen || 0) + 1;
   peers.forEach((p, pid) => { if (p.dc && p.dc.open) callScreen(pid); });
-  const b = $('#screenBtn'); b.textContent = 'Dejar de compartir'; b.classList.add('on');
+  const b = $('#screenBtn'); b.title = 'Dejar de compartir'; b.classList.add('on');
 }
 function stopScreen(){
   if (!S.screen) return;
   S.screen.getTracks().forEach(t => t.stop()); S.screen = null;
   peers.forEach(p => { send(p.dc, { type: 'screen-stop', gen: S.screenGen }); try { p.screenOut && p.screenOut.close(); } catch {} p.screenOut = null; });
-  const b = $('#screenBtn'); b.textContent = 'Pantalla'; b.classList.remove('on');
+  const b = $('#screenBtn'); b.title = 'Compartir pantalla'; b.classList.remove('on');
 }
 function callScreen(id){
   const p = peers.get(id); if (!p || !S.screen || !S.peer) return;
@@ -1596,14 +1770,15 @@ $('#stage .full').onclick = () => {
 };
 
 /* ---------- controles ---------- */
-$('#micBtn').onclick = e => {
-  const t = S.talk.getAudioTracks()[0]; if (!t) return;
-  t.enabled = !t.enabled; e.target.classList.toggle('on', t.enabled); e.target.classList.toggle('off', !t.enabled);
-  e.target.textContent = t.enabled ? 'Micro' : 'Micro silenciado';
+$('#micBtn').onclick = () => {
+  const t = S.talk.getAudioTracks()[0], b = $('#micBtn'); if (!t) return;
+  t.enabled = !t.enabled; b.classList.toggle('off', !t.enabled);
+  setIcon(b, t.enabled ? 'mic' : 'micOff'); b.title = t.enabled ? 'Silenciar micro' : 'Activar micro';
 };
-$('#camBtn').onclick = e => {
-  const t = S.talk.getVideoTracks()[0]; if (!t) return;
-  t.enabled = !t.enabled; e.target.classList.toggle('on', t.enabled); e.target.classList.toggle('off', !t.enabled);
+$('#camBtn').onclick = () => {
+  const t = S.talk.getVideoTracks()[0], b = $('#camBtn'); if (!t) return;
+  t.enabled = !t.enabled; b.classList.toggle('off', !t.enabled);
+  setIcon(b, t.enabled ? 'cam' : 'camOff'); b.title = t.enabled ? 'Apagar cámara' : 'Encender cámara';
   S.localTile.classList.toggle('novideo', !t.enabled);
   peers.forEach(p => send(p.dc, { type: 'cam', on: t.enabled }));
 };
@@ -1613,7 +1788,7 @@ $('#out').onchange = e => {
   peers.forEach(p => p.dawIn && setSink(p.dawIn.audio));
   ctxSink();
 };
-$('#copy').onclick = () => { const url = PUBLIC_URL + '?sala=' + S.room; navigator.clipboard.writeText(url).then(() => toast('Enlace copiado. Pásaselo a tus colegas.', true), () => toast(url)); };
+$('#copy').onclick = () => { const url = PUBLIC_URL + '?sala=' + S.room; navigator.clipboard.writeText(url).then(() => toast('Enlace copiado.', true), () => toast(url)); };
 // Al salir se avisa a los demás (para que no se queden esperando a que vuelvas) y se vuelve a la portada.
 // En la Cabina servida por el plugin (Safari), si el DAW ya está cerrado la portada no cargaría y Safari
 // daba error: entonces se vuelve a la web publicada.
@@ -1632,6 +1807,43 @@ $('#leave').onclick = async () => {
 };
 window.addEventListener('beforeunload', () => { try { S.peer && S.peer.destroy(); } catch {} });
 
+/* ---------- menús de la barra ---------- */
+function closePops(){ document.querySelectorAll('.pop').forEach(p => p.hidden = true); document.querySelectorAll('[data-pop]').forEach(b => b.classList.remove('on')); }
+function openPop(id){ closePops(); $('#' + id).hidden = false; const b = document.querySelector(`[data-pop="${id}"]`); if (b) b.classList.add('on'); }
+document.querySelectorAll('[data-pop]').forEach(b => b.onclick = () => $('#' + b.dataset.pop).hidden ? openPop(b.dataset.pop) : closePops());
+document.addEventListener('pointerdown', e => { if (!e.target.closest('.pop, [data-pop]')) closePops(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePops(); });
+
+/* ---------- panel derecho y chat ---------- */
+// El panel solo sale con el chat abierto o con alguien emitiendo su DAW. El chat se abre con su botón
+// y se cierra solo tras 30 s sin tocarlo (salvo si estás escribiendo). Con él cerrado, los mensajes
+// nuevos se cuentan en el botón.
+function layoutAside(){
+  const show = !$('#chatBox').hidden || !$('#dawBox').hidden;
+  $('aside').hidden = !show; $('.layout').classList.toggle('solo', !show);
+}
+const CHAT_IDLE = 30000;
+let chatT = 0, unread = 0;
+function setUnread(n){ unread = n; $('#unread').hidden = !n; $('#unread').textContent = n > 9 ? '9+' : n; }
+function chatOpen(on){
+  $('#chatBox').hidden = !on; $('#chatBtn').classList.toggle('on', on);
+  clearTimeout(chatT);
+  if (on) { setUnread(0); chatPoke(); $('#chatLog').scrollTop = 1e9; }
+  layoutAside();
+}
+function chatPoke(){
+  clearTimeout(chatT);
+  chatT = setTimeout(() => {
+    const i = $('#chatIn');
+    if (document.activeElement === i && i.value.trim()) return chatPoke();
+    chatOpen(false);
+  }, CHAT_IDLE);
+}
+function chatNew(mine){ if ($('#chatBox').hidden) { if (!mine) setUnread(unread + 1); } else chatPoke(); }
+$('#chatBtn').onclick = () => chatOpen($('#chatBox').hidden);
+$('#chatClose').onclick = () => chatOpen(false);
+['pointermove', 'pointerdown', 'keydown', 'wheel', 'focusin'].forEach(ev => $('#chatBox').addEventListener(ev, () => chatPoke(), { passive: true }));
+
 /* ---------- easter egg ---------- */
 // La bola de arriba a la izquierda suena a hitmarker. "Hitmarker Sound Effect" de aruscio28 en Freesound
 // (freesound.org/s/322640, CC0). Con la ruta completa, para que también suene en la Cabina servida por el plugin.
@@ -1648,6 +1860,7 @@ function addMsg(who, text, t){
   const x = document.createElement('span'); x.textContent = text;
   const tt = document.createElement('span'); tt.className = 't'; tt.textContent = hhmm(t || Date.now());
   m.append(w, x, tt); $('#chatLog').append(m); $('#chatLog').scrollTop = 1e9;
+  chatNew(who === 'Tú');
 }
 $('#chatForm').onsubmit = e => {
   e.preventDefault();
@@ -1676,6 +1889,7 @@ function fileMsg(who, name, size){
   m.querySelector('.fname').textContent = name; card.title = name;
   m.querySelector('.fext').textContent = ((name.match(/\.([a-z0-9]{1,4})$/i) || [])[1] || 'FILE').toUpperCase();
   $('#chatLog').append(m); $('#chatLog').scrollTop = 1e9;
+  chatNew(who === 'Tú');
   const ui = {
     status(text, frac){ sub.textContent = fmtSize(size) + (text ? ' · ' + text : ''); bar.style.width = frac > 0 && frac < 1 ? frac * 100 + '%' : '0'; },
     fail(text){ card.classList.add('err'); ui.status(text); },
@@ -1693,7 +1907,7 @@ function fileMsg(who, name, size){
 }
 function sendFiles(files){
   const to = [...peers.keys()].filter(id => peers.get(id).dc && peers.get(id).dc.open);
-  if (!to.length) { toast('No hay nadie en la sala a quien mandarlo.'); return; }
+  if (!to.length) { toast('No hay nadie más en la sala.'); return; }
   for (const f of files) {
     if (!f.size) continue;
     if (f.size > FILE_MAX) { toast(`${f.name} pesa ${fmtSize(f.size)}: el límite es 1 GB por archivo.`); continue; }
@@ -1748,11 +1962,12 @@ function wireFileIn(c){
 }
 $('#fileBtn').onclick = () => $('#fileIn').click();
 $('#fileIn').onchange = e => { sendFiles([...e.target.files]); e.target.value = ''; };
+// Se pueden soltar archivos en cualquier parte de la sala: se abre el chat y se mandan
 {
-  const box = $('.box.chat');
-  box.addEventListener('dragover', e => { if ([...e.dataTransfer.types].includes('Files')) { e.preventDefault(); box.classList.add('drop'); } });
-  box.addEventListener('dragleave', e => { if (!box.contains(e.relatedTarget)) box.classList.remove('drop'); });
-  box.addEventListener('drop', e => { e.preventDefault(); box.classList.remove('drop'); sendFiles([...e.dataTransfer.files]); });
+  const area = $('#studio'), box = $('#chatBox');
+  area.addEventListener('dragover', e => { if ([...e.dataTransfer.types].includes('Files')) { e.preventDefault(); if (box.hidden) chatOpen(true); box.classList.add('drop'); } });
+  area.addEventListener('dragleave', e => { if (!area.contains(e.relatedTarget)) box.classList.remove('drop'); });
+  area.addEventListener('drop', e => { e.preventDefault(); box.classList.remove('drop'); sendFiles([...e.dataTransfer.files]); });
 }
 
 // Al llegar desde la web publicada (Safari, "Abrir Cabina desde el plugin"), se entra directamente en la sala
