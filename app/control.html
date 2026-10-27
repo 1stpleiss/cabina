@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Control remoto</title>
+<style>
+html,body{margin:0;height:100%;background:transparent;overflow:hidden}
+body{display:grid;place-items:center;font:500 13px/1 Inter,system-ui,sans-serif;-webkit-user-select:none;user-select:none}
+.pill{display:flex;align-items:center;gap:10px;height:40px;padding:0 6px 0 14px;border-radius:20px;background:rgba(20,22,28,.92);color:#ebe8e3;border:1px solid rgba(255,255,255,.12);box-shadow:0 6px 20px rgba(0,0,0,.45)}
+.dot{width:9px;height:9px;border-radius:50%;background:#e5484d;box-shadow:0 0 10px #e5484d;animation:p 1.6s ease-in-out infinite}
+@keyframes p{50%{opacity:.4}}
+#t{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+button{height:28px;padding:0 12px;border-radius:14px;border:0;background:#e5484d;color:#fff;font:600 12.5px Inter,system-ui,sans-serif;cursor:pointer}
+button:hover{background:#f05d61}
+</style>
+</head>
+<body>
+<div class="pill"><span class="dot"></span><span id="t"></span><button id="q">Quitar control</button></div>
+<script>
+document.getElementById('t').textContent = (new URLSearchParams(location.search).get('nombre') || 'Alguien') + ' controla tu ordenador';
+document.getElementById('q').onclick = () => window.pill.quitar();
+</script>
+</body>
+</html>

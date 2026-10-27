@@ -33,6 +33,21 @@ jobs:
           cache: npm
           cache-dependency-path: app/package-lock.json
       - run: npm ci
+      # Ayudante del control remoto (app/control.js): mueve el ratón y pulsa teclas
+      - name: Ayudante del control remoto (Mac)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p helper/build
+          swiftc -O -target arm64-apple-macos11 -o helper/build/arm64 helper/mac.swift
+          swiftc -O -target x86_64-apple-macos13 -o helper/build/x86_64 helper/mac.swift
+          lipo -create -output helper/build/cabina-control helper/build/arm64 helper/build/x86_64
+          rm helper/build/arm64 helper/build/x86_64
+          codesign --force -s - helper/build/cabina-control
+      - name: Ayudante del control remoto (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          mkdir -p helper/build
+          /c/Windows/Microsoft.NET/Framework64/v4.0.30319/csc.exe -nologo -optimize -target:winexe -out:helper/build/cabina-control.exe helper/win.cs
       - name: Compilar
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"

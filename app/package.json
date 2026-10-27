@@ -20,10 +20,13 @@
     "files": [
       "main.js",
       "updater.js",
+      "control.js",
       "preload.js",
+      "control-preload.js",
       "picker.html",
       "picker-preload.js",
-      "offline.html"
+      "offline.html",
+      "control.html"
     ],
     "directories": {
       "output": "dist",
@@ -51,7 +54,13 @@
       "extendInfo": {
         "NSMicrophoneUsageDescription": "Cabina usa el micro para que tus colegas te oigan en la sala.",
         "NSCameraUsageDescription": "Cabina usa la cámara para que tus colegas te vean en la sala."
-      }
+      },
+      "extraResources": [
+        {
+          "from": "helper/build/cabina-control",
+          "to": "cabina-control"
+        }
+      ]
     },
     "dmg": {
       "title": "Cabina"
@@ -61,7 +70,13 @@
         "nsis"
       ],
       "artifactName": "Cabina-App-Windows.${ext}",
-      "icon": "build/icon-win.png"
+      "icon": "build/icon-win.png",
+      "extraResources": [
+        {
+          "from": "helper/build/cabina-control.exe",
+          "to": "cabina-control.exe"
+        }
+      ]
     },
     "nsis": {
       "oneClick": true,

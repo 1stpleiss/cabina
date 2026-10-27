@@ -135,7 +135,11 @@ main{padding:12px;overflow:auto}
 #stage{position:relative;aspect-ratio:16/9;max-height:calc(100vh - 150px);margin:0 auto 10px;background:#000;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
 #stage video{width:100%;height:100%;object-fit:contain;display:block}
 #stage .tag{position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.6);padding:3px 9px;border-radius:7px;font-size:12.5px;font-weight:500}
-#stage .full{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6)}
+#stage .sbtns{position:absolute;top:8px;right:8px;display:flex;gap:6px}
+#stage .sbtns .btn{background:rgba(0,0,0,.6)}
+#stage .sbtns .btn.on{background:rgba(18,26,64,.9)}
+#stage:focus{outline:none}
+#stage.controlling{border-color:var(--accent-glow);box-shadow:0 0 0 1px var(--accent-glow),0 0 24px rgba(74,102,240,.45)}
 #stage:fullscreen{max-height:none;border:0;border-radius:0}
 main.sharing #grid{display:flex;flex-wrap:wrap;justify-content:center}
 main.sharing .tile{width:220px;max-width:100%;flex:none}
@@ -289,7 +293,7 @@ html.app #join .card{-webkit-app-region:no-drag}
   </header>
   <div class="layout solo">
     <main>
-      <div id="stage" hidden><video autoplay playsinline muted></video><span class="tag"></span><button class="btn sm full">Pantalla completa</button></div>
+      <div id="stage" hidden><video autoplay playsinline muted></video><span class="tag"></span><div class="sbtns"><button class="btn sm ctlb" hidden>Pedir control</button><button class="btn sm full">Pantalla completa</button></div></div>
       <div id="grid"></div>
     </main>
     <aside hidden>
@@ -750,7 +754,7 @@ function ready(p){
   if (S.isHost) send(p.dc, { type: 'roster', ids: [...peers.values()].filter(x => x.ok && x.id !== p.id).map(x => x.id) });
   if (p.out) wireTalk(p, S.peer.call(p.id, S.talk, { metadata: { kind: 'talk' } }));
   if (S.daw) callDaw(p.id);
-  if (S.screen) callScreen(p.id);
+  if (S.screen) { callScreen(p.id); sendCap(p); }
 }
 
 /* ---------- red (PeerJS) ---------- */
@@ -853,6 +857,7 @@ function onData(p, d){
   else if (d.type === 'cam') setCam(p, !!d.on);
   else if (d.type === 'screen-stop') screens.filter(x => x.p === p && !(x.call.metadata.gen > d.gen)).forEach(x => hideScreen(p, x.call));
   else if (d.type === 'daw-stop') { if (p.dawIn && !(d.gen < p.dawIn.gen)) removeDawIn(p); }
+  else if (d.type.startsWith('ctl')) onCtl(p, d);
 }
 function onCall(call){
   const p = ensurePeer(call.peer);
@@ -875,6 +880,7 @@ function onCall(call){
 function wireTalk(p, call){ p.talkCall = call; call.on('stream', s => attachTalk(p, s)); call.on('error', () => {}); }
 function removePeer(id){
   const p = peers.get(id); if (!p) return;
+  ctlGone(p);
   removeDawIn(p); hideScreen(p);
   [p.talkCall, p.dawOut, p.pcmOut, p.dawCallIn, p.screenOut, p.screenIn].forEach(c => { try { c && c.close(); } catch {} });
   try { p.dc && p.dc.close(); } catch {}
@@ -1822,12 +1828,14 @@ async function startScreen(){
   try { tr.contentHint = 'detail'; } catch {}
   tr.onended = stopScreen; // "Dejar de compartir" del propio navegador
   S.screen = s; S.screenGen = (S.screenGen || 0) + 1;
-  peers.forEach((p, pid) => { if (p.dc && p.dc.open) callScreen(pid); });
+  peers.forEach((p, pid) => { if (p.dc && p.dc.open) { callScreen(pid); sendCap(p); } });
   const b = $('#screenBtn'); b.title = 'Dejar de compartir'; b.classList.add('on');
 }
 function stopScreen(){
   if (!S.screen) return;
   S.screen.getTracks().forEach(t => t.stop()); S.screen = null;
+  endCtl(true);
+  peers.forEach(sendCap);
   peers.forEach(p => { send(p.dc, { type: 'screen-stop', gen: S.screenGen }); try { p.screenOut && p.screenOut.close(); } catch {} p.screenOut = null; });
   const b = $('#screenBtn'); b.title = 'Compartir pantalla'; b.classList.remove('on');
 }
@@ -1860,6 +1868,7 @@ function hideScreen(p, call, quiet){
   const i = screens.findIndex(x => x.p === p && (!call || x.call === call));
   if (i < 0) return;
   screens.splice(i, 1);
+  if (p === S.ctlOf) ctlRelease(false);
   if (!quiet) renderStage();
 }
 function renderStage(){
@@ -1868,6 +1877,7 @@ function renderStage(){
   if (!cur) { v.srcObject = null; if (document.fullscreenElement === st) document.exitFullscreen().catch(() => {}); return; }
   st.querySelector('.tag').textContent = 'Pantalla de ' + cur.p.name;
   if (v.srcObject !== cur.stream) { v.srcObject = cur.stream; v.play().catch(() => {}); }
+  ctlButton();
 }
 $('#screenBtn').onclick = () => S.screen ? stopScreen() : startScreen();
 $('#stage .full').onclick = () => {
@@ -1875,6 +1885,128 @@ $('#stage .full').onclick = () => {
   if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
   else (st.requestFullscreen || st.webkitRequestFullscreen).call(st);
 };
+
+/* ---------- control remoto ---------- */
+// Quien mira una pantalla compartida puede pedir controlar ese ordenador (ratón, rueda y teclado). Solo si
+// quien comparte usa la app de escritorio y comparte la pantalla entera, y solo si lo permite: la app le
+// pregunta cada vez y le pone un aviso flotante con "Quitar control" (app/control.js). Aquí:
+//  - Quien comparte anuncia si se le puede controlar (ctl-cap), responde a las peticiones (ctl-req →
+//    ctl-ok / ctl-no) y pasa a la app lo que llega (ctl) de quien tiene el control, y de nadie más.
+//  - Quien controla manda lo que hace sobre la imagen: posición de 0 a 1 dentro de la imagen, botones,
+//    rueda y teclas por su posición física (code). El teclado va a la pantalla compartida al pulsar en ella.
+//  - Cualquiera de los dos puede cortar (ctl-end); también se corta al dejar de compartir o salir.
+const APPCTL = window.CABINA_APP && window.CABINA_APP.control;
+S.ctl = null;    // quien comparte: { p } con el control
+S.ctlOf = null;  // quien controla: la persona que se lo ha dado
+S.ctlAsk = null; // quien controla: a quién se le ha pedido
+const canBeControlled = () => { const t = S.screen && S.screen.getVideoTracks()[0]; return !!(APPCTL && t && t.getSettings().displaySurface === 'monitor'); };
+function sendCap(p){ send(p.dc, { type: 'ctl-cap', on: !!S.screen && canBeControlled() }); }
+function endCtl(notify){
+  if (!S.ctl) return;
+  const p = S.ctl.p; S.ctl = null;
+  APPCTL && APPCTL.end();
+  if (notify) send(p.dc, { type: 'ctl-end' });
+}
+function ctlRelease(notify){
+  const p = S.ctlOf || S.ctlAsk; if (!p) return;
+  ctlKeysUp(); // soltar las teclas que siguieran pulsadas
+  S.ctlOf = S.ctlAsk = null;
+  if (notify) send(p.dc, { type: 'ctl-end' });
+  ctlButton();
+}
+function ctlGone(p){ if (S.ctl && S.ctl.p === p) endCtl(false); if (S.ctlOf === p || S.ctlAsk === p) ctlRelease(false); }
+if (APPCTL) APPCTL.onEnded(() => { if (S.ctl) { const p = S.ctl.p; S.ctl = null; send(p.dc, { type: 'ctl-end' }); toast(`Le has quitado el control a ${p.name}.`, true); } });
+const CTL_NO = { no: n => `${n} no te ha dado el control.`, permiso: n => `${n} tiene que dar a Cabina el permiso de Accesibilidad. Vuelve a pedirlo después.`,
+  ocupado: n => `Ya hay alguien controlando el ordenador de ${n}.`, pantalla: n => `Solo se puede controlar cuando ${n} comparte la pantalla entera.`,
+  falta: n => `La app de ${n} no permite el control remoto. Que la actualice.`, sistema: n => `La app de ${n} no permite el control remoto.` };
+function onCtl(p, d){
+  if (d.type === 'ctl') { if (S.ctl && S.ctl.p === p && d.ev && typeof d.ev === 'object') APPCTL.send(d.ev); return; }
+  if (d.type === 'ctl-cap') { p.ctlCap = !!d.on; if (!p.ctlCap && (S.ctlOf === p || S.ctlAsk === p)) ctlRelease(false); ctlButton(); return; }
+  if (d.type === 'ctl-req') {
+    if (!canBeControlled()) { send(p.dc, { type: 'ctl-no', reason: 'pantalla' }); return; }
+    if (S.ctl || S.ctlAsking) { send(p.dc, { type: 'ctl-no', reason: 'ocupado' }); return; }
+    const st = S.screen.getVideoTracks()[0].getSettings();
+    S.ctlAsking = true;
+    APPCTL.ask(p.name, st.width, st.height).then(r => {
+      S.ctlAsking = false;
+      if (!peers.has(p.id) || !S.screen) { if (r.ok) APPCTL.end(); return; }
+      if (r.ok) { S.ctl = { p }; send(p.dc, { type: 'ctl-ok' }); }
+      else send(p.dc, { type: 'ctl-no', reason: typeof r.reason === 'string' ? r.reason : 'no' });
+    }, () => { S.ctlAsking = false; send(p.dc, { type: 'ctl-no', reason: 'no' }); });
+    return;
+  }
+  if (d.type === 'ctl-ok') { if (S.ctlAsk === p) { S.ctlAsk = null; S.ctlOf = p; ctlButton(); toast(`Controlas el ordenador de ${p.name}. Pulsa en su pantalla para empezar.`, true, 6000); } return; }
+  if (d.type === 'ctl-no') { if (S.ctlAsk === p) { S.ctlAsk = null; ctlButton(); toast((CTL_NO[d.reason] || CTL_NO.no)(p.name), false, 7000); } return; }
+  if (d.type === 'ctl-end') {
+    if (S.ctl && S.ctl.p === p) { endCtl(false); toast(`${p.name} ha dejado el control.`, true); }
+    if (S.ctlOf === p) { ctlRelease(false); toast(`${p.name} te ha quitado el control.`); }
+  }
+}
+function ctlButton(){
+  const cur = screens[screens.length - 1], b = $('#stage .ctlb'), mine = !!cur && S.ctlOf === cur.p;
+  b.hidden = !(cur && (cur.p.ctlCap || mine));
+  $('#stage').classList.toggle('controlling', mine);
+  if (b.hidden) return;
+  b.textContent = mine ? 'Dejar el control' : S.ctlAsk === cur.p ? 'Esperando…' : 'Pedir control';
+  b.classList.toggle('on', mine);
+}
+$('#stage .ctlb').onclick = () => {
+  const cur = screens[screens.length - 1]; if (!cur) return;
+  if (S.ctlOf === cur.p) { ctlRelease(true); return; }
+  if (S.ctlAsk) return;
+  if (S.ctlOf) ctlRelease(true);
+  S.ctlAsk = cur.p; send(cur.p.dc, { type: 'ctl-req' }); ctlButton();
+  setTimeout(() => { if (S.ctlAsk === cur.p) { S.ctlAsk = null; ctlButton(); } }, 60000);
+};
+// Lo que hace quien controla sobre la imagen compartida
+{
+  const st = $('#stage'), v = st.querySelector('video');
+  st.tabIndex = 0;
+  const controlling = () => { const cur = screens[screens.length - 1]; return !!S.ctlOf && !!cur && cur.p === S.ctlOf; };
+  const mods = e => (e.shiftKey ? 1 : 0) | (e.ctrlKey ? 2 : 0) | (e.altKey ? 4 : 0) | (e.metaKey ? 8 : 0);
+  const out = ev => send(S.ctlOf.dc, { type: 'ctl', ev });
+  // Posición dentro de la imagen (el vídeo se ajusta sin recortar, con bandas si hace falta)
+  let lastPos = null, moveT = 0, moveEv = null;
+  const pos = e => {
+    const r = v.getBoundingClientRect(), vw = v.videoWidth, vh = v.videoHeight; if (!vw || !vh) return null;
+    const k = Math.min(r.width / vw, r.height / vh), w = vw * k, h = vh * k;
+    const x = (e.clientX - r.left - (r.width - w) / 2) / w, y = (e.clientY - r.top - (r.height - h) / 2) / h;
+    return x < 0 || x > 1 || y < 0 || y > 1 ? null : { x, y };
+  };
+  const flush = () => { clearTimeout(moveT); moveT = 0; if (moveEv && controlling()) out(moveEv); moveEv = null; };
+  v.addEventListener('pointermove', e => {
+    if (!controlling()) return; const q = pos(e); if (!q) return; lastPos = q;
+    moveEv = { t: 'move', ...q, m: mods(e) };
+    if (!moveT) moveT = setTimeout(flush, 16); // como mucho unas 60 veces por segundo
+  });
+  v.addEventListener('pointerdown', e => {
+    if (!controlling()) return; const q = pos(e); if (!q) return;
+    e.preventDefault(); st.focus(); try { v.setPointerCapture(e.pointerId); } catch {}
+    flush(); lastPos = q; out({ t: 'down', b: e.button, ...q, m: mods(e) });
+  });
+  v.addEventListener('pointerup', e => {
+    if (!controlling() || !lastPos) return;
+    flush(); out({ t: 'up', b: e.button, ...(pos(e) || lastPos), m: mods(e) });
+  });
+  v.addEventListener('contextmenu', e => { if (controlling()) e.preventDefault(); });
+  v.addEventListener('wheel', e => {
+    if (!controlling()) return; e.preventDefault();
+    const k = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+    out({ t: 'scroll', dx: e.deltaX * k, dy: e.deltaY * k, m: mods(e) });
+  }, { passive: false });
+  // Teclado: con la pantalla compartida enfocada (al pulsar en ella), todas las teclas van allí
+  const held = new Set();
+  window.ctlKeysUp = () => { if (S.ctlOf) held.forEach(code => send(S.ctlOf.dc, { type: 'ctl', ev: { t: 'key', code, down: false, m: 0 } })); held.clear(); };
+  st.addEventListener('keydown', e => {
+    if (!controlling()) return; e.preventDefault(); e.stopPropagation();
+    held.add(e.code); out({ t: 'key', code: e.code, down: true, m: mods(e) });
+  });
+  st.addEventListener('keyup', e => {
+    if (!controlling()) return; e.preventDefault(); e.stopPropagation();
+    held.delete(e.code); out({ t: 'key', code: e.code, down: false, m: mods(e) });
+  });
+  st.addEventListener('blur', () => ctlKeysUp());
+}
 
 /* ---------- controles ---------- */
 $('#micBtn').onclick = () => {

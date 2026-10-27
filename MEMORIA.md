@@ -219,7 +219,12 @@ Carpeta `app/`. Es Cabina dentro de una app hecha con **Electron 44.7.0** (empaq
   - `backgroundThrottling: false`: con la ventana tapada o minimizada no se ralentiza la página, que era una causa de cortes en el audio.
   - El audio suena sin esperar a un clic (`autoplay-policy`).
 - **Permisos** (micro, cámara, salida de audio...): se conceden solos, pero solo a la web de Cabina (`setPermissionRequestHandler`/`setPermissionCheckHandler`). En Mac, el sistema pide permiso de micro y cámara la primera vez (textos en `NSMicrophoneUsageDescription`/`NSCameraUsageDescription`).
-- **Compartir pantalla**: ventana propia para elegir ventana o pantalla, con miniaturas (`picker.html`, `desktopCapturer`). Cancelar llega a la web como `AbortError`, que la web ya no trata como error.
+- **Compartir pantalla**:
+  - **Mac (macOS 15 o posterior)**: selector del propio sistema (`useSystemPicker`, el de FaceTime o Safari, con ScreenCaptureKit). Desde el 28-10-2026. Antes se usaba siempre la ventana propia, que necesita el permiso de *Grabación de pantalla*: hay que darlo a mano en Ajustes, reiniciar la app y, sin firma de Apple, se pierde con cada actualización (macOS identifica la app por su huella). Por eso en la app instalada no se podía compartir; en modo de desarrollo sí, porque hereda los permisos de VS Code.
+  - **Windows y Macs anteriores**: ventana propia para elegir ventana o pantalla, con miniaturas (`picker.html`, `desktopCapturer`).
+  - Cancelar llega a la web como `AbortError`, que la web no trata como error.
+- **Permisos de micro y cámara en la app instalada**: macOS los pide a Cabina (no al navegador). Sin firma de Apple, puede volver a pedirlos tras cada actualización.
+- **Control remoto** (28-10-2026, `control.js`, `control.html`, `helper/`): ver más abajo, *Control remoto*.
 - **Enlaces externos** (descargas, créditos) se abren en el navegador; la app no navega fuera de Cabina.
 - **Sin internet**: página propia con *Reintentar* (`offline.html`).
 - Una sola instancia; menú con *Volver a cargar* (Cmd/Ctrl+R), herramientas de desarrollo, zoom y pantalla completa.
@@ -235,6 +240,23 @@ Carpeta `app/`. Es Cabina dentro de una app hecha con **Electron 44.7.0** (empaq
   - La primera versión publicada (26-10-2026) no traía esto: quien la tenga instalada debe descargarla una vez más.
 - **Compilación**: `.github/workflows/app.yml`, con cada cambio en `app/`. Publica en la release **`app`** `Cabina-App-Mac.dmg` y `Cabina-App-Windows.exe` (la web los enlaza en el aviso de los plugins) y, para las actualizaciones, `Cabina-App-Mac.zip`, `latest-mac.yml`, `latest.yml` y los `.blockmap`. En local: `cd app && npm install && npx electron-builder --mac`.
 - **Ojo en VS Code**: el terminal de VS Code define `ELECTRON_RUN_AS_NODE=1`, y con eso Electron arranca como Node y falla (`app` sin definir). Lanzarlo con `env -u ELECTRON_RUN_AS_NODE npm start`.
+
+### Control remoto
+
+Otro participante mueve tu ratón y escribe en tu ordenador mientras compartes la **pantalla entera** desde la **app de escritorio**. Quien controla puede estar en la web o en la app. Para hacer beats juntos en un solo ordenador. Creado el 28-10-2026.
+
+- **Cómo se usa**: quien mira la pantalla compartida pulsa *Pedir control* (encima de la pantalla, junto a *Pantalla completa*). A quien comparte, la app le pregunta "Fran quiere controlar tu ordenador" (*Permitir* / *Denegar*; el Dock rebota en Mac o parpadea la ventana en Windows). Si permite, quien mira pulsa en la pantalla compartida y desde ahí su ratón, la rueda y el teclado van a ese ordenador. *Dejar el control* lo suelta.
+- **Seguridad**:
+  - Lo decide siempre quien comparte, cada vez. Mientras dura hay un **aviso flotante** encima de todo y en todos los escritorios: "Fran controla tu ordenador · *Quitar control*" (un solo clic basta aunque Cabina no esté delante: `acceptFirstMouse`).
+  - Se corta al quitarlo, al dejar de compartir, al salir de la sala o si se va quien controla. Solo una persona a la vez.
+  - Solo se obedece a quien recibió el permiso, y solo por la conexión con clave de la sala. La app solo acepta órdenes de la página de Cabina y comprueba cada valor (posiciones de 0 a 1, teclas de una lista fija).
+  - El programa que mueve el ratón solo está abierto mientras dura el control.
+- **Mensajes entre las webs** (`onCtl` en `web/index.html`): `ctl-cap` (quien comparte anuncia si se le puede controlar: app y pantalla entera, `displaySurface === 'monitor'`), `ctl-req`, `ctl-ok` / `ctl-no` (con el motivo: `no`, `permiso`, `ocupado`, `pantalla`, `falta`, `sistema`), `ctl` (cada acción) y `ctl-end`.
+- **Lo que manda quien controla**: posición de 0 a 1 dentro de la imagen (el vídeo se ve ajustado, con bandas), como mucho unas 60 veces por segundo; botón (izquierdo, central, derecho); rueda en píxeles; teclas por su posición física (`KeyboardEvent.code`) y los modificadores. El teclado va a la pantalla compartida al pulsar en ella (se le da el foco); al perderlo se sueltan las teclas pulsadas.
+- **La app** (`control.js`): traduce la posición a la pantalla compartida (en Windows, la elegida en la ventana propia; en Mac, la del selector del sistema, reconocida por el tamaño de la imagen) y la tecla al código de cada sistema (tablas `MAC` y `WIN`), y se lo pasa al ayudante en JSON, una orden por línea.
+- **Ayudantes**: `helper/mac.swift` (CGEvent; doble y triple clic por tiempo y distancia; las modificadoras como `flagsChanged`) y `helper/win.cs` (SetCursorPos, mouse_event, keybd_event; consciente del DPI, posiciones en píxeles físicos con `dipToScreenPoint`). Los compila GitHub (`app.yml`): el de Mac universal (arm64 desde macOS 11, Intel desde macOS 13, porque en Intel con un mínimo anterior faltan librerías de Swift al enlazar) y firmado ad-hoc; el de Windows con el `csc.exe` que trae Windows. Van en `Contents/Resources` (Mac) o `resources` (Windows). En local: `swiftc` como en `app.yml`, a `app/helper/build/` (ignorado por git).
+- **Permiso de Accesibilidad (Mac)**: hace falta para mover el ratón y escribir. Si no está, la app lo explica, abre Ajustes con Cabina ya en la lista y responde `permiso` (a quien pide le sale que lo vuelva a pedir después). **Sin firma de Apple hay que volver a darlo tras cada actualización.**
+- **Probado el 28-10-2026** (app en modo de desarrollo compartiendo, Chrome controlando): el aviso de permiso espera respuesta; *Denegar* avisa a quien pidió; con *Permitir*, un movimiento al 75 % × 60 % puso el ratón en 1134 × 589 en una pantalla de 1512 × 982 puntos; un clic en *Quitar control* lo corta en los dos lados y cierra el ayudante; dejar de compartir también. El paquete de Mac lleva el ayudante y la firma se verifica. **Sin probar**: el ayudante de Windows (lo compila GitHub) y teclas y clics reales sobre otra app (para no tocar nada del ordenador de pruebas).
 
 ## 6. Protocolo entre la web y los plugins
 
@@ -431,6 +453,8 @@ cabina/
 │   ├── package.json            ← versiones y configuración del empaquetado
 │   ├── main.js                 ← ventana, permisos, compartir pantalla, enlaces
 │   ├── updater.js              ← actualizaciones de la app (Windows: electron-updater; Mac: a mano)
+│   ├── control.js, control.html ← control remoto (permiso, aviso flotante, traducción de teclas)
+│   ├── helper/                 ← ayudantes que mueven el ratón y pulsan teclas (mac.swift, win.cs)
 │   ├── preload.js              ← window.CABINA_APP para la web
 │   ├── picker.html, picker-preload.js ← elegir ventana o pantalla
 │   ├── offline.html            ← sin internet
@@ -510,7 +534,7 @@ Revisado el 27-10-2026.
   - Por qué importa en Mac: JUCE abre el puerto con `SO_REUSEADDR`. En Windows esa opción deja que una segunda instancia comparta el puerto, pero en macOS no. Algunos DAW (FL Studio en Mac, por ejemplo) crean una instancia temporal del plugin y luego la destruyen. Hasta la v0.1, la instancia buena se quedaba sin puerto para siempre, y la web y el plugin no se veían. Ahora el servidor reintenta cada 0,5 s.
 - **AAX / Pro Tools**: no incluido, porque requiere firma de Avid.
 - **Plugins sin firmar en Mac**: macOS pide *Abrir igualmente* con cada versión (§8.3). Firmar y notarizar requiere cuenta de desarrollador de Apple (99 €/año); el flujo está listo (§10.1).
-- **Dar control del ordenador a otro participante** (para hacer beats en el mismo PC): una web no puede mover el ratón ni pulsar teclas en el ordenador de nadie; los navegadores lo impiden por seguridad. Haría falta la app de escritorio (§16). Mientras, se puede usar algo aparte a la vez que Cabina: *Compartir pantalla* de macOS (permite controlar entre Macs), Chrome Remote Desktop o Parsec.
+- **Control remoto solo desde la app**: una web no puede mover el ratón ni pulsar teclas en el ordenador de nadie, así que quien comparte necesita la app de escritorio (quien controla puede estar en la web). Solo con la pantalla entera, no con una ventana. En Mac pide el permiso de Accesibilidad, que sin firma de Apple se pierde con cada actualización (§5, *Control remoto*).
 
 ## 15. Pruebas realizadas
 
@@ -567,7 +591,7 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 - [ ] SFU para salas grandes.
 - [x] App de escritorio (Electron) que carga la web y habla con los plugins sin los límites del navegador (26-10-2026).
 - [x] App de escritorio sin barra de título y que se actualiza sola (27-10-2026).
-- [ ] Dar control del ordenador a otro participante desde la app (ratón y teclado; en Mac, permiso de accesibilidad).
+- [x] Dar control del ordenador a otro participante desde la app (ratón y teclado; en Mac, permiso de accesibilidad) (28-10-2026).
 - [ ] Enlaces `cabina://` para abrir una sala en la app directamente.
 
 ## 17. Solución de problemas

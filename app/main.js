@@ -4,6 +4,7 @@
 const { app, BrowserWindow, Menu, session, shell, desktopCapturer, ipcMain } = require('electron');
 const path = require('path');
 const updater = require('./updater');
+const control = require('./control');
 
 const WEB = process.env.CABINA_WEB || 'https://1stpleiss.github.io/cabina/';
 const ORIGIN = new URL(WEB).origin;
@@ -64,13 +65,17 @@ function permissions(){
   s.setPermissionRequestHandler((wc, perm, cb, details) => cb(ours(details.requestingUrl || wc.getURL())));
   s.setPermissionCheckHandler((wc, perm, origin) => ours(origin || (wc && wc.getURL()) || ''));
 
-  // Compartir pantalla: ventana para elegir pantalla o ventana (el DAW)
+  // Compartir pantalla. En Mac (macOS 15 o posterior) se usa el selector del propio sistema, el de FaceTime
+  // o Safari: no necesita el permiso de grabación de pantalla, que hay que dar a mano en Ajustes, obliga a
+  // reiniciar la app y, sin firma de Apple, se pierde con cada actualización (por eso no se podía compartir).
+  // En Windows y Macs anteriores, ventana propia para elegir pantalla o ventana (el DAW).
   s.setDisplayMediaRequestHandler(async (req, cb) => {
     const id = await pickSource();
     const src = id && (await desktopCapturer.getSources({ types: ['screen', 'window'] })).find(x => x.id === id);
+    control.setDisplay(src && src.id.startsWith('screen:') ? src.display_id : null); // para el control remoto
     // Al cancelar, Electron rechaza la petición (la web recibe un AbortError) y además lanza aquí
     try { src ? cb({ video: src }) : cb({}); } catch {}
-  });
+  }, { useSystemPicker: true });
 }
 
 let picking = null;
@@ -125,6 +130,6 @@ function menu(){
 }
 
 app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
-app.whenReady().then(() => { permissions(); menu(); createWindow(); updater.start(() => win); });
+app.whenReady().then(() => { permissions(); menu(); createWindow(); updater.start(() => win); control.setup(() => win); });
 app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
 app.on('window-all-closed', () => app.quit());
