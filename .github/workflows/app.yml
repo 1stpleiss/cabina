@@ -47,7 +47,9 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           mkdir -p helper/build
-          /c/Windows/Microsoft.NET/Framework64/v4.0.30319/csc.exe -nologo -optimize -target:winexe -out:helper/build/cabina-control.exe helper/win.cs
+          # csc no entiende las rutas con / (las toma por opciones): van con \\
+          /c/Windows/Microsoft.NET/Framework64/v4.0.30319/csc.exe -nologo -optimize -target:winexe '-out:helper\build\cabina-control.exe' 'helper\win.cs'
+          ls -la helper/build
       - name: Compilar
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
