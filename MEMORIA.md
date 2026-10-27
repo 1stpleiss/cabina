@@ -76,7 +76,7 @@ Los plugins son **opcionales**: la web funciona sola con un cable de audio virtu
 
 ## 4. La web
 
-Un único archivo HTML (más el icono `icono.png`, el logo de 1st), sin build. Dependencias desde CDN: PeerJS y, solo si se elige la reducción de ruido *Fuerte*, la reducción de ruido RNNoise (`@sapphi-red/web-noise-suppressor@0.4.1`, MIT, desde jsDelivr).
+Un único archivo HTML (más el icono `icono.png`, el logo de 1st, y las fuentes en `fuentes/`), sin build. Dependencias desde CDN: PeerJS y, solo si se elige la reducción de ruido *Fuerte*, la reducción de ruido RNNoise (`@sapphi-red/web-noise-suppressor@0.4.1`, MIT, desde jsDelivr).
 
 ### Sala
 
@@ -429,7 +429,8 @@ cabina/
 ├── web/
 │   ├── index.html              ← toda la web en un archivo
 │   ├── icono.png               ← icono de la pestaña (logo de 1st, 180×180)
-│   └── hitmarker.mp3           ← sonido de la bola (Freesound 322640, CC0)
+│   ├── hitmarker.mp3           ← sonido de la bola (Freesound 322640, CC0)
+│   └── fuentes/                ← Inter y JetBrains Mono (woff2, latin y latin-ext)
 └── plugin/
     ├── CMakeLists.txt          ← genera Cabina Send y Cabina Retorno
     └── Source/
@@ -453,12 +454,34 @@ cabina/
 
 ## 13. Seguridad y privacidad
 
-- Audio y vídeo van **cifrados de extremo a extremo** (DTLS-SRTP, obligatorio en WebRTC).
-- La sala es "privada por oscuridad": quien tenga el nombre puede entrar. Usa nombres poco obvios (`mezcla-ep-x7k2`).
-- Los plugins solo escuchan en `127.0.0.1`: nadie de fuera de tu ordenador puede conectarse.
-  - Cualquier web que tengas abierta en tu navegador sí podría intentar conectar con Cabina Send y escuchar el máster. La ventana del plugin muestra **desde qué web** está conectado; si no reconoces el origen, quita el plugin.
-  - Mejora pendiente: restringir el origen permitido (ver §16).
-- No hay cuentas, ni base de datos, ni se guarda nada en servidores.
+Revisado el 27-10-2026.
+
+### Qué sale de tu ordenador y quién lo ve
+
+| Dato | Quién lo ve |
+|---|---|
+| Audio, vídeo, pantalla, chat y archivos | **Solo los de la sala.** Van directos entre ordenadores y **cifrados de extremo a extremo** (DTLS-SRTP y DTLS, obligatorios en WebRTC). Si pasan por el servidor de relevo (TURN), este solo ve datos cifrados. No se guarda nada en ningún servidor. |
+| Nombre de la sala (dentro del ID `cabina-v1-<sala>`) y tu IP | El servidor público de PeerJS (`0.peerjs.com`), que pone en contacto a los navegadores. |
+| Tu IP | Los demás participantes (la conexión es directa), el STUN de Google y el TURN de PeerJS, GitHub Pages al cargar la web, unpkg (PeerJS) y jsDelivr (solo si usas la reducción de ruido *Fuerte* o el perrito; el perrito además descarga el modelo de Google Storage). |
+| Tu nombre, dispositivos elegidos, volúmenes | Solo tu navegador (`localStorage`) y los participantes (el nombre). |
+
+### Protecciones
+
+- **Los plugins solo aceptan conexiones de Cabina** (27-10-2026): miran el `Origin` de cada conexión y solo admiten la web publicada (también dentro de la app), páginas de `http://127.0.0.1` o `http://localhost` (la Cabina servida por el plugin, o una copia local para probar) y programas del propio ordenador (sin `Origin`). Al resto le responden 403. Hasta entonces, cualquier web abierta en el navegador podía escuchar el máster por Cabina Send o meter audio en el DAW por Cabina Retorno. Además solo escuchan en `127.0.0.1`: nadie de fuera de tu ordenador puede conectarse. La ventana del plugin sigue mostrando desde qué web está conectado.
+- **Sin fuentes de Google** (27-10-2026): Inter y JetBrains Mono van con la web (`web/fuentes/`, de Google Fonts y Fontsource, licencia OFL). Cargarlas desde Google le daba la IP de cada visitante y ya ha dado multas en la UE. Se declaran por JavaScript con la ruta de la web publicada para que también carguen en la Cabina servida por el plugin.
+- **PeerJS con comprobación de integridad** (`integrity` sha384): si unpkg sirviera otro archivo, el navegador no lo ejecuta. La reducción de ruido y el perrito se cargan con `import()`, que no admite esa comprobación; van con versión fija.
+- **Cabina no funciona dentro de otra web** (iframe): una página ajena podría usar el micro y la cámara ya permitidos y meterte en una sala suya. Si `window.top !== window.self`, solo muestra "Abre Cabina en su propia pestaña".
+- **Archivos recibidos**: solo audio e imágenes normales (png, jpeg, gif, webp, avif) conservan su tipo, para escucharlos o verlos en el chat. Lo demás llega como binario: antes, un `.html` o `.svg` con su tipo se abría como página de Cabina con un clic central. Como mucho 3 archivos a la vez por persona (lo que llega se guarda en memoria hasta 1 GB por archivo).
+- Nada de lo que mandan los demás se mete como HTML en la página: nombres, mensajes, nombres de archivo y de los retornos van como texto (`textContent`).
+- Los mensajes de los demás se comprueban (tipos, longitudes); *Echar* solo se obedece si viene del anfitrión; la lista de participantes solo admite IDs de la misma sala.
+- **App de escritorio**: aislamiento de contexto y sandbox de Electron (por defecto), la página solo recibe `CABINA_APP.platform`. Micro, cámara y demás permisos solo para la web de Cabina. Solo navega por la web de Cabina y, de los archivos del ordenador, solo por sus propias páginas (desde el 27-10-2026; antes valía cualquier `file://`). Las actualizaciones se comprueban con el sha512 publicado en la misma release de GitHub (no hay firma, ver §5).
+
+### Lo que queda
+
+- **Cualquiera que sepa o adivine el nombre de la sala puede entrar**, y quien entre primero en una sala hace de anfitrión (puede echar a los demás). Se ve como un participante más, pero oiría el DAW. Mientras tanto, usa nombres poco obvios (`mezcla-ep-x7k2`) o entra sin nombre de sala (se crea uno al azar).
+- Los nombres no se comprueban: cualquiera puede ponerse el nombre de otro.
+- Los participantes ven tu IP (la conexión es directa). Forzar el relevo la ocultaría, a cambio de más latencia y coste.
+- Sin política de seguridad de contenido (CSP): el código va dentro de la página y la Cabina servida por el plugin la reescribe, así que sería difícil de mantener sin romper Safari. No se ha encontrado ninguna forma de meter código en la página.
 
 ## 14. Limitaciones conocidas
 
@@ -515,7 +538,7 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 
 **Corto plazo**
 - [ ] Prueba real con 2–3 colegas; ajustar el colchón del Retorno según los resultados.
-- [ ] Lista de orígenes permitidos en los plugins (solo la URL de Cabina).
+- [x] Lista de orígenes permitidos en los plugins (solo la URL de Cabina) (27-10-2026).
 - [ ] Leer el WebSocket de los plugins en un Worker y pasarlo directo al `AudioWorklet` (`MessageChannel`), para no depender del hilo principal. Antes, comprobar que el permiso de red local de Chrome lo permite desde un Worker.
 - [ ] Botón "marcar tiempo" en el chat que inserte la posición del transporte del DAW (el plugin la conoce).
 
@@ -563,5 +586,7 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 - **MediaPipe tasks-vision** y el modelo Face Landmarker: Apache 2.0.
 - **Logo de 1st** (`web/icono.png`): propio.
 - **hitmarker.mp3**: CC0 (aruscio28, Freesound 322640).
+- **Inter** y **JetBrains Mono** (`web/fuentes/`): SIL Open Font License 1.1.
+- **Iconos** de la barra: trazos de Lucide, ISC.
 - **Electron**, **electron-builder** y **electron-updater**: MIT. Electron incluye Chromium (licencias BSD y otras, listadas en la propia app).
 - El código de Cabina es tuyo. Si lo publicas, AGPLv3 por coherencia con JUCE.

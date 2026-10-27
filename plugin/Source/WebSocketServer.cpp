@@ -141,6 +141,21 @@ private:
         return true;
     }
 
+    // Solo se aceptan conexiones de Cabina: la web publicada (también dentro de la app de escritorio) o una
+    // página del propio ordenador (la Cabina que sirve el plugin, o una copia local para probar). Hasta el
+    // 27-10-2026 se aceptaba cualquiera, y cualquier web abierta en el navegador podía escuchar el máster o
+    // meter audio en el DAW. Los navegadores siempre mandan Origin y la web no lo puede falsear; sin Origin
+    // solo llegan programas del propio ordenador.
+    static bool originAllowed (const juce::String& origin)
+    {
+        const juce::String web (CABINA_WEB_URL);
+        const auto webOrigin = web.substring (0, web.indexOf (web.indexOf ("://") + 3, "/"));
+        return origin.isEmpty()
+            || origin == webOrigin
+            || origin == "http://127.0.0.1" || origin.startsWith ("http://127.0.0.1:")
+            || origin == "http://localhost" || origin.startsWith ("http://localhost:");
+    }
+
     bool handshake()
     {
         // Que una conexión que no dice nada (las que Safari abre por adelantado) no ocupe un hilo para siempre
@@ -189,6 +204,13 @@ private:
             char drain[512];
             while (socket->waitUntilReady (true, 1000) == 1 && socket->read (drain, sizeof (drain), false) > 0) {}
            #endif
+            return false;
+        }
+
+        if (! originAllowed (origin))
+        {
+            const std::string resp = "HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+            socket->write (resp.data(), (int) resp.size());
             return false;
         }
 

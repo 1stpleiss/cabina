@@ -4,7 +4,7 @@ Escrita el 26/10/2026. Precios y condiciones de terceros comprobados en esa fech
 
 ## Antes de cobrar: tres cosas que lo bloquean hoy
 
-1. **Seguridad de los plugins.** Ahora mismo, cualquier web abierta en el navegador de un cliente podría conectarse a Cabina Send y escuchar su máster. Con usuarios de pago, una filtración de una canción sin publicar sería gravísima. Hay que limitar los plugins para que solo acepten conexiones de la web de Cabina.
+1. **Seguridad de las salas.** ~~Los plugins aceptaban conexiones de cualquier web~~: resuelto el 27-10-2026, ahora solo aceptan la web de Cabina. Queda que cualquiera que adivine el nombre de una sala puede entrar y oír el DAW. Con usuarios de pago, una filtración de una canción sin publicar sería gravísima (ver MEMORIA.md §13).
 2. **Licencia de JUCE.** Los plugins usan JUCE, que tiene tres licencias:
    - **Starter**: gratis hasta 20.000 $ de ingresos al año.
    - **Indie**: 40 $/mes (u 800 $ de por vida) hasta 300.000 $.
@@ -31,7 +31,7 @@ Escrita el 26/10/2026. Precios y condiciones de terceros comprobados en esa fech
 - **Plugins firmados**, para que el sistema no muestre avisos al instalarlos:
   - Mac: cuenta de desarrollador de Apple, 99 €/año (el flujo de compilación ya está preparado, ver MEMORIA.md).
   - Windows: un certificado de firma de código.
-- **Que los plugins solo hablen con la web de Cabina** (punto 1 de arriba).
+- ~~Que los plugins solo hablen con la web de Cabina~~ (hecho el 27-10-2026).
 - **Marca y web de venta**: dominio propio, página de presentación y nombre. Antes de invertir, comprobar en la OEPM y la EUIPO que "Cabina" se puede registrar como marca.
 
 ### Fase 2 · Lanzar

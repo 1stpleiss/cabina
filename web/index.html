@@ -6,8 +6,20 @@
 <title>Cabina</title>
 <link rel="icon" type="image/png" href="icono.png">
 <link rel="apple-touch-icon" href="icono.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<script>
+// Fuentes servidas con la propia web, no desde Google (que vería la IP de cada visitante). Con la ruta
+// de la web publicada para que también carguen en la Cabina servida por el plugin.
+{
+  const b = (window.CABINA_WEB || '') + 'fuentes/';
+  const L = 'U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD';
+  const X = 'U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF';
+  const f = (fam, w, file, r) => `@font-face{font-family:'${fam}';font-weight:${w};font-display:swap;src:url(${b}${file}.woff2) format('woff2');unicode-range:${r}}`;
+  const st = document.createElement('style');
+  st.textContent = f('Inter', '400 700', 'inter-latin', L) + f('Inter', '400 700', 'inter-latin-ext', X)
+    + f('JetBrains Mono', 500, 'jetbrains-mono-latin', L) + f('JetBrains Mono', 500, 'jetbrains-mono-latin-ext', X);
+  document.head.append(st);
+}
+</script>
 <style>
 :root{
   --bg:#0d0e10;--panel:#16181b;--panel2:#1d2024;--line:#2a2e34;--text:#ebe8e3;--muted:#8d929a;
@@ -351,8 +363,11 @@ html.app #join .card{-webkit-app-region:no-drag}
 
 <div id="toast"></div>
 
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" integrity="sha384-nlUQ8ZqCbvStErob+biJNzSgltf6urV3VGqhfIfzhmg9RXmpeRm76ELw0pYnKlTR" crossorigin="anonymous"></script>
 <script>
+// Cabina no funciona metida dentro de otra web: una página ajena podría usar tu micro y tu cámara ya
+// permitidos y meterte en una sala suya sin que lo notes
+if (window.top !== window.self) { document.body.innerHTML = '<p style="padding:24px">Abre Cabina en su propia pestaña.</p>'; throw new Error('Cabina dentro de otra web'); }
 const $ = s => document.querySelector(s);
 const PREFIX = 'cabina-v1-';
 const S = { peer:null, isHost:false, room:'', name:'', talk:null, daw:null, dawMeter:null, ctx:null, sinkId:'' };
@@ -1944,8 +1959,15 @@ function wireFileIn(c){
   const p = ensurePeer(c.peer), m = c.metadata || {};
   const size = +m.size || 0, name = String(m.name || 'archivo').slice(0, 200);
   if (!(size > 0 && size <= FILE_MAX)) { c.on('open', () => c.close()); return; }
+  // Como mucho 3 archivos a la vez por persona: lo que llega se guarda en memoria
+  if ((p.filesIn || 0) >= 3) { c.on('open', () => c.close()); return; }
+  p.filesIn = (p.filesIn || 0) + 1;
+  let counted = true;
+  const uncount = () => { if (counted) { counted = false; p.filesIn--; } };
   const ui = fileMsg(p.name, name, size), parts = [];
-  const type = typeof m.type === 'string' && /^[\w.+-]+\/[\w.+-]+$/.test(m.type) ? m.type : 'application/octet-stream';
+  // Solo audio e imágenes normales conservan su tipo (para escucharlos o verlos en el chat). Lo demás va como
+  // binario: un .html o un .svg con su tipo se abriría como página de Cabina con un clic central.
+  const type = typeof m.type === 'string' && /^(audio\/[\w.+-]+|image\/(png|jpeg|gif|webp|avif))$/.test(m.type) ? m.type : 'application/octet-stream';
   let got = 0, last = 0, done = false;
   ui.status('Recibiendo… 0 %');
   c.on('data', d => {
@@ -1953,11 +1975,11 @@ function wireFileIn(c){
     parts.push(d); got += d.byteLength;
     const now = performance.now(); if (now - last > 200) { last = now; ui.status(`Recibiendo… ${Math.floor(got / size * 100)} %`, got / size); }
     if (got < size) return;
-    done = true; c.close();
+    done = true; uncount(); c.close();
     ui.status('Pulsa para descargar');
     ui.ready(URL.createObjectURL(new Blob(parts, { type })), type); parts.length = 0;
   });
-  c.on('close', () => { if (!done) { parts.length = 0; ui.fail('Se cortó antes de terminar'); } });
+  c.on('close', () => { uncount(); if (!done) { parts.length = 0; ui.fail('Se cortó antes de terminar'); } });
   c.on('error', () => {});
 }
 $('#fileBtn').onclick = () => $('#fileIn').click();

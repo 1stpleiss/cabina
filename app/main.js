@@ -7,7 +7,9 @@ const updater = require('./updater');
 
 const WEB = process.env.CABINA_WEB || 'https://1stpleiss.github.io/cabina/';
 const ORIGIN = new URL(WEB).origin;
-const ours = url => { try { return new URL(url).origin === ORIGIN || url.startsWith('file://'); } catch { return false; } };
+// Cabina es la web publicada y, de los archivos del ordenador, solo las páginas de la propia app (sin internet)
+const APP_FILES = require('url').pathToFileURL(__dirname + path.sep).href;
+const ours = url => { try { return new URL(url).origin === ORIGIN || url.startsWith(APP_FILES); } catch { return false; } };
 
 // Que el audio pueda sonar sin esperar a un clic (lo que llega de los demás, el hitmarker...)
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
