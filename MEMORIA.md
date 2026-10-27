@@ -80,8 +80,13 @@ Un único archivo HTML (más el icono `icono.png`, el logo de 1st, y las fuentes
 
 ### Sala
 
-- La sala es el parámetro `?sala=nombre` de la URL. *Invitar* (arriba a la derecha) copia el enlace. En el campo *Sala* se puede pegar el enlace entero (admite hasta 300 caracteres; hasta el 27-10-2026 el límite era 40 y un enlace pegado se cortaba).
-- El primero en entrar reserva el ID `cabina-v1-<sala>` en PeerJS y hace de **anfitrión**. Los demás se conectan a él, reciben la lista de quién hay y se conectan con todos (**malla**).
+- La sala va en el enlace: `?sala=nombre#k=clave`. *Invitar* (arriba a la derecha) copia el enlace. En el campo *Sala* se puede pegar el enlace entero (admite hasta 300 caracteres; hasta el 27-10-2026 el límite era 40 y un enlace pegado se cortaba).
+- **Clave secreta de la sala** (27-10-2026): cada sala tiene una clave al azar (128 bits) que va en el enlace detrás de `#`, la parte que el navegador nunca manda a ningún servidor.
+  - El ID de la sala en PeerJS es `cabina-v2-` + los primeros 128 bits del SHA-256 de `cabina|<sala>|<clave>` (`useKey`): sin la clave no se puede encontrar la sala, y el servidor de PeerJS no ve el nombre.
+  - Al abrir cada conexión, los dos se mandan una prueba de que tienen la clave (`auth`: HMAC-SHA256 con la clave de `<ID de la sala>|<ID de quien la manda>|<ID de quien la recibe>`) y contestan `ok` al comprobar la del otro. Hasta que los dos lo han hecho (`ready`) no se manda nada más: ni el nombre, ni el chat, ni la voz, ni el DAW, ni la pantalla, ni archivos (`send` lo bloquea; las llamadas y conexiones de quien no lo ha demostrado se cierran). Quien no lo demuestra en 10 s se descarta, y no aparece nunca en la sala.
+  - De dónde sale la clave al entrar (`roomAndKey`): de un enlace pegado; si es la sala del enlace con el que se abrió la página, de ese enlace; si es una sala en la que ya estuviste en este navegador, la recordada (`localStorage`, `cabina-claves`); si no, una nueva. Por eso, si dos personas escriben el mismo nombre sin enlace, acaban en salas distintas: hay que pasar el enlace.
+  - Hasta el 27-10-2026 la sala era solo su nombre (`cabina-v1-<sala>`): quien lo adivinara podía entrar y oír el DAW.
+- El primero en entrar reserva el ID de la sala en PeerJS y hace de **anfitrión**. Los demás se conectan a él, reciben la lista de quién hay y se conectan con todos (**malla**).
 - *Entrar* se desactiva al pulsarlo (`S.entering`). Pedir micro y cámara tarda un momento, y hasta el 22-10-2026 un segundo clic metía a la misma persona dos veces: los demás la veían duplicada y ella se veía dos veces.
 - Sin nombre se entra como "Anónimo", pero no se guarda como nombre para la próxima vez.
 - **Si se pierde el anfitrión** (se va, cierra la pestaña o se le corta la red), los invitados lo vuelven a buscar cada 2 s (`lostHost`). Si ya no está, el primero de los que quedan, por orden de ID, reserva el ID de la sala y pasa a ser anfitrión; los demás se conectan a él y vuelven a verse todos. Una conexión que no se abre en 8 s se descarta y se reintenta (pasa si el servidor aún no sabe que el anfitrión se ha ido).
@@ -252,7 +257,7 @@ Conexión: `ws://127.0.0.1:<puerto>`.
 - En Safari, desde la web `https`, al usar el plugin (*Emitir DAW*, buscar retornos o la prueba del plugin antes de entrar), primero **se prueba a conectar directamente** (`localAllowed()`):
   - WebKit quitó el bloqueo de las direcciones locales el 4-9-2026 ([PR 72974](https://github.com/WebKit/WebKit/pull/72974), [bug 171934](https://bugs.webkit.org/show_bug.cgi?id=171934)). No consta en qué versión de Safari llega; Safari 27.0.1 seguramente aún no lo trae.
   - Si ya lo permite, se usa directamente y no se cambia de página.
-  - Si no, sale un aviso con el botón **Abrir Cabina desde el plugin**. Lleva, en la misma pestaña, a `http://127.0.0.1:47800/?sala=…&nombre=…&daw=plugin&entrar=1`: la misma sala, con el nombre y el plugin ya elegidos, y **entrando sola en la sala** (`entrar`). La primera vez, Safari pedirá permiso de micro y cámara para esa dirección.
+  - Si no, sale un aviso con el botón **Abrir Cabina desde el plugin**. Lleva, en la misma pestaña, a `http://127.0.0.1:47800/?sala=…&nombre=…&daw=plugin&entrar=1#k=…`: la misma sala (con su clave), con el nombre y el plugin ya elegidos, y **entrando sola en la sala** (`entrar`). La primera vez, Safari pedirá permiso de micro y cámara para esa dirección.
 - Esa copia solo existe mientras el plugin está abierto. Su `localStorage` es aparte (otro origen), así que las preferencias no se comparten con la web publicada.
 - Si solo hay un Cabina Retorno abierto, la dirección es `http://127.0.0.1:47801/`.
 
@@ -461,12 +466,13 @@ Revisado el 27-10-2026.
 | Dato | Quién lo ve |
 |---|---|
 | Audio, vídeo, pantalla, chat y archivos | **Solo los de la sala.** Van directos entre ordenadores y **cifrados de extremo a extremo** (DTLS-SRTP y DTLS, obligatorios en WebRTC). Si pasan por el servidor de relevo (TURN), este solo ve datos cifrados. No se guarda nada en ningún servidor. |
-| Nombre de la sala (dentro del ID `cabina-v1-<sala>`) y tu IP | El servidor público de PeerJS (`0.peerjs.com`), que pone en contacto a los navegadores. |
+| Un resumen de la sala y su clave (no el nombre) y tu IP | El servidor público de PeerJS (`0.peerjs.com`), que pone en contacto a los navegadores. |
 | Tu IP | Los demás participantes (la conexión es directa), el STUN de Google y el TURN de PeerJS, GitHub Pages al cargar la web, unpkg (PeerJS) y jsDelivr (solo si usas la reducción de ruido *Fuerte* o el perrito; el perrito además descarga el modelo de Google Storage). |
 | Tu nombre, dispositivos elegidos, volúmenes | Solo tu navegador (`localStorage`) y los participantes (el nombre). |
 
 ### Protecciones
 
+- **Salas con clave secreta** (27-10-2026): sin el enlace no se puede encontrar ni entrar en una sala, y quien no demuestra tener la clave no recibe nada (ver §4, *Sala*). Ni siquiera el servidor de PeerJS, que ve el ID de la sala, puede entrar.
 - **Los plugins solo aceptan conexiones de Cabina** (27-10-2026): miran el `Origin` de cada conexión y solo admiten la web publicada (también dentro de la app), páginas de `http://127.0.0.1` o `http://localhost` (la Cabina servida por el plugin, o una copia local para probar) y programas del propio ordenador (sin `Origin`). Al resto le responden 403. Hasta entonces, cualquier web abierta en el navegador podía escuchar el máster por Cabina Send o meter audio en el DAW por Cabina Retorno. Además solo escuchan en `127.0.0.1`: nadie de fuera de tu ordenador puede conectarse. La ventana del plugin sigue mostrando desde qué web está conectado.
 - **Sin fuentes de Google** (27-10-2026): Inter y JetBrains Mono van con la web (`web/fuentes/`, de Google Fonts y Fontsource, licencia OFL). Cargarlas desde Google le daba la IP de cada visitante y ya ha dado multas en la UE. Se declaran por JavaScript con la ruta de la web publicada para que también carguen en la Cabina servida por el plugin.
 - **PeerJS con comprobación de integridad** (`integrity` sha384): si unpkg sirviera otro archivo, el navegador no lo ejecuta. La reducción de ruido y el perrito se cargan con `import()`, que no admite esa comprobación; van con versión fija.
@@ -478,7 +484,8 @@ Revisado el 27-10-2026.
 
 ### Lo que queda
 
-- **Cualquiera que sepa o adivine el nombre de la sala puede entrar**, y quien entre primero en una sala hace de anfitrión (puede echar a los demás). Se ve como un participante más, pero oiría el DAW. Mientras tanto, usa nombres poco obvios (`mezcla-ep-x7k2`) o entra sin nombre de sala (se crea uno al azar).
+- **Quien tenga el enlace puede entrar**, y no hay forma de cambiar la clave de una sala: si el enlace llega a quien no debe, usa una sala nueva (otro nombre).
+- Quien conozca el ID de una sala (el servidor de PeerJS) puede ocupar el sitio del anfitrión antes que nadie: no entraría (no tiene la clave), pero los demás no podrían reunirse hasta que lo deje.
 - Los nombres no se comprueban: cualquiera puede ponerse el nombre de otro.
 - Los participantes ven tu IP (la conexión es directa). Forzar el relevo la ocultaría, a cambio de más latencia y coste.
 - Sin política de seguridad de contenido (CSP): el código va dentro de la página y la Cabina servida por el plugin la reescribe, así que sería difícil de mantener sin romper Safari. No se ha encontrado ninguna forma de meter código en la página.
@@ -505,6 +512,8 @@ Revisado el 27-10-2026.
 
 | Prueba | Resultado |
 |---|---|
+| Salas con clave (27-10-2026, Chrome, varios participantes y un intruso) | Con el enlace se ven y llega el chat; con el mismo nombre y sin enlace se acaba en otra sala; un intruso que conoce el ID de la sala pero no la clave no aparece, no recibe nada (ni chat, ni voz) y se le echa a los 10 s; al salir la anfitriona los otros dos se vuelven a ver; quien vuelve escribiendo solo el nombre entra en la misma sala (clave recordada) |
+| Seguridad (27-10-2026, Chrome) | Fuentes sin Google; PeerJS con comprobación de integridad; un `.html` recibido llega como binario y una imagen sigue viéndose; dentro de un iframe, Cabina no arranca |
 | Sintaxis JavaScript de la web | OK |
 | Ajuste de SDP para Opus estéreo 510 kbps | OK: añade `stereo=1; sprop-stereo=1; maxaveragebitrate=510000; useinbandfec=1; usedtx=0` y deja otros códecs intactos |
 | Remuestreo `cabina-in` a 44,1 / 48 / 96 kHz → 48 kHz | Seno de 441 Hz reproducido a 441 Hz, sin cortes ni discontinuidades |

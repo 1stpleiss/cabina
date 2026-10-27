@@ -369,7 +369,7 @@ html.app #join .card{-webkit-app-region:no-drag}
 // permitidos y meterte en una sala suya sin que lo notes
 if (window.top !== window.self) { document.body.innerHTML = '<p style="padding:24px">Abre Cabina en su propia pestaña.</p>'; throw new Error('Cabina dentro de otra web'); }
 const $ = s => document.querySelector(s);
-const PREFIX = 'cabina-v1-';
+const PREFIX = 'cabina-v2-';
 const S = { peer:null, isHost:false, room:'', name:'', talk:null, daw:null, dawMeter:null, ctx:null, sinkId:'' };
 const peers = new Map();
 const meters = new Set();
@@ -398,6 +398,7 @@ document.querySelectorAll('[data-i]').forEach(el => { if (el.tagName === 'I') el
 /* ---------- utilidades ---------- */
 // En la sala se puede pegar el enlace entero (en la app de escritorio no hay barra de direcciones)
 const roomOf = s => { const m = /[?&]sala=([^&#\s]+)/.exec(s); return m ? decodeURIComponent(m[1]) : s; };
+const keyOf = s => { const m = /[#&]k=([A-Za-z0-9_-]{16,64})/.exec(s); return m ? m[1] : ''; };
 const slug = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40);
 const rid = () => Math.random().toString(36).slice(2,8);
 const hhmm = t => new Date(t).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
@@ -640,11 +641,11 @@ $('#enter').onclick = async () => {
   S.entering = true; $('#enter').disabled = true;
   pvStop();
   S.name = $('#name').value.trim() || 'Anónimo';
-  S.room = slug(roomOf($('#room').value)) || rid();
+  { const { room, key } = roomAndKey(); await useKey(room, key); }
   try { localStorage.setItem('cabina-name', $('#name').value.trim()); } catch {}
   prefs.cam = $('#cam').value; prefs.mic = $('#mic').value; prefs.dawIn = $('#dawIn').value; prefs.out = $('#out').value;
   savePrefs();
-  history.replaceState(null, '', '?sala=' + S.room);
+  history.replaceState(null, '', '?sala=' + encodeURIComponent(S.room) + '#k=' + S.key);
   // Sin esperar más de 1 s a resume(): en Safari, sin un clic reciente no termina nunca y nos quedábamos
   // en esta pantalla. Si el audio no ha arrancado, arranca con el siguiente clic.
   const AC = window.AudioContext || window.webkitAudioContext;
@@ -669,10 +670,68 @@ $('#enter').onclick = async () => {
   requestAnimationFrame(drawMeters);
 };
 
+/* ---------- clave de la sala ---------- */
+// Cada sala tiene una clave secreta que va en el enlace, detrás de # (#k=…): esa parte del enlace no
+// sale nunca del navegador, ni a GitHub ni a PeerJS. Con ella:
+//  - El ID de la sala en PeerJS es un resumen (SHA-256) del nombre y la clave: sin la clave no se puede
+//    encontrar la sala, y el servidor de PeerJS no ve el nombre.
+//  - Al conectar, cada uno demuestra al otro que tiene la clave (HMAC de los dos IDs, mensaje "auth").
+//    Hasta que los dos lo han demostrado no se manda nada más: ni nombre, ni chat, ni audio, ni vídeo.
+// Hasta el 27-10-2026 la sala era su nombre: quien lo adivinara podía entrar y oír el DAW.
+// Las claves de las salas en las que has estado se recuerdan en este navegador: si escribes otra vez el
+// nombre de una sala tuya, vuelves a la misma. Si no, sale una sala nueva y hay que pasar el enlace.
+const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+const newKey = () => b64u(crypto.getRandomValues(new Uint8Array(16)));
+let keys = {}; try { keys = JSON.parse(localStorage.getItem('cabina-claves')) || {}; } catch {}
+function saveKey(room, key){ keys[room] = key; try { localStorage.setItem('cabina-claves', JSON.stringify(keys)); } catch {} }
+const URL_ROOM = slug(new URLSearchParams(location.search).get('sala') || ''), URL_KEY = keyOf(location.hash);
+// Sala y clave a partir de lo escrito en Sala: un enlace pegado trae las dos; si es la sala del enlace con
+// el que se abrió la página, su clave; si es una sala conocida, la recordada; si no, una nueva.
+function roomAndKey(){
+  const typed = $('#room').value;
+  const room = slug(roomOf(typed)) || S.newRoom || (S.newRoom = rid());
+  const key = keyOf(typed) || (room === URL_ROOM && URL_KEY) || keys[room] || (S.newKeys = S.newKeys || {})[room] || (S.newKeys[room] = newKey());
+  return { room, key };
+}
+async function useKey(room, key){
+  S.room = room; S.key = key; saveKey(room, key);
+  const raw = unb64u(key);
+  S.hmac = await crypto.subtle.importKey('raw', raw, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
+  const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('cabina|' + room + '|' + key));
+  S.base = PREFIX + [...new Uint8Array(h)].slice(0, 16).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+const roomLink = () => PUBLIC_URL + '?sala=' + encodeURIComponent(S.room) + '#k=' + S.key;
+const authMsg = (from, to) => new TextEncoder().encode(S.base + '|' + from + '|' + to);
+async function sendAuth(c){
+  const proof = b64u(await crypto.subtle.sign('HMAC', S.hmac, authMsg(S.peer.id, c.peer)));
+  send(c, { type: 'auth', proof });
+}
+async function checkAuth(p, proof){
+  if (p.ok || typeof proof !== 'string' || proof.length > 100) return;
+  let good = false;
+  try { good = await crypto.subtle.verify('HMAC', S.hmac, unb64u(proof), authMsg(p.id, S.peer.id)); } catch {}
+  if (!good || p.ok || !peers.has(p.id)) return;
+  p.ok = true;
+  addTile(p); updateCount();
+  send(p.dc, { type: 'ok' });
+  ready(p);
+}
+// Los dos se han demostrado la clave: ahora sí, saludo, lista de la sala, voz, DAW y pantalla
+function ready(p){
+  if (!p.ok || !p.theyOk || p.ready) return;
+  p.ready = true;
+  send(p.dc, { type: 'hello', name: S.name, cam: camOn(), mirror: S.mirror });
+  if (S.isHost) send(p.dc, { type: 'roster', ids: [...peers.values()].filter(x => x.ok && x.id !== p.id).map(x => x.id) });
+  if (p.out) wireTalk(p, S.peer.call(p.id, S.talk, { metadata: { kind: 'talk' } }));
+  if (S.daw) callDaw(p.id);
+  if (S.screen) callScreen(p.id);
+}
+
 /* ---------- red (PeerJS) ---------- */
 function connect(){
   setStatus('Conectando…');
-  const p = new Peer(PREFIX + S.room, { debug: 1 });
+  const p = new Peer(S.base, { debug: 1 });
   p.on('open', () => { S.isHost = true; S.peer = p; wirePeer(p); updateCount(); $('#studio').classList.add('host'); });
   p.on('error', e => {
     if (S.peer !== p) {
@@ -682,25 +741,27 @@ function connect(){
   });
 }
 function joinGuest(){
-  const p = new Peer(PREFIX + S.room + '-' + rid(), { debug: 1 });
-  p.on('open', () => { S.isHost = false; S.peer = p; wirePeer(p); connectTo(PREFIX + S.room); updateCount(); $('#studio').classList.remove('host'); });
+  const p = new Peer(S.base + '-' + rid(), { debug: 1 });
+  p.on('open', () => { S.isHost = false; S.peer = p; wirePeer(p); connectTo(HOST()); updateCount(); $('#studio').classList.remove('host'); });
   p.on('error', handleErr);
 }
 function wirePeer(p){
   p.on('connection', c => {
     if (banned.has(c.peer)) { c.on('open', () => c.close()); return; }
     const kind = c.metadata && c.metadata.kind;
+    // Audio sin pérdidas y archivos solo de quien ya ha demostrado la clave
+    if ((kind === 'pcm' || kind === 'file') && !(peers.get(c.peer) || {}).ok) { c.on('open', () => c.close()); return; }
     if (kind === 'pcm') wirePcmIn(c); else if (kind === 'file') wireFileIn(c);
-    else { wireConn(c); if (c.metadata && c.metadata.name) setName(peers.get(c.peer), c.metadata.name); }
+    else wireConn(c);
   });
-  p.on('call', call => { if (banned.has(call.peer)) { call.close(); return; } onCall(call); });
+  p.on('call', call => { if (banned.has(call.peer) || !(peers.get(call.peer) || {}).ok) { call.close(); return; } onCall(call); });
   p.on('disconnected', () => { if (S.peer !== p || p.destroyed) return; setStatus('Reconectando…'); try { p.reconnect(); } catch {} });
 }
 // El anfitrión es quien reúne la sala. Si un invitado pierde la conexión con él (red caída, se ha ido...),
 // vuelve a buscarlo cada 2 s. Si ya no está, el primero de los que quedan (por orden de nombre interno)
 // pasa a ser el anfitrión y los demás se conectan a él. Antes no se reconectaba nadie y cada uno se
 // quedaba solo en su sala creyendo que se había ido el otro.
-const HOST = () => PREFIX + S.room;
+const HOST = () => S.base;
 function lostHost(){
   if (S.isHost || S.leaving || S.rejoinT || !S.peer) return;
   S.rejoinT = setTimeout(() => { S.rejoinT = null; if (!S.isHost && !S.leaving && S.peer && !peers.has(HOST())) connectTo(HOST()); }, 2000);
@@ -709,7 +770,7 @@ function handleErr(e){
   if (e.type === 'peer-unavailable') {
     if (S.isHost || S.leaving || !String(e.message).includes(HOST())) return;
     removePeer(HOST());
-    const first = [S.peer.id, ...peers.keys()].sort()[0] === S.peer.id;
+    const first = [S.peer.id, ...[...peers.values()].filter(x => x.ok).map(x => x.id)].sort()[0] === S.peer.id;
     if (!first) { lostHost(); return; }
     peers.forEach((_, id) => removePeer(id));
     const old = S.peer; S.peer = null; try { old.destroy(); } catch {}
@@ -719,48 +780,49 @@ function handleErr(e){
   }
   toast('Error de conexión: ' + (e.type || e.message));
 }
+// Cada persona aparece en la sala (vídeo, contador) cuando ha demostrado la clave (checkAuth)
 function ensurePeer(id){
   let p = peers.get(id);
-  if (!p) { p = { id, name: '…' }; peers.set(id, p); addTile(p); updateCount(); }
+  if (!p) { p = { id, name: '…' }; peers.set(id, p); }
   return p;
 }
 function connectTo(id){
   if (!S.peer || id === S.peer.id || peers.has(id) || banned.has(id)) return;
-  ensurePeer(id);
-  const c = S.peer.connect(id, { reliable: true, metadata: { name: S.name } });
+  ensurePeer(id).out = true; // la llamada de voz la empieza quien se conecta, en ready()
+  const c = S.peer.connect(id, { reliable: true });
   wireConn(c);
-  const call = S.peer.call(id, S.talk, { metadata: { kind: 'talk' } });
-  wireTalk(peers.get(id), call);
-  // Si no responde (por ejemplo, un anfitrión que acaba de irse y el servidor aún no lo sabe), se descarta
-  // y, si era el anfitrión, se vuelve a buscar
-  setTimeout(() => { const p = peers.get(id); if (p && p.dc === c && !c.open) removePeer(id); }, 8000);
 }
 function wireConn(c){
   const p = ensurePeer(c.peer); p.dc = c;
-  c.on('open', () => {
-    p.lastSeen = Date.now();
-    send(c, { type: 'hello', name: S.name, cam: camOn(), mirror: S.mirror });
-    if (S.isHost) send(c, { type: 'roster', ids: [...peers.keys()].filter(id => id !== c.peer) });
-    if (S.daw) callDaw(c.peer);
-    if (S.screen) callScreen(c.peer);
-    updateCount();
-  });
+  c.on('open', () => { p.lastSeen = Date.now(); sendAuth(c); });
   c.on('data', d => onData(p, d));
   c.on('close', () => removePeer(c.peer));
   c.on('error', () => {});
+  // Quien en 10 s no ha demostrado la clave (o no responde: un anfitrión que acaba de irse y el servidor
+  // aún no lo sabe) se descarta y, si era el anfitrión, se vuelve a buscar
+  setTimeout(() => { if (peers.get(c.peer) === p && p.dc === c && !p.ready) removePeer(c.peer); }, 10000);
 }
-function send(c, obj){ try { if (c && c.open) c.send(obj); } catch {} }
+// A quien no ha demostrado la clave solo se le manda la prueba propia
+function send(c, obj){
+  const p = c && peers.get(c.peer);
+  if (!p || (!p.ok && obj.type !== 'auth')) return;
+  try { if (c.open) c.send(obj); } catch {}
+}
 function onData(p, d){
   if (!d || typeof d !== 'object') return;
+  if (d.type === 'auth') { checkAuth(p, d.proof); return; }
+  // El "ok" del otro puede llegar mientras aún se comprueba su prueba: se apunta y ready() espera a las dos
+  if (d.type === 'ok') { p.theyOk = true; ready(p); return; }
+  if (!p.ok) return;
   p.lastSeen = Date.now();
-  const fromHost = p.id === PREFIX + S.room;
+  const fromHost = p.id === HOST();
   if (d.type === 'ping') p.pings = true;
   else if (d.type === 'kick') { if (fromHost) kicked(); }
   else if (d.type === 'bye') removePeer(p.id);
   else if (d.type === 'kicked') { if (fromHost && typeof d.id === 'string' && d.id !== S.peer.id) { banned.add(d.id); removePeer(d.id); } }
   else if (d.type === 'hello') { setName(p, d.name); setCam(p, d.cam !== false); p.tile && p.tile.classList.toggle('mirror', d.mirror === true); }
   else if (d.type === 'mirror') { p.tile && p.tile.classList.toggle('mirror', !!d.on); }
-  else if (d.type === 'roster' && Array.isArray(d.ids)) d.ids.filter(x => typeof x === 'string' && x.startsWith(PREFIX + S.room)).forEach(connectTo);
+  else if (d.type === 'roster' && Array.isArray(d.ids)) { if (fromHost) d.ids.filter(x => typeof x === 'string' && x.startsWith(HOST() + '-')).forEach(connectTo); }
   else if (d.type === 'chat' && typeof d.text === 'string') addMsg(p.name, d.text.slice(0,500), d.t);
   else if (d.type === 'cam') setCam(p, !!d.on);
   else if (d.type === 'screen-stop') screens.filter(x => x.p === p && !(x.call.metadata.gen > d.gen)).forEach(x => hideScreen(p, x.call));
@@ -818,7 +880,7 @@ function kicked(){
   goHome('?expulsado=1');
 }
 function setStatus(t, ok){ const s = $('#status'); s.textContent = t; s.classList.toggle('ok', !!ok); }
-function updateCount(){ if (S.peer) setStatus(`${peers.size + 1} en la sala`, true); }
+function updateCount(){ if (S.peer) setStatus(`${[...peers.values()].filter(p => p.ok).length + 1} en la sala`, true); }
 
 /* ---------- audio de alta calidad ---------- */
 // Opus estéreo a 510 kbps con FEC: lo máximo que permite WebRTC
@@ -852,7 +914,7 @@ function roomyJitter(call){
   });
 }
 function callDaw(id){
-  const p = peers.get(id); if (!p || !S.daw || !S.peer) return;
+  const p = peers.get(id); if (!p || !p.ready || !S.daw || !S.peer) return;
   closeOuts(p);
   if (S.quality === 'opus') {
     const call = S.peer.call(id, S.daw, { metadata: { kind: 'daw', gen: S.dawGen }, sdpTransform: hqOpus });
@@ -1114,9 +1176,10 @@ function localAllowed(){
 async function safariPlugin(){
   if (await localAllowed()) return false;
   const name = $('#name').value.trim();
-  const q = new URLSearchParams({ sala: S.room || slug($('#room').value) || '', daw: 'plugin', entrar: '1' });
+  const { room, key } = S.room ? { room: S.room, key: S.key } : roomAndKey();
+  const q = new URLSearchParams({ sala: room, daw: 'plugin', entrar: '1' });
   if (name) q.set('nombre', name);
-  $('#safariGo').href = `http://127.0.0.1:${SEND_PORT}/?${q}`;
+  $('#safariGo').href = `http://127.0.0.1:${SEND_PORT}/?${q}#k=${key}`;
   $('#safari').hidden = false;
   return true;
 }
@@ -1740,7 +1803,7 @@ function stopScreen(){
   const b = $('#screenBtn'); b.title = 'Compartir pantalla'; b.classList.remove('on');
 }
 function callScreen(id){
-  const p = peers.get(id); if (!p || !S.screen || !S.peer) return;
+  const p = peers.get(id); if (!p || !p.ready || !S.screen || !S.peer) return;
   try { p.screenOut && p.screenOut.close(); } catch {}
   const call = S.peer.call(id, S.screen, { metadata: { kind: 'screen', gen: S.screenGen } });
   p.screenOut = call;
@@ -1803,7 +1866,7 @@ $('#out').onchange = e => {
   peers.forEach(p => p.dawIn && setSink(p.dawIn.audio));
   ctxSink();
 };
-$('#copy').onclick = () => { const url = PUBLIC_URL + '?sala=' + S.room; navigator.clipboard.writeText(url).then(() => toast('Enlace copiado.', true), () => toast(url)); };
+$('#copy').onclick = () => { const url = roomLink(); navigator.clipboard.writeText(url).then(() => toast('Enlace copiado.', true), () => toast(url)); };
 // Al salir se avisa a los demás (para que no se queden esperando a que vuelvas) y se vuelve a la portada.
 // En la Cabina servida por el plugin (Safari), si el DAW ya está cerrado la portada no cargaría y Safari
 // daba error: entonces se vuelve a la web publicada.
@@ -1921,7 +1984,7 @@ function fileMsg(who, name, size){
   return ui;
 }
 function sendFiles(files){
-  const to = [...peers.keys()].filter(id => peers.get(id).dc && peers.get(id).dc.open);
+  const to = [...peers.keys()].filter(id => peers.get(id).ready && peers.get(id).dc.open);
   if (!to.length) { toast('No hay nadie más en la sala.'); return; }
   for (const f of files) {
     if (!f.size) continue;

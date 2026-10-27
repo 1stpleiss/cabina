@@ -4,7 +4,7 @@ Escrita el 26/10/2026. Precios y condiciones de terceros comprobados en esa fech
 
 ## Antes de cobrar: tres cosas que lo bloquean hoy
 
-1. **Seguridad de las salas.** ~~Los plugins aceptaban conexiones de cualquier web~~: resuelto el 27-10-2026, ahora solo aceptan la web de Cabina. Queda que cualquiera que adivine el nombre de una sala puede entrar y oír el DAW. Con usuarios de pago, una filtración de una canción sin publicar sería gravísima (ver MEMORIA.md §13).
+1. **Seguridad de las salas.** ~~Los plugins aceptaban conexiones de cualquier web~~: resuelto el 27-10-2026, ahora solo aceptan la web de Cabina. ~~Cualquiera que adivinara el nombre de una sala podía entrar~~: resuelto el 27-10-2026 con una clave secreta en el enlace. Para vender faltaría poder cambiar la clave de una sala o expulsar para siempre (ver MEMORIA.md §13).
 2. **Licencia de JUCE.** Los plugins usan JUCE, que tiene tres licencias:
    - **Starter**: gratis hasta 20.000 $ de ingresos al año.
    - **Indie**: 40 $/mes (u 800 $ de por vida) hasta 300.000 $.
@@ -26,7 +26,7 @@ Escrita el 26/10/2026. Precios y condiciones de terceros comprobados en esa fech
 - Si nadie lo pagaría, mejor saberlo antes de gastar.
 
 ### Fase 1 · Producto vendible (2–4 meses)
-- **Cuentas e invitaciones.** Hoy, quien adivine el nombre de una sala puede entrar. Hacen falta cuentas de usuario, salas con contraseña o invitación, y que el anfitrión pueda bloquear la entrada.
+- **Cuentas e invitaciones.** Las salas ya tienen clave secreta en el enlace (27-10-2026), pero quien tenga el enlace entra. Hacen falta cuentas de usuario, salas con contraseña o invitación, y que el anfitrión pueda bloquear la entrada.
 - **Servidores propios** para poner en contacto a los navegadores y hacer de relevo (en un VPS o un servicio gestionado). Orientativo: de 10 a 50 €/mes al principio. El relevo se paga por gigas transferidos, y el modo sin pérdidas consume mucho.
 - **Plugins firmados**, para que el sistema no muestre avisos al instalarlos:
   - Mac: cuenta de desarrollador de Apple, 99 €/año (el flujo de compilación ya está preparado, ver MEMORIA.md).
