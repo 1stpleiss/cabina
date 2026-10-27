@@ -17,10 +17,33 @@
   "build": {
     "appId": "com.cabina.app",
     "productName": "Cabina",
-    "files": ["main.js", "preload.js", "picker.html", "picker-preload.js", "offline.html"],
-    "directories": { "output": "dist", "buildResources": "build" },
+    "files": [
+      "main.js",
+      "updater.js",
+      "preload.js",
+      "picker.html",
+      "picker-preload.js",
+      "offline.html"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
     "mac": {
-      "target": [{ "target": "dmg", "arch": ["universal"] }],
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
       "category": "public.app-category.music",
       "identity": "-",
       "hardenedRuntime": false,
@@ -30,8 +53,28 @@
         "NSCameraUsageDescription": "Cabina usa la cámara para que tus colegas te vean en la sala."
       }
     },
-    "dmg": { "title": "Cabina" },
-    "win": { "target": ["nsis"], "artifactName": "Cabina-App-Windows.${ext}" },
-    "nsis": { "oneClick": true, "perMachine": false, "shortcutName": "Cabina" }
+    "dmg": {
+      "title": "Cabina"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "Cabina-App-Windows.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "shortcutName": "Cabina"
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://github.com/1stpleiss/cabina/releases/download/app/"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "6.8.10"
   }
 }

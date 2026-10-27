@@ -196,8 +196,15 @@ Carpeta `app/`. Es Cabina dentro de una app hecha con **Electron 44.7.0** (empaq
 - Una sola instancia; menú con *Volver a cargar* (Cmd/Ctrl+R), herramientas de desarrollo, zoom y pantalla completa.
 - La web sabe que está en la app por `window.CABINA_APP` (lo pone `preload.js`): entonces no ofrece descargarla. Como no hay barra de direcciones, en el campo *Sala* se puede **pegar el enlace entero** de una sala (`roomOf`); esto vale también en la web.
 - **Firma**: ad-hoc (`identity: "-"`, `hardenedRuntime: false`). Sin ella, el `.dmg` descargado diría que la app "está dañada" y no se podría abrir. Con ella, macOS pide *Abrir igualmente* (como los plugins), y Windows *Más información → Ejecutar de todas formas*.
-- **Actualizaciones**: la web se actualiza sola. La app en sí (la "carcasa") hay que reinstalarla a mano cuando cambie; en Mac, las actualizaciones automáticas de Electron requieren firma de Apple. Sin firma de verdad, macOS puede volver a pedir los permisos tras instalar una versión nueva.
-- **Compilación**: `.github/workflows/app.yml`, con cada cambio en `app/`. Publica `Cabina-App-Mac.dmg` y `Cabina-App-Windows.exe` en la release **`app`**; la web los enlaza en el aviso de los plugins. En local: `cd app && npm install && npx electron-builder --mac`.
+- **Sin barra de título** (27-10-2026): `titleBarStyle: 'hidden'`. Los botones de la ventana quedan dentro de la cabecera de la sala: en Mac el semáforo a la izquierda (`trafficLightPosition` 16,16: así su centro queda a la altura de la luz azul y del nombre de la sala. Medido en píxeles en una captura (columna central de cada círculo): con 17 quedaba 1 pt bajo y con 18, 2 pt); en Windows, `titleBarOverlay` a la derecha (46 px de alto, colores de Cabina). La web pone en `<html>` las clases `app` y `app-darwin`/`app-win32` (desde `window.CABINA_APP.platform`) y con ellas: la cabecera se arrastra (`-webkit-app-region: drag`, salvo los botones y selectores), deja 96 px a la izquierda en Mac (con menos, la luz azul parece un cuarto botón) o 150 px a la derecha en Windows, y en la pantalla de entrada se arrastra desde el fondo. En pantalla completa de Mac no hay semáforo: `main.js` avisa a `preload.js`, que pone `app-full` y la web quita el hueco. `offline.html` también se arrastra. En Windows, al no haber barra de menú, *Buscar actualizaciones* solo está en Mac (la comprobación automática vale para los dos).
+- **Actualizaciones** (27-10-2026, `updater.js`): la web se actualiza sola al abrir la app; esto es para la "carcasa". Al abrirse (a los 10 s) y cada 6 horas mira la release `app`; si hay versión nueva la descarga en segundo plano y pregunta *Reiniciar ahora* o *Al cerrar Cabina*. También desde el menú *Cabina → Buscar actualizaciones…* (Mac).
+  - **Windows**: `electron-updater` 6.8.10 con proveedor `generic` apuntando a la release `app` (lee `latest.yml`) e instala el NSIS en silencio. Sin firma funciona (no hay `publisherName` que comprobar).
+  - **Mac**: a mano, porque el actualizador de Electron en Mac (Squirrel) exige firma de Apple. Lee `latest-mac.yml`, descarga `Cabina-App-Mac.zip`, comprueba su sha512, lo descomprime con `ditto` en la carpeta temporal y, al cerrar, un script espera a que termine el proceso, aparta `Cabina.app`, pone la nueva (si falla, deja la vieja), le quita la cuarentena y, si se eligió reiniciar, la abre. Como la descarga la hace la propia app, macOS no le pone cuarentena y no vuelve a pedir *Abrir igualmente*. Solo se actualiza si la app está en una carpeta donde se puede escribir (Aplicaciones): abierta desde el `.dmg` o desde Descargas sin mover (App Translocation) no, y *Buscar actualizaciones* lo explica.
+  - **Versiones**: cada compilación de GitHub es la `0.1.<número de ejecución del workflow>` (`-c.extraMetadata.version`); `package.json` se queda en 0.1.0 para lo local.
+  - Con firma ad-hoc, macOS puede volver a pedir permiso de micro y cámara tras actualizar (identifica la app por su huella, que cambia en cada versión). Se arregla firmando con Apple.
+  - Para probar: `CABINA_FEED=http://127.0.0.1:<puerto>/` apunta a otra carpeta con `latest-mac.yml` y el `.zip`. Probado el 27-10-2026: una 0.1.1 instalada encontró la 0.1.2 en un servidor local, la descargó, avisó, y al pulsar *Reiniciar ahora* se cambió y se abrió la 0.1.2 con la firma válida.
+  - La primera versión publicada (26-10-2026) no traía esto: quien la tenga instalada debe descargarla una vez más.
+- **Compilación**: `.github/workflows/app.yml`, con cada cambio en `app/`. Publica en la release **`app`** `Cabina-App-Mac.dmg` y `Cabina-App-Windows.exe` (la web los enlaza en el aviso de los plugins) y, para las actualizaciones, `Cabina-App-Mac.zip`, `latest-mac.yml`, `latest.yml` y los `.blockmap`. En local: `cd app && npm install && npx electron-builder --mac`.
 - **Ojo en VS Code**: el terminal de VS Code define `ELECTRON_RUN_AS_NODE=1`, y con eso Electron arranca como Node y falla (`app` sin definir). Lanzarlo con `env -u ELECTRON_RUN_AS_NODE npm start`.
 
 ## 6. Protocolo entre la web y los plugins
@@ -394,6 +401,7 @@ cabina/
 ├── app/                        ← app de escritorio (Electron)
 │   ├── package.json            ← versiones y configuración del empaquetado
 │   ├── main.js                 ← ventana, permisos, compartir pantalla, enlaces
+│   ├── updater.js              ← actualizaciones de la app (Windows: electron-updater; Mac: a mano)
 │   ├── preload.js              ← window.CABINA_APP para la web
 │   ├── picker.html, picker-preload.js ← elegir ventana o pantalla
 │   ├── offline.html            ← sin internet
@@ -478,6 +486,7 @@ cabina/
 | Archivos WAV, PNG y FLP por el chat | Tarjetas con extensión y estado; el WAV se puede escuchar y el PNG se ve; quien envía ve "Enviado a 2 personas" |
 | Pantalla compartida con 3 personas | Cámaras pequeñas y centradas bajo la pantalla |
 | App de escritorio en Mac (cargando la web publicada y la local) con Cabina Send simulado | Conecta con el plugin; pegando el enlace entero entra en la sala buena; un oyente en Chrome recibe el DAW; compartir pantalla con la ventana propia llega al oyente; cancelar no da error |
+| App sin barra de título (Mac) y actualización de una 0.1.1 a una 0.1.2 servida en local | El semáforo queda dentro de la cabecera, centrado; la 0.1.1 descarga la nueva, avisa, se cambia sola y se abre la 0.1.2 con la firma válida. Windows sin probar en real |
 | App empaquetada (`.dmg` universal, firma ad-hoc) | `codesign --verify --deep --strict` correcto; arranca y carga Cabina |
 
 Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y los plugins en Reaper en Mac y Windows.
@@ -500,6 +509,7 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 **Largo plazo**
 - [ ] SFU para salas grandes.
 - [x] App de escritorio (Electron) que carga la web y habla con los plugins sin los límites del navegador (26-10-2026).
+- [x] App de escritorio sin barra de título y que se actualiza sola (27-10-2026).
 - [ ] Dar control del ordenador a otro participante desde la app (ratón y teclado; en Mac, permiso de accesibilidad).
 - [ ] Enlaces `cabina://` para abrir una sala en la app directamente.
 
@@ -532,5 +542,5 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 - **MediaPipe tasks-vision** y el modelo Face Landmarker: Apache 2.0.
 - **Logo de 1st** (`web/icono.png`): propio.
 - **hitmarker.mp3**: CC0 (aruscio28, Freesound 322640).
-- **Electron** y **electron-builder**: MIT. Electron incluye Chromium (licencias BSD y otras, listadas en la propia app).
+- **Electron**, **electron-builder** y **electron-updater**: MIT. Electron incluye Chromium (licencias BSD y otras, listadas en la propia app).
 - El código de Cabina es tuyo. Si lo publicas, AGPLv3 por coherencia con JUCE.

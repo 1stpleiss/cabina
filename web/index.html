@@ -158,6 +158,16 @@ audio.fprev{color-scheme:dark;height:36px}
   #dawList{max-height:none}
 }
 @media (max-width:560px){.row3{grid-template-columns:1fr;gap:0}}
+/* App de escritorio: la ventana no tiene barra de título. La cabecera hace de barra (se arrastra
+   desde los huecos y el nombre de la sala) y deja sitio a los botones de la ventana: a la izquierda
+   en Mac (salvo en pantalla completa, donde no hay) y a la derecha en Windows */
+html.app header{-webkit-app-region:drag;min-height:46px;box-sizing:border-box}
+html.app header>:not(.room){-webkit-app-region:no-drag}
+html.app-darwin header{padding-left:96px}
+html.app-darwin.app-full header{padding-left:14px}
+html.app-win32 header{padding-right:150px}
+html.app #join{-webkit-app-region:drag}
+html.app #join .card{-webkit-app-region:no-drag}
 </style>
 </head>
 <body>
@@ -315,7 +325,10 @@ qInfo();
 
 /* ---------- aviso del plugin ---------- */
 const isWin = /windows/i.test(navigator.userAgent);
-if (window.CABINA_APP) $('#appOffer').hidden = true;
+if (window.CABINA_APP) {
+  $('#appOffer').hidden = true;
+  document.documentElement.classList.add('app', 'app-' + window.CABINA_APP.platform);
+}
 if (isWin) { $('#dlBtns').prepend($('#dlWin')); $('#dlWin').classList.add('primary'); $('#dlMac').classList.remove('primary'); }
 function plugModal(show){
   $('#plug').hidden = !show;

@@ -3,6 +3,7 @@
 // navegador: Safari no puede hablar con los plugins, y Chrome frena las pestañas en segundo plano.
 const { app, BrowserWindow, Menu, session, shell, desktopCapturer, ipcMain } = require('electron');
 const path = require('path');
+const updater = require('./updater');
 
 const WEB = process.env.CABINA_WEB || 'https://1stpleiss.github.io/cabina/';
 const ORIGIN = new URL(WEB).origin;
@@ -19,6 +20,12 @@ function createWindow(){
   win = new BrowserWindow({
     width: 1440, height: 900, minWidth: 900, minHeight: 600,
     title: 'Cabina', backgroundColor: '#0d0e10', show: false,
+    // Sin barra de título: los botones de la ventana van dentro de la cabecera de Cabina (la web deja
+    // el hueco y marca por dónde se arrastra; ver .app en web/index.html)
+    titleBarStyle: 'hidden',
+    ...(process.platform === 'darwin'
+      ? { trafficLightPosition: { x: 16, y: 16 } }
+      : { titleBarOverlay: { color: '#0d0e10', symbolColor: '#ebe8e3', height: 46 } }),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       // Sin esto, con la ventana tapada o minimizada se ralentiza la página y el audio da cortes
@@ -26,6 +33,9 @@ function createWindow(){
     },
   });
   win.once('ready-to-show', () => win.show());
+  // En pantalla completa de Mac no hay semáforo: la web quita el hueco que le deja
+  win.on('enter-full-screen', () => win.webContents.send('fullscreen', true));
+  win.on('leave-full-screen', () => win.webContents.send('fullscreen', false));
 
   // Enlaces externos (descargas de los plugins, créditos...) al navegador; Cabina se queda en la app
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -87,7 +97,18 @@ async function pickSource(){
 function menu(){
   const mac = process.platform === 'darwin';
   Menu.setApplicationMenu(Menu.buildFromTemplate([
-    ...(mac ? [{ role: 'appMenu' }] : []),
+    ...(mac ? [{ label: 'Cabina', submenu: [
+      { role: 'about', label: 'Acerca de Cabina' },
+      { label: 'Buscar actualizaciones…', click: () => updater.check(true) },
+      { type: 'separator' },
+      { role: 'hide', label: 'Ocultar Cabina' }, { role: 'hideOthers', label: 'Ocultar otros' }, { role: 'unhide', label: 'Mostrar todo' },
+      { type: 'separator' },
+      { role: 'quit', label: 'Salir de Cabina' },
+    ] }] : [{ label: 'Cabina', submenu: [
+      { label: 'Buscar actualizaciones…', click: () => updater.check(true) },
+      { type: 'separator' },
+      { role: 'quit', label: 'Salir' },
+    ] }]),
     { role: 'editMenu' },
     { label: 'Ver', submenu: [
       { label: 'Volver a cargar', accelerator: 'CmdOrCtrl+R', click: () => win && win.loadURL(WEB) },
@@ -102,6 +123,6 @@ function menu(){
 }
 
 app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
-app.whenReady().then(() => { permissions(); menu(); createWindow(); });
+app.whenReady().then(() => { permissions(); menu(); createWindow(); updater.start(() => win); });
 app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
 app.on('window-all-closed', () => app.quit());

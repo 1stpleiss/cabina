@@ -1,6 +1,8 @@
 # Compila la app de escritorio (app/, Electron) para Mac (universal, .dmg) y Windows (.exe) y la publica
 # en la release "app", que es de donde la enlaza la web. Sin firma de Apple ni de Windows: macOS pide
 # "Abrir igualmente" y Windows "Ejecutar de todas formas" (ver MEMORIA.md §5, "App de escritorio").
+# Cada compilación es una versión nueva (0.1.<número de ejecución>) y publica también los archivos con
+# los que la app instalada se actualiza sola: latest.yml (Windows), latest-mac.yml y el .zip (Mac).
 name: Compilar app
 
 on:
@@ -34,13 +36,13 @@ jobs:
       - name: Compilar
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: npx electron-builder ${{ matrix.target }} --publish never
+        run: npx electron-builder ${{ matrix.target }} --publish never -c.extraMetadata.version=0.1.${{ github.run_number }}
       - uses: actions/upload-artifact@v4
         with:
           name: cabina-app-${{ runner.os }}
           path: |
-            app/dist/Cabina-App-Mac.dmg
-            app/dist/Cabina-App-Windows.exe
+            app/dist/Cabina-App-*
+            app/dist/latest*.yml
           if-no-files-found: error
 
   publicar:
