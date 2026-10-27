@@ -593,7 +593,7 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 - **PeerJS**: MIT.
 - **web-noise-suppressor** (RNNoise): MIT; RNNoise es BSD.
 - **MediaPipe tasks-vision** y el modelo Face Landmarker: Apache 2.0.
-- **Logo de Cabina** (`web/icono.png`, `app/build/icon.png`): propio. Desde el 27-10-2026 es una C azul de Cabina (`#213ACE`) en JetBrains Mono Bold (OFL) sobre un círculo negro, con la letra a la misma altura que las del logo anterior (el de 1st: blanco sobre círculo azul). Se genera a 2048 px y se reduce a 512 (app) y 180 (pestaña).
+- **Logo de Cabina** (`web/icono.png`, `app/build/icon.png`): propio, diseñado por Pleiss el 27-10-2026 (sustituye al de 1st, blanco sobre círculo azul). Dos C enfrentadas que forman una cápsula partida arriba y abajo en el centro, con una cápsula rellena dentro, todo en el azul de Cabina (`#213ACE`) sobre un cuadrado negro con esquinas redondeadas. Medidas, relativas al lado del icono: cápsula exterior de 0,84 de ancho y la mitad de alto, trazo del 8,5 % de su alto, hueco entre las C del 12 % de su ancho (con remates redondos); cápsula interior de 0,42 × 0,255; esquinas del fondo de 0,225. Se dibuja con Pillow a 8 veces el tamaño y se reduce a 512 (app) y 180 (pestaña).
 - **hitmarker.mp3**: CC0 (aruscio28, Freesound 322640).
 - **Inter** y **JetBrains Mono** (`web/fuentes/`): SIL Open Font License 1.1.
 - **Iconos** de la barra: trazos de Lucide, ISC.
