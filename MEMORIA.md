@@ -76,7 +76,7 @@ Los plugins son **opcionales**: la web funciona sola con un cable de audio virtu
 
 ## 4. La web
 
-Un único archivo HTML (más el icono `icono.png`, el logo de 1st, y las fuentes en `fuentes/`), sin build. Dependencias desde CDN: PeerJS y, solo si se elige la reducción de ruido *Fuerte*, la reducción de ruido RNNoise (`@sapphi-red/web-noise-suppressor@0.4.1`, MIT, desde jsDelivr).
+Un único archivo HTML (más el icono `icono.png`, el logo de Cabina, y las fuentes en `fuentes/`), sin build. Dependencias desde CDN: PeerJS y, solo si se elige la reducción de ruido *Fuerte*, la reducción de ruido RNNoise (`@sapphi-red/web-noise-suppressor@0.4.1`, MIT, desde jsDelivr).
 
 ### Sala
 
@@ -430,10 +430,10 @@ cabina/
 │   ├── preload.js              ← window.CABINA_APP para la web
 │   ├── picker.html, picker-preload.js ← elegir ventana o pantalla
 │   ├── offline.html            ← sin internet
-│   └── build/icon.png          ← icono (logo de 1st, 512×512)
+│   └── build/icon.png          ← icono (logo de Cabina, 512×512)
 ├── web/
 │   ├── index.html              ← toda la web en un archivo
-│   ├── icono.png               ← icono de la pestaña (logo de 1st, 180×180)
+│   ├── icono.png               ← icono de la pestaña (logo de Cabina, 180×180)
 │   ├── hitmarker.mp3           ← sonido de la bola (Freesound 322640, CC0)
 │   └── fuentes/                ← Inter y JetBrains Mono (woff2, latin y latin-ext)
 └── plugin/
@@ -593,7 +593,7 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 - **PeerJS**: MIT.
 - **web-noise-suppressor** (RNNoise): MIT; RNNoise es BSD.
 - **MediaPipe tasks-vision** y el modelo Face Landmarker: Apache 2.0.
-- **Logo de 1st** (`web/icono.png`): propio.
+- **Logo de Cabina** (`web/icono.png`, `app/build/icon.png`): propio. Desde el 27-10-2026 es una C azul de Cabina (`#213ACE`) en JetBrains Mono Bold (OFL) sobre un círculo negro, con la letra a la misma altura que las del logo anterior (el de 1st: blanco sobre círculo azul). Se genera a 2048 px y se reduce a 512 (app) y 180 (pestaña).
 - **hitmarker.mp3**: CC0 (aruscio28, Freesound 322640).
 - **Inter** y **JetBrains Mono** (`web/fuentes/`): SIL Open Font License 1.1.
 - **Iconos** de la barra: trazos de Lucide, ISC.
