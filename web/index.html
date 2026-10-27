@@ -61,7 +61,7 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 .mtr::before{content:"";position:absolute;inset:0;z-index:1;background:repeating-linear-gradient(90deg,transparent 0 3px,var(--seg,var(--panel)) 3px 4px)}
 
 /* Join */
-#join{min-height:100%;display:grid;place-items:center;padding:16px}
+#join{min-height:100%;display:grid;place-items:center;align-content:center;gap:14px;padding:16px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px 22px;width:100%;max-width:640px}
 .brand{display:flex;align-items:center;gap:10px;margin-bottom:6px}
 .dot{width:12px;height:12px;border-radius:50%;background:var(--accent-glow);box-shadow:0 0 12px var(--accent-glow);cursor:pointer;flex:none}
@@ -71,6 +71,14 @@ h1{font-size:22px;margin:0;letter-spacing:-.01em}
 .sub{color:var(--muted);margin:0 0 4px;font-size:13px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 #join .card{max-width:720px}
+/* Descarga de la app de escritorio, debajo de la entrada */
+.getapp{display:flex;align-items:center;gap:14px;padding:14px 16px}
+.getapp img{width:52px;height:52px;flex:none}
+.getapp .ga-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.getapp .ga-txt b{font-size:14px}
+.getapp .ga-txt span{color:var(--muted);font-size:12.5px}
+.getapp .ga-btns{display:flex;gap:8px;flex:none}
+@media (max-width:640px){.getapp{flex-wrap:wrap}.getapp .ga-btns{width:100%}.getapp .ga-btns .btn{flex:1}}
 .actions{display:flex;gap:10px;margin-top:16px}
 .actions .btn{flex:1}
 .tips{margin-top:14px;padding:9px 12px;border-radius:10px;background:var(--panel2);color:var(--muted);font-size:12.5px}
@@ -284,6 +292,14 @@ html.app #join .card{-webkit-app-region:no-drag}
     <p class="foot">Usa auriculares · <button class="linkbtn" type="button" id="plugOpen1">Plugin para emitir</button></p>
     <p id="secure" class="warn foot" hidden>Abre la página por https para usar micro y cámara.</p>
   </div>
+  <div class="card getapp" id="getApp" hidden>
+    <img id="gaIcon" alt="">
+    <div class="ga-txt"><b>Cabina para escritorio</b><span>Más estable que en el navegador, con los plugins sin trucos y control remoto.</span></div>
+    <div class="ga-btns">
+      <a class="btn primary" id="gaMac" href="https://github.com/1stpleiss/cabina/releases/download/app/Cabina-App-Mac.dmg">Descargar para Mac</a>
+      <a class="btn" id="gaWin" href="https://github.com/1stpleiss/cabina/releases/download/app/Cabina-App-Windows.exe">Windows</a>
+    </div>
+  </div>
 </section>
 
 <section id="studio" hidden>
@@ -464,6 +480,16 @@ if (window.CABINA_APP) {
   document.documentElement.classList.add('app', 'app-' + window.CABINA_APP.platform);
 }
 if (isWin) { $('#dlBtns').prepend($('#dlWin')); $('#dlWin').classList.add('primary'); $('#dlMac').classList.remove('primary'); }
+// Descarga de la app en la portada: no dentro de la app ni en móviles; el botón de tu sistema, primero y en azul
+if (!window.CABINA_APP && !/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+  $('#getApp').hidden = false;
+  $('#gaIcon').src = (window.CABINA_WEB || '') + 'icono.png';
+  if (isWin) {
+    $('#getApp .ga-btns').prepend($('#gaWin'));
+    $('#gaWin').classList.add('primary'); $('#gaWin').textContent = 'Descargar para Windows';
+    $('#gaMac').classList.remove('primary'); $('#gaMac').textContent = 'Mac';
+  }
+}
 function plugModal(show){
   $('#plug').hidden = !show;
   if (!show) try { localStorage.setItem('cabina-plugin-visto', '1'); } catch {}
