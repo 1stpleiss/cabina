@@ -60,7 +60,8 @@
       "target": [
         "nsis"
       ],
-      "artifactName": "Cabina-App-Windows.${ext}"
+      "artifactName": "Cabina-App-Windows.${ext}",
+      "icon": "build/icon-win.png"
     },
     "nsis": {
       "oneClick": true,

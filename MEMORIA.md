@@ -430,7 +430,7 @@ cabina/
 │   ├── preload.js              ← window.CABINA_APP para la web
 │   ├── picker.html, picker-preload.js ← elegir ventana o pantalla
 │   ├── offline.html            ← sin internet
-│   └── build/icon.png          ← icono (logo de Cabina, 512×512)
+│   └── build/                  ← icon.png (Mac, 1024), icon-win.png (Windows) e icono.py, que los genera
 ├── web/
 │   ├── index.html              ← toda la web en un archivo
 │   ├── icono.png               ← icono de la pestaña (logo de Cabina, 180×180)
@@ -593,7 +593,7 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 - **PeerJS**: MIT.
 - **web-noise-suppressor** (RNNoise): MIT; RNNoise es BSD.
 - **MediaPipe tasks-vision** y el modelo Face Landmarker: Apache 2.0.
-- **Logo de Cabina** (`web/icono.png`, `app/build/icon.png`): propio, diseñado por Pleiss el 27-10-2026 (sustituye al de 1st, blanco sobre círculo azul). Dos C enfrentadas que forman una cápsula partida arriba y abajo en el centro, con una cápsula rellena dentro, todo en el azul de Cabina (`#213ACE`) sobre un cuadrado negro con esquinas redondeadas. Medidas, relativas al lado del icono: cápsula exterior de 0,84 de ancho y la mitad de alto, trazo del 8,5 % de su alto, hueco entre las C del 12 % de su ancho (con remates redondos); cápsula interior de 0,42 × 0,255; esquinas del fondo de 0,225. Se dibuja con Pillow a 8 veces el tamaño y se reduce a 512 (app) y 180 (pestaña).
+- **Logo de Cabina** (`web/icono.png`, `app/build/icon.png`, `app/build/icon-win.png`): propio, diseñado por Pleiss el 27-10-2026 (sustituye al de 1st, blanco sobre círculo azul). Dos C enfrentadas que forman una cápsula partida arriba y abajo en el centro, con una cápsula rellena dentro, en el azul de Cabina sobre negro. Acabado de icono de Apple (27-10-2026): forma de icono de macOS (lados rectos y esquinas de curva continua; en la app de Mac con el margen de 824/1024 y sombra), fondo casi negro con degradado y un brillo azul detrás, aros y cápsula con degradado (de `#6882FF` a `#1E34CD`), resplandor, reflejo en la cápsula, canto de luz en el borde y un grano casi invisible para que los degradados no hagan bandas. Proporciones: aros de 0,80 del lado de la forma y la mitad de alto, trazo del 8,5 % de su alto, hueco entre las C del 12 % de su ancho; cápsula de la mitad de ancho y el 60 % de alto de los aros. Se genera con `python3 app/build/icono.py` (Pillow) desde la raíz: Mac con margen, Windows y la pestaña sin margen.
 - **hitmarker.mp3**: CC0 (aruscio28, Freesound 322640).
 - **Inter** y **JetBrains Mono** (`web/fuentes/`): SIL Open Font License 1.1.
 - **Iconos** de la barra: trazos de Lucide, ISC.
