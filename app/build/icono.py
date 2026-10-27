@@ -53,7 +53,8 @@ def icon(size, mac_margin=True):
     S = 4; N = size * S
     im = Image.new('RGBA', (N, N), (0, 0, 0, 0))
     # Rejilla de iconos de macOS: 824/1024 de forma, centrada, con sombra
-    k = 824 / 1024 if mac_margin else 1.0
+    # Sin el margen de macOS (web, Windows) se deja un poco de aire para que la forma no quede cortada por los bordes
+    k = 824 / 1024 if mac_margin else 0.92
     side = N * k; off = (N - side) / 2
     box = (off, off - (N * 0.006 if mac_margin else 0), off + side, off + side - (N * 0.006 if mac_margin else 0))
     sq = squircle(N, box)

@@ -7,6 +7,13 @@
 <link rel="icon" type="image/png" href="icono.png">
 <link rel="apple-touch-icon" href="icono.png">
 <script>
+// El icono se pide con una versión en la dirección: los navegadores guardan el de la pestaña mucho tiempo y
+// seguían enseñando el anterior. Súbela cada vez que cambie web/icono.png. Con la ruta de la web publicada
+// para la Cabina servida por el plugin.
+const ICONO = (window.CABINA_WEB || '') + 'icono.png?v=3';
+document.querySelectorAll('link[rel=icon], link[rel=apple-touch-icon]').forEach(l => l.href = ICONO);
+</script>
+<script>
 // Fuentes servidas con la propia web, no desde Google (que vería la IP de cada visitante). Con la ruta
 // de la web publicada para que también carguen en la Cabina servida por el plugin.
 {
@@ -73,7 +80,7 @@ h1{font-size:22px;margin:0;letter-spacing:-.01em}
 #join .card{max-width:720px}
 /* Descarga de la app de escritorio, debajo de la entrada */
 .getapp{display:flex;align-items:center;gap:14px;padding:14px 16px}
-.getapp img{width:52px;height:52px;flex:none}
+.getapp img{width:56px;height:56px;flex:none;filter:drop-shadow(0 3px 8px rgba(0,0,0,.55))}
 .getapp .ga-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .getapp .ga-txt b{font-size:14px}
 .getapp .ga-txt span{color:var(--muted);font-size:12.5px}
@@ -483,7 +490,7 @@ if (isWin) { $('#dlBtns').prepend($('#dlWin')); $('#dlWin').classList.add('prima
 // Descarga de la app en la portada: no dentro de la app ni en móviles; el botón de tu sistema, primero y en azul
 if (!window.CABINA_APP && !/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
   $('#getApp').hidden = false;
-  $('#gaIcon').src = (window.CABINA_WEB || '') + 'icono.png';
+  $('#gaIcon').src = ICONO;
   if (isWin) {
     $('#getApp .ga-btns').prepend($('#gaWin'));
     $('#gaWin').classList.add('primary'); $('#gaWin').textContent = 'Descargar para Windows';
