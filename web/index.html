@@ -45,7 +45,20 @@ a.btn{display:inline-block;text-align:center;text-decoration:none;color:var(--te
 label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px;font-weight:500;letter-spacing:.02em}
 input[type=text],select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;outline:none}
 input[type=text]:focus,select:focus{border-color:var(--accent-glow);box-shadow:0 0 0 2px rgba(33,58,206,.35)}
-input[type=range]{accent-color:var(--accent-glow);flex:1;min-width:60px}
+/* Barras de volumen y posición: pista fina con la parte llena en azul (--fill, lo pone fillRange) y tirador blanco */
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;min-width:60px;height:18px;margin:0;background:transparent;cursor:pointer;--fill:100%}
+input[type=range]:focus{outline:none}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:linear-gradient(90deg,var(--accent-glow) 0 var(--fill),rgba(255,255,255,.12) var(--fill))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;margin-top:-5px;border-radius:50%;background:#f4f4f6;border:0;box-shadow:0 1px 4px rgba(0,0,0,.55);transition:transform .12s}
+input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-webkit-slider-thumb{transform:scale(1.15)}
+input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:rgba(255,255,255,.12)}
+input[type=range]::-moz-range-progress{height:4px;border-radius:2px;background:var(--accent-glow)}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#f4f4f6;border:0;box-shadow:0 1px 4px rgba(0,0,0,.55)}
+/* Medidores como los de un DAW: los colores están fijos en su sitio (verde hasta −18 dB, ámbar hasta −6 dB,
+   rojo arriba) y el nivel solo destapa más o menos barra, en segmentos */
+.mtr{position:relative;display:block;height:6px;border-radius:2px;background:rgba(255,255,255,.06);overflow:hidden}
+.mtr::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#2fd27c 0 70%,#f5b83d 70% 90%,#f0524f 90%);clip-path:inset(0 calc((1 - var(--v,0)) * 100%) 0 0);transition:clip-path 50ms linear}
+.mtr::before{content:"";position:absolute;inset:0;z-index:1;background:repeating-linear-gradient(90deg,transparent 0 3px,var(--seg,var(--panel)) 3px 4px)}
 
 /* Join */
 #join{min-height:100%;display:grid;place-items:center;padding:16px}
@@ -71,8 +84,7 @@ h1{font-size:22px;margin:0;letter-spacing:-.01em}
 #pv .pvoff{display:none;position:absolute;inset:0;place-items:center;color:var(--muted);font-size:13px}
 #pv.none .pvoff{display:grid}
 #pv.none video{visibility:hidden}
-.lvl{height:5px;border-radius:3px;background:var(--panel2);margin-top:6px;overflow:hidden}
-.lvl i{display:block;height:100%;background:linear-gradient(90deg,var(--green) 0 70%,var(--amber) 70% 90%,var(--red) 90%);transform-origin:left;transform:scaleX(var(--v,0));transition:transform 60ms linear}
+.lvl{margin-top:7px;--seg:var(--panel)}
 .pvnote{font-size:12px;color:var(--muted);margin-top:5px}
 .pvnote:empty{display:none}
 @media (max-width:640px){.setup{grid-template-columns:1fr}}
@@ -110,6 +122,9 @@ main{padding:12px;overflow:auto}
 #studio.host .tile:not(.me) .kick{display:block}
 .tile .tag{position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.6);padding:3px 9px;border-radius:7px;font-size:12.5px;font-weight:500;display:flex;align-items:center;gap:6px;max-width:calc(100% - 20px)}
 .tile .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tile .mut{display:none;position:absolute;top:10px;left:10px;width:30px;height:30px;border-radius:50%;place-items:center;background:rgba(229,72,77,.92);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+.tile .mut svg{width:16px;height:16px}
+.tile.muted .mut{display:grid}
 .tile{transition:box-shadow .15s,border-color .15s}
 .tile.speaking{border-color:var(--accent-glow);box-shadow:0 0 0 1px var(--accent-glow),0 0 22px rgba(74,102,240,.6)}
 .net{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
@@ -149,7 +164,7 @@ aside{border-left:1px solid var(--line);overflow:auto;padding:12px;display:flex;
 #dawBtn.on+.chev{border-color:var(--accent)}
 #dawBtn.off+.chev{border-color:#5a2a2d}
 .meter.mini{position:absolute;left:12px;right:12px;bottom:5px;margin:0;gap:2px}
-.meter.mini i{height:2px}
+.meter.mini i{height:2px;--seg:transparent}
 #dawBtn:not(.on) .meter.mini{display:none}
 #bar .ib.danger{color:#ff8a8d}
 .badge{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--red);color:#fff;font:700 11px/18px Inter,system-ui,sans-serif}
@@ -160,8 +175,7 @@ aside{border-left:1px solid var(--line);overflow:auto;padding:12px;display:flex;
 .pop .tg .btn{flex:1}
 .pop .linkbtn{margin-top:12px}
 .meter{display:grid;gap:3px;margin-top:8px}
-.meter i{display:block;height:6px;border-radius:3px;background:var(--panel2);position:relative;overflow:hidden}
-.meter i::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,var(--green) 0 70%,var(--amber) 70% 90%,var(--red) 90%);transform-origin:left;transform:scaleX(var(--v,0));transition:transform 60ms linear}
+.meter i{--seg:var(--panel)}
 .info{color:var(--muted);margin-top:6px}
 #dawList{max-height:40vh;overflow:auto}
 .dawin{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
@@ -203,7 +217,12 @@ a.fcard:not([href]) .fdl{display:none}
 .fcard .fbar{position:absolute;left:0;bottom:0;width:0;height:2px;background:var(--accent-glow);transition:width .2s}
 .fprev{display:block;margin-top:6px;max-width:340px;width:100%}
 img.fprev{width:auto;max-height:200px;border-radius:8px;border:1px solid var(--line)}
-audio.fprev{color-scheme:dark;height:36px}
+/* Reproductor de los audios del chat, con el estilo de Cabina */
+.aplayer{display:flex;align-items:center;gap:10px;margin-top:6px;max-width:340px;padding:7px 12px 7px 7px;background:var(--panel2);border:1px solid var(--line);border-radius:10px}
+.aplayer .pp{flex:none;width:32px;height:32px;padding:0;display:grid;place-items:center;border-radius:50%;background:var(--accent);border:0;color:#fff;cursor:pointer}
+.aplayer .pp:hover{background:var(--accent-hover)}
+.aplayer .pp svg{width:14px;height:14px}
+.aplayer .tm{flex:none;color:var(--muted);font-size:11px;min-width:74px;text-align:right}
 .modal{position:fixed;inset:0;z-index:8;display:grid;place-items:center;padding:16px;background:rgba(5,6,8,.72)}
 .modal h2{font-size:18px;margin:0 0 4px}
 .modal .actions{margin-top:14px}
@@ -248,8 +267,8 @@ html.app #join .card{-webkit-app-region:no-drag}
       <div id="pv"><video id="pvVideo" autoplay playsinline muted></video><div class="pvoff">Sin cámara</div></div>
       <div class="side">
         <div><label for="cam">Cámara</label><select id="cam"></select></div>
-        <div><label for="mic">Micro</label><select id="mic"></select><div class="lvl" id="pvMic"><i></i></div></div>
-        <div><label for="dawIn">DAW</label><select id="dawIn"></select><div class="lvl" id="pvDaw" hidden><i></i></div><div class="pvnote" id="pvDawNote"></div></div>
+        <div><label for="mic">Micro</label><select id="mic"></select><div class="lvl" id="pvMic"><i class="mtr"></i></div></div>
+        <div><label for="dawIn">DAW</label><select id="dawIn"></select><div class="lvl" id="pvDaw" hidden><i class="mtr"></i></div><div class="pvnote" id="pvDawNote"></div></div>
       </div>
     </div>
 
@@ -308,7 +327,7 @@ html.app #join .card{-webkit-app-region:no-drag}
     <button class="btn ib" id="screenBtn" title="Compartir pantalla" data-i="screen" hidden></button>
     <span class="gap"></span>
     <div class="ctl">
-      <button class="btn primary" id="dawBtn"><i data-i="daw"></i><span class="lbl">Emitir DAW</span><span class="meter mini" id="dawMeter"><i></i><i></i></span></button>
+      <button class="btn primary" id="dawBtn"><i data-i="daw"></i><span class="lbl">Emitir DAW</span><span class="meter mini" id="dawMeter"><i class="mtr"></i><i class="mtr"></i></span></button>
       <button class="btn ib chev" data-pop="popDaw" title="DAW" data-i="up"></button>
       <div class="pop" id="popDaw" hidden>
         <label for="dawIn2">Entrada</label><select id="dawIn2"></select>
@@ -387,6 +406,8 @@ const ICONS = {
   set: '<path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/>',
   leave: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
   up: '<path d="m18 15-6-6-6 6"/>',
+  play: '<path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5Z" fill="currentColor"/>',
+  pause: '<rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor"/><rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor"/>',
   link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
   vol: '<path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/>',
   volOff: '<path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/>',
@@ -396,6 +417,9 @@ function setIcon(el, name){ const o = el.querySelector(':scope > svg'); if (o) o
 document.querySelectorAll('[data-i]').forEach(el => { if (el.tagName === 'I') el.outerHTML = svg(el.dataset.i); else setIcon(el, el.dataset.i); });
 
 /* ---------- utilidades ---------- */
+// La parte llena de cada barra de volumen o posición (CSS --fill)
+function fillRange(r){ const min = +r.min || 0, max = +r.max || 100; r.style.setProperty('--fill', ((r.value - min) / (max - min) * 100) + '%'); }
+document.addEventListener('input', e => { if (e.target.type === 'range') fillRange(e.target); });
 // En la sala se puede pegar el enlace entero (en la app de escritorio no hay barra de direcciones)
 const roomOf = s => { const m = /[?&]sala=([^&#\s]+)/.exec(s); return m ? decodeURIComponent(m[1]) : s; };
 const keyOf = s => { const m = /[#&]k=([A-Za-z0-9_-]{16,64})/.exec(s); return m ? m[1] : ''; };
@@ -665,6 +689,7 @@ $('#enter').onclick = async () => {
   $('#cam2').dataset.cur = $('#cam2').value; $('#mic2').dataset.cur = $('#mic2').value;
   watchMic(); S.talk.getVideoTracks().forEach(t => t.onended = () => followDevices());
   addLocalTile();
+  chatOpen(true);
   connect();
   if ($('#dawIn').value) startDaw();
   requestAnimationFrame(drawMeters);
@@ -721,7 +746,7 @@ async function checkAuth(p, proof){
 function ready(p){
   if (!p.ok || !p.theyOk || p.ready) return;
   p.ready = true;
-  send(p.dc, { type: 'hello', name: S.name, cam: camOn(), mirror: S.mirror });
+  send(p.dc, { type: 'hello', name: S.name, cam: camOn(), mirror: S.mirror, mic: micOn() });
   if (S.isHost) send(p.dc, { type: 'roster', ids: [...peers.values()].filter(x => x.ok && x.id !== p.id).map(x => x.id) });
   if (p.out) wireTalk(p, S.peer.call(p.id, S.talk, { metadata: { kind: 'talk' } }));
   if (S.daw) callDaw(p.id);
@@ -820,7 +845,8 @@ function onData(p, d){
   else if (d.type === 'kick') { if (fromHost) kicked(); }
   else if (d.type === 'bye') removePeer(p.id);
   else if (d.type === 'kicked') { if (fromHost && typeof d.id === 'string' && d.id !== S.peer.id) { banned.add(d.id); removePeer(d.id); } }
-  else if (d.type === 'hello') { setName(p, d.name); setCam(p, d.cam !== false); p.tile && p.tile.classList.toggle('mirror', d.mirror === true); }
+  else if (d.type === 'hello') { setName(p, d.name); setCam(p, d.cam !== false); p.tile && p.tile.classList.toggle('mirror', d.mirror === true); p.tile && p.tile.classList.toggle('muted', d.mic === false); }
+  else if (d.type === 'mic') { p.tile && p.tile.classList.toggle('muted', !d.on); }
   else if (d.type === 'mirror') { p.tile && p.tile.classList.toggle('mirror', !!d.on); }
   else if (d.type === 'roster' && Array.isArray(d.ids)) { if (fromHost) d.ids.filter(x => typeof x === 'string' && x.startsWith(HOST() + '-')).forEach(connectTo); }
   else if (d.type === 'chat' && typeof d.text === 'string') addMsg(p.name, d.text.slice(0,500), d.t);
@@ -1353,7 +1379,7 @@ function attachDaw(p, stream, call, gen, pcm){
   const el = document.createElement('div'); el.className = 'dawin';
   el.innerHTML = `<div class="head"><i class="livedot" title="En directo"></i><b></b>
       <button class="btn sm mute" title="Silenciar">${svg('vol')}</button><button class="btn sm rec" title="Grabar en WAV">●</button></div>
-    <div class="meter"><i></i><i></i></div>
+    <div class="meter"><i class="mtr"></i><i class="mtr"></i></div>
     <div class="line"><input type="range" min="0" max="1" step="0.01" value="1" aria-label="Volumen"></div>
     <select class="ret" hidden aria-label="Mandar a mi DAW"></select>`;
   el.querySelector('b').textContent = p.name;
@@ -1493,7 +1519,8 @@ function wav24(L, R, sr){
 function addLocalTile(){
   const t = document.createElement('div'); t.className = 'tile me';
   t.innerHTML = '<video autoplay playsinline muted></video><div class="avatar"></div>'
-    + '<span class="tag"><i class="net mid" title="Conectando…"></i><span class="nm"></span></span>';
+    + '<span class="tag"><i class="net mid" title="Conectando…"></i><span class="nm"></span></span>'
+    + `<span class="mut" title="Micro silenciado">${svg('micOff')}</span>`;
   t.querySelector('.nm').textContent = S.name + ' (tú)';
   t.querySelector('.avatar').textContent = S.name[0].toUpperCase();
   t.querySelector('video').srcObject = S.talk;
@@ -1506,6 +1533,7 @@ function addTile(p){
   const t = document.createElement('div'); t.className = 'tile novideo';
   t.innerHTML = '<video autoplay playsinline></video><div class="avatar"></div>'
     + '<span class="tag"><i class="net mid" title="Conectando…"></i><span class="nm"></span><span class="ms mono"></span></span>'
+    + `<span class="mut" title="Micro silenciado">${svg('micOff')}</span>`
     + '<div class="tctl"><input type="range" class="vol" min="0" max="1" step="0.01" value="1" aria-label="Volumen de su voz" title="Volumen de su voz (solo para ti)">'
     + '<button class="btn sm danger kick">Echar</button></div>';
   t.querySelector('.kick').onclick = () => kick(p.id);
@@ -1516,7 +1544,7 @@ function setName(p, n){
   p.name = String(n || 'Anónimo').slice(0, 40);
   if (p.tile) {
     p.tile.querySelector('.nm').textContent = p.name; p.tile.querySelector('.avatar').textContent = (p.name[0] || '?').toUpperCase();
-    const v = vols[p.name] ?? 1; p.tile.querySelector('.vol').value = v; p.tile.querySelector('video').volume = v;
+    const v = vols[p.name] ?? 1, r = p.tile.querySelector('.vol'); r.value = v; fillRange(r); p.tile.querySelector('video').volume = v;
   }
   if (p.dawIn) p.dawIn.el.querySelector('b').textContent = p.name;
 }
@@ -1779,6 +1807,7 @@ function setSink(el){ if (S.sinkId && el.setSinkId) el.setSinkId(S.sinkId).catch
 // suena. Si la página y lo que escuchas van por dispositivos distintos, sus relojes derivan y salen chasquidos.
 function ctxSink(){ if (S.ctx && S.ctx.setSinkId) S.ctx.setSinkId(S.sinkId || '').catch(() => {}); }
 const camOn = () => { const t = S.talk && S.talk.getVideoTracks()[0]; return !!(t && t.enabled); };
+const micOn = () => { const t = S.talk && S.talk.getAudioTracks()[0]; return !!(t && t.enabled); };
 
 /* ---------- compartir pantalla ---------- */
 // La pantalla va en una llamada aparte ("screen"), solo vídeo: el sonido sigue yendo por el DAW.
@@ -1852,6 +1881,9 @@ $('#micBtn').onclick = () => {
   const t = S.talk.getAudioTracks()[0], b = $('#micBtn'); if (!t) return;
   t.enabled = !t.enabled; b.classList.toggle('off', !t.enabled);
   setIcon(b, t.enabled ? 'mic' : 'micOff'); b.title = t.enabled ? 'Silenciar micro' : 'Activar micro';
+  // Icono de micro silenciado en tu vídeo, y en el tuyo que ven los demás
+  S.localTile.classList.toggle('muted', !t.enabled);
+  peers.forEach(p => send(p.dc, { type: 'mic', on: t.enabled }));
 };
 $('#camBtn').onclick = () => {
   const t = S.talk.getVideoTracks()[0], b = $('#camBtn'); if (!t) return;
@@ -1864,6 +1896,7 @@ $('#out').onchange = e => {
   S.sinkId = e.target.value; prefs.out = S.sinkId; savePrefs();
   document.querySelectorAll('.tile:not(.me) video').forEach(setSink);
   peers.forEach(p => p.dawIn && setSink(p.dawIn.audio));
+  players.forEach(setSink);
   ctxSink();
 };
 $('#copy').onclick = () => { const url = roomLink(); navigator.clipboard.writeText(url).then(() => toast('Enlace copiado.', true), () => toast(url)); };
@@ -1893,34 +1926,23 @@ document.addEventListener('pointerdown', e => { if (!e.target.closest('.pop, [da
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closePops(); });
 
 /* ---------- panel derecho y chat ---------- */
-// El panel solo sale con el chat abierto o con alguien emitiendo su DAW. El chat se abre con su botón
-// y se cierra solo tras 30 s sin tocarlo (salvo si estás escribiendo). Con él cerrado, los mensajes
-// nuevos se cuentan en el botón.
+// El panel solo sale con el chat abierto o con alguien emitiendo su DAW. El chat empieza abierto y se
+// abre y se cierra con su botón. Con él cerrado, los mensajes nuevos se cuentan en el botón.
+// (Del 27 al 28-10-2026 se cerraba solo tras 30 s sin tocarlo; se quitó porque molestaba.)
 function layoutAside(){
   const show = !$('#chatBox').hidden || !$('#dawBox').hidden;
   $('aside').hidden = !show; $('.layout').classList.toggle('solo', !show);
 }
-const CHAT_IDLE = 30000;
-let chatT = 0, unread = 0;
+let unread = 0;
 function setUnread(n){ unread = n; $('#unread').hidden = !n; $('#unread').textContent = n > 9 ? '9+' : n; }
 function chatOpen(on){
   $('#chatBox').hidden = !on; $('#chatBtn').classList.toggle('on', on);
-  clearTimeout(chatT);
-  if (on) { setUnread(0); chatPoke(); $('#chatLog').scrollTop = 1e9; }
+  if (on) { setUnread(0); $('#chatLog').scrollTop = 1e9; }
   layoutAside();
 }
-function chatPoke(){
-  clearTimeout(chatT);
-  chatT = setTimeout(() => {
-    const i = $('#chatIn');
-    if (document.activeElement === i && i.value.trim()) return chatPoke();
-    chatOpen(false);
-  }, CHAT_IDLE);
-}
-function chatNew(mine){ if ($('#chatBox').hidden) { if (!mine) setUnread(unread + 1); } else chatPoke(); }
+function chatNew(mine){ if ($('#chatBox').hidden && !mine) setUnread(unread + 1); }
 $('#chatBtn').onclick = () => chatOpen($('#chatBox').hidden);
 $('#chatClose').onclick = () => chatOpen(false);
-['pointermove', 'pointerdown', 'keydown', 'wheel', 'focusin'].forEach(ev => $('#chatBox').addEventListener(ev, () => chatPoke(), { passive: true }));
 
 /* ---------- easter egg ---------- */
 // La bola de arriba a la izquierda suena a hitmarker. "Hitmarker Sound Effect" de aruscio28 en Freesound
@@ -1974,14 +1996,36 @@ function fileMsg(who, name, size){
     ready(url, type){
       card.href = url; card.download = name; card.title = 'Descargar ' + name;
       let pv = null;
-      if (/^audio\//.test(type)) { pv = document.createElement('audio'); pv.controls = true; pv.preload = 'metadata'; setSink(pv); }
-      else if (/^image\//.test(type)) { pv = document.createElement('img'); pv.alt = name; }
-      if (pv) { pv.className = 'fprev'; pv.src = url; m.append(pv); }
+      if (/^audio\//.test(type)) m.append(audioPlayer(url));
+      else if (/^image\//.test(type)) { pv = document.createElement('img'); pv.alt = name; pv.className = 'fprev'; pv.src = url; m.append(pv); }
       $('#chatLog').scrollTop = 1e9;
     },
   };
   ui.status('');
   return ui;
+}
+// Reproductor propio (botón, barra de posición y tiempo) en vez del del navegador. Suena por la salida
+// elegida y solo uno a la vez.
+const players = new Set();
+const mmss = t => isFinite(t) ? Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0') : '0:00';
+function audioPlayer(url){
+  const a = new Audio(); a.preload = 'metadata'; a.src = url; setSink(a); players.add(a);
+  const el = document.createElement('div'); el.className = 'aplayer';
+  el.innerHTML = `<button class="pp" type="button" title="Reproducir">${svg('play')}</button>`
+    + '<input type="range" min="0" max="1000" value="0" aria-label="Posición"><span class="tm mono">0:00</span>';
+  const pp = el.querySelector('.pp'), bar = el.querySelector('input'), tm = el.querySelector('.tm');
+  const show = () => {
+    if (!bar.matches(':active')) { bar.value = a.duration ? a.currentTime / a.duration * 1000 : 0; fillRange(bar); }
+    tm.textContent = mmss(a.currentTime) + ' / ' + mmss(a.duration);
+  };
+  const icon = () => { setIcon(pp, a.paused ? 'play' : 'pause'); pp.title = a.paused ? 'Reproducir' : 'Pausa'; };
+  pp.onclick = () => { if (a.paused) { players.forEach(o => o !== a && o.pause()); a.play().catch(() => {}); } else a.pause(); };
+  bar.oninput = () => { if (a.duration) a.currentTime = bar.value / 1000 * a.duration; show(); };
+  a.onplay = a.onpause = icon;
+  a.onended = () => { a.currentTime = 0; icon(); show(); };
+  a.ontimeupdate = a.onloadedmetadata = show;
+  fillRange(bar);
+  return el;
 }
 function sendFiles(files){
   const to = [...peers.keys()].filter(id => peers.get(id).ready && peers.get(id).dc.open);

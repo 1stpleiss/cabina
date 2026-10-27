@@ -123,10 +123,14 @@ Antes había diez controles sueltos en la cabecera y cajas fijas a la derecha. A
   - Salir.
 - **Panel derecho**: solo aparece con el chat abierto o cuando alguien emite su DAW (`layoutAside`); si no, las cámaras ocupan todo el ancho.
   - *DAW en directo*: una tarjeta compacta por persona (punto rojo, nombre, silenciar, grabar, medidor, volumen y, si hay retornos, *A mi DAW*). Los datos técnicos (kbps, pérdidas, colchón) salen al pasar el ratón.
-  - **Chat**: se abre con su botón y **se cierra solo tras 30 s sin tocarlo** (`CHAT_IDLE`; mover el ratón encima, escribir o hacer scroll cuenta como actividad, y no se cierra si estás escribiendo un mensaje). Con él cerrado, los mensajes de otros se cuentan en el botón. Se pueden soltar archivos en cualquier parte de la sala: se abre el chat y se mandan.
+  - **Chat**: empieza abierto al entrar y se abre y se cierra con su botón. Con él cerrado, los mensajes de otros se cuentan en el botón. (Del 27 al 28-10-2026 se cerraba solo tras 30 s sin tocarlo; se quitó porque molestaba.) Se pueden soltar archivos en cualquier parte de la sala: se abre el chat y se mandan.
 - **Vídeos de los demás**: el volumen de su voz y *Echar* salen solo al pasar el ratón.
+- **Micro silenciado** (28-10-2026): un círculo rojo con el micro tachado arriba a la izquierda de tu vídeo, y los demás lo ven también en el tuyo (mensaje `mic` y campo `mic` del saludo).
+- **Medidores como los de un DAW** (28-10-2026, clase `.mtr`): los colores están fijos en su sitio (verde hasta −18 dB, ámbar hasta −6 dB, rojo arriba) y el nivel solo destapa más o menos barra (`clip-path`), en segmentos de 4 px. Antes el degradado entero se encogía con el nivel y los colores se movían.
+- **Barras de volumen y de posición** (28-10-2026): pista fina con la parte llena en azul (`--fill`, que pone `fillRange` en cada cambio) y tirador blanco con sombra, igual en Chrome, Safari y Firefox.
+- **Reproductor de audios del chat** (28-10-2026, `audioPlayer`): botón redondo azul de reproducir/pausa, barra de posición y tiempo, en una tarjeta como la del archivo. Suena por la salida elegida y solo uno a la vez. Sustituye al reproductor del navegador.
 - **Textos** recortados en toda la página (avisos, ventanas de los plugins y de Safari, opciones de calidad).
-- Probado el 27-10-2026 en Chrome con dos participantes simulados: vista previa (vídeo y nivel del micro), entrar, contador de mensajes, DAW de otro en el panel, menús y cierre del chat a los 30 s, sin errores en la consola.
+- Probado el 27-10-2026 en Chrome con dos participantes simulados: vista previa (vídeo y nivel del micro), entrar, contador de mensajes, DAW de otro en el panel, menús y cierre del chat a los 30 s, sin errores en la consola. El 28-10-2026: chat abierto al entrar y sigue abierto pasados 35 s, icono de micro silenciado en tu vídeo y en el que ven los demás, reproductor de un .wav recibido (avanza y marca el tiempo) y medidores segmentados con colores fijos.
 
 ### Funciones
 
