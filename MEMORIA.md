@@ -80,12 +80,17 @@ Un único archivo HTML (más el icono `icono.png`, el logo de Cabina, y las fuen
 
 ### Sala
 
-- La sala va en el enlace: `?sala=nombre#k=clave`. *Invitar* (arriba a la derecha) copia el enlace. En el campo *Sala* se puede pegar el enlace entero (admite hasta 300 caracteres; hasta el 27-10-2026 el límite era 40 y un enlace pegado se cortaba).
-- **Clave secreta de la sala** (27-10-2026): cada sala tiene una clave al azar (128 bits) que va en el enlace detrás de `#`, la parte que el navegador nunca manda a ningún servidor.
-  - El ID de la sala en PeerJS es `cabina-v2-` + los primeros 128 bits del SHA-256 de `cabina|<sala>|<clave>` (`useKey`): sin la clave no se puede encontrar la sala, y el servidor de PeerJS no ve el nombre.
-  - Al abrir cada conexión, los dos se mandan una prueba de que tienen la clave (`auth`: HMAC-SHA256 con la clave de `<ID de la sala>|<ID de quien la manda>|<ID de quien la recibe>`) y contestan `ok` al comprobar la del otro. Hasta que los dos lo han hecho (`ready`) no se manda nada más: ni el nombre, ni el chat, ni la voz, ni el DAW, ni la pantalla, ni archivos (`send` lo bloquea; las llamadas y conexiones de quien no lo ha demostrado se cierran). Quien no lo demuestra en 10 s se descarta, y no aparece nunca en la sala.
-  - De dónde sale la clave al entrar (`roomAndKey`): de un enlace pegado; si es la sala del enlace con el que se abrió la página, de ese enlace; si es una sala en la que ya estuviste en este navegador, la recordada (`localStorage`, `cabina-claves`); si no, una nueva. Por eso, si dos personas escriben el mismo nombre sin enlace, acaban en salas distintas: hay que pasar el enlace.
-  - Hasta el 27-10-2026 la sala era solo su nombre (`cabina-v1-<sala>`): quien lo adivinara podía entrar y oír el DAW.
+- **Tipo de sala** (29-10-2026): antes de entrar se elige *Pública* o *Con contraseña* (lo decide quien la crea; los demás eligen lo mismo; se recuerda el último tipo usado). En la cabecera de la sala sale un candado si es con contraseña.
+  - **Pública**: entra quien sepa el nombre. Enlace: `?sala=nombre`.
+  - **Con contraseña**: hace falta la contraseña o el enlace de *Invitar* (`?sala=nombre&privada=1#k=clave`), que deja entrar sin escribirla. Con el enlace, o en una sala en la que ya entraste en este navegador, no se pide la contraseña.
+  - *Invitar* (arriba a la derecha) copia el enlace. En el campo *Sala* se puede pegar el enlace entero (hasta 300 caracteres).
+- **Cómo funciona la clave** (`roomSetup`, `useRoom`, `checkAuth`):
+  - La contraseña no viaja nunca. De ella sale la clave de la sala: PBKDF2-SHA256, 300 000 vueltas, con `cabina|<sala>` de sal. En las públicas la clave es el SHA-256 de `cabina-publica|<sala>`, así que cualquiera con el nombre la tiene.
+  - El ID de la sala en PeerJS es `cabina-v3-` + los primeros 128 bits del SHA-256 de `cabina|<tipo>|<sala>`: una pública y una con contraseña del mismo nombre son salas distintas.
+  - Al conectar, quien se conecta manda primero su prueba (`auth`: HMAC-SHA256 con la clave de `<ID de la sala>|<ID de quien la manda>|<ID de quien la recibe>`). Quien recibe la comprueba y **solo entonces** manda la suya: así nadie de fuera obtiene nada con lo que adivinar la contraseña sin preguntar a la sala. Con los dos, `ok`; hasta entonces no se manda nada más (`send` lo bloquea; las llamadas y conexiones de quien no lo ha demostrado se cierran). Quien no lo demuestra en 10 s se descarta.
+  - Prueba mala: se contesta `auth-no` y quien se equivocó vuelve a la entrada con "Contraseña incorrecta" (`wrongPass`, `?clave=mal`). Tras 5 intentos fallidos en un minuto, la sala rechaza todos durante ese minuto.
+  - Claves recordadas (`localStorage`, `cabina-claves-v3`): la de cada sala con contraseña, guardada al conectar con alguien que la ha aceptado o al crearla.
+  - Historia: hasta el 27-10-2026 la sala era solo su nombre (`cabina-v1-`), y quien lo adivinara podía entrar y oír el DAW. Del 27 al 29-10-2026 todas las salas tenían una clave al azar en el enlace (`cabina-v2-`) y no se podía entrar escribiendo el nombre. Los enlaces de esos días ya no sirven.
 - El primero en entrar reserva el ID de la sala en PeerJS y hace de **anfitrión**. Los demás se conectan a él, reciben la lista de quién hay y se conectan con todos (**malla**).
 - *Entrar* se desactiva al pulsarlo (`S.entering`). Pedir micro y cámara tarda un momento, y hasta el 22-10-2026 un segundo clic metía a la misma persona dos veces: los demás la veían duplicada y ella se veía dos veces.
 - Sin nombre se entra como "Anónimo", pero no se guarda como nombre para la próxima vez.
@@ -125,6 +130,7 @@ Antes había diez controles sueltos en la cabecera y cajas fijas a la derecha. A
   - *DAW en directo*: una tarjeta compacta por persona (punto rojo, nombre, silenciar, grabar, medidor, volumen y, si hay retornos, *A mi DAW*). Los datos técnicos (kbps, pérdidas, colchón) salen al pasar el ratón.
   - **Chat**: empieza abierto al entrar y se abre y se cierra con su botón. Con él cerrado, los mensajes de otros se cuentan en el botón. (Del 27 al 28-10-2026 se cerraba solo tras 30 s sin tocarlo; se quitó porque molestaba.) Se pueden soltar archivos en cualquier parte de la sala: se abre el chat y se mandan.
 - **Vídeos de los demás**: el volumen de su voz y *Echar* salen solo al pasar el ratón.
+- **Enviar comentarios** (29-10-2026): enlace en la entrada (junto a *Plugin para emitir*) y en *Ajustes*. Formulario con el mensaje y, si quieren, su correo para contestarles. Lo manda **Web3Forms** (`api.web3forms.com`) por correo a Pleiss; la web no tiene servidor propio. Va el mensaje, el correo (como respuesta), el nombre y si es la web, la web desde el plugin o la app (y el navegador); no va la sala. La clave de Web3Forms (`FEEDBACK_KEY`) es pública por diseño: solo sirve para mandar mensajes a ese correo, que no aparece en la web. Sin clave, los enlaces no salen. Gratis hasta 250 mensajes al mes.
 - **Micro silenciado** (28-10-2026): un círculo rojo con el micro tachado arriba a la izquierda de tu vídeo, y los demás lo ven también en el tuyo (mensaje `mic` y campo `mic` del saludo).
 - **Medidores como los de un DAW** (28-10-2026, clase `.mtr`): los colores están fijos en su sitio (verde hasta −18 dB, ámbar hasta −6 dB, rojo arriba) y el nivel solo destapa más o menos barra (`clip-path`), en segmentos de 4 px. Antes el degradado entero se encogía con el nivel y los colores se movían.
 - **Barras de volumen y de posición** (28-10-2026): pista fina con la parte llena en azul (`--fill`, que pone `fillRange` en cada cambio) y tirador blanco con sombra, igual en Chrome, Safari y Firefox.
@@ -496,13 +502,14 @@ Revisado el 27-10-2026.
 | Dato | Quién lo ve |
 |---|---|
 | Audio, vídeo, pantalla, chat y archivos | **Solo los de la sala.** Van directos entre ordenadores y **cifrados de extremo a extremo** (DTLS-SRTP y DTLS, obligatorios en WebRTC). Si pasan por el servidor de relevo (TURN), este solo ve datos cifrados. No se guarda nada en ningún servidor. |
-| Un resumen de la sala y su clave (no el nombre) y tu IP | El servidor público de PeerJS (`0.peerjs.com`), que pone en contacto a los navegadores. |
+| Un resumen del tipo y el nombre de la sala (no el nombre) y tu IP | El servidor público de PeerJS (`0.peerjs.com`), que pone en contacto a los navegadores. |
 | Tu IP | Los demás participantes (la conexión es directa), el STUN de Google y el TURN de PeerJS, GitHub Pages al cargar la web, unpkg (PeerJS) y jsDelivr (solo si usas la reducción de ruido *Fuerte* o el perrito; el perrito además descarga el modelo de Google Storage). |
+| Lo que escribes en *Enviar comentarios* (y tu correo y nombre si los pones) | Web3Forms, que se lo reenvía por correo a Pleiss. Solo si lo envías. |
 | Tu nombre, dispositivos elegidos, volúmenes | Solo tu navegador (`localStorage`) y los participantes (el nombre). |
 
 ### Protecciones
 
-- **Salas con clave secreta** (27-10-2026): sin el enlace no se puede encontrar ni entrar en una sala, y quien no demuestra tener la clave no recibe nada (ver §4, *Sala*). Ni siquiera el servidor de PeerJS, que ve el ID de la sala, puede entrar.
+- **Salas con contraseña** (29-10-2026): quien no la sepa (ni tenga el enlace de *Invitar*) no puede entrar ni recibe nada, y no puede probar contraseñas desde fuera: tiene que preguntar a la sala, que tras 5 fallos en un minuto deja de aceptar (ver §4, *Sala*). Las salas públicas son de quien sepa el nombre.
 - **Los plugins solo aceptan conexiones de Cabina** (27-10-2026): miran el `Origin` de cada conexión y solo admiten la web publicada (también dentro de la app), páginas de `http://127.0.0.1` o `http://localhost` (la Cabina servida por el plugin, o una copia local para probar) y programas del propio ordenador (sin `Origin`). Al resto le responden 403. Hasta entonces, cualquier web abierta en el navegador podía escuchar el máster por Cabina Send o meter audio en el DAW por Cabina Retorno. Además solo escuchan en `127.0.0.1`: nadie de fuera de tu ordenador puede conectarse. La ventana del plugin sigue mostrando desde qué web está conectado.
 - **Sin fuentes de Google** (27-10-2026): Inter y JetBrains Mono van con la web (`web/fuentes/`, de Google Fonts y Fontsource, licencia OFL). Cargarlas desde Google le daba la IP de cada visitante y ya ha dado multas en la UE. Se declaran por JavaScript con la ruta de la web publicada para que también carguen en la Cabina servida por el plugin.
 - **PeerJS con comprobación de integridad** (`integrity` sha384): si unpkg sirviera otro archivo, el navegador no lo ejecuta. La reducción de ruido y el perrito se cargan con `import()`, que no admite esa comprobación; van con versión fija.
@@ -514,8 +521,8 @@ Revisado el 27-10-2026.
 
 ### Lo que queda
 
-- **Quien tenga el enlace puede entrar**, y no hay forma de cambiar la clave de una sala: si el enlace llega a quien no debe, usa una sala nueva (otro nombre).
-- Quien conozca el ID de una sala (el servidor de PeerJS) puede ocupar el sitio del anfitrión antes que nadie: no entraría (no tiene la clave), pero los demás no podrían reunirse hasta que lo deje.
+- **En las salas públicas entra quien adivine el nombre.** En las de contraseña, quien tenga el enlace de *Invitar* entra sin ella, y no hay forma de cambiar la contraseña de una sala: si se filtra, usa otro nombre. Una contraseña corta y común se puede acabar adivinando probando poco a poco.
+- Quien sepa el nombre de una sala con contraseña puede ocupar el sitio del anfitrión antes que nadie: no entraría (no tiene la contraseña), pero los demás no podrían reunirse hasta que lo deje.
 - Los nombres no se comprueban: cualquiera puede ponerse el nombre de otro.
 - Los participantes ven tu IP (la conexión es directa). Forzar el relevo la ocultaría, a cambio de más latencia y coste.
 - Sin política de seguridad de contenido (CSP): el código va dentro de la página y la Cabina servida por el plugin la reescribe, así que sería difícil de mantener sin romper Safari. No se ha encontrado ninguna forma de meter código en la página.
@@ -542,6 +549,7 @@ Revisado el 27-10-2026.
 
 | Prueba | Resultado |
 |---|---|
+| Salas públicas y con contraseña (29-10-2026, Chrome, 8 participantes) | Pública: dos que escriben el nombre se juntan. Con contraseña: la buena entra; la mala vuelve a la entrada con "Contraseña incorrecta" y la sala sigue igual; el mismo nombre en pública es otra sala; con el enlace de *Invitar* no se pide contraseña y se entra; quien vuelve escribiendo solo el nombre entra (clave recordada); sin contraseña no deja entrar. Sin errores en la consola |
 | Salas con clave (27-10-2026, Chrome, varios participantes y un intruso) | Con el enlace se ven y llega el chat; con el mismo nombre y sin enlace se acaba en otra sala; un intruso que conoce el ID de la sala pero no la clave no aparece, no recibe nada (ni chat, ni voz) y se le echa a los 10 s; al salir la anfitriona los otros dos se vuelven a ver; quien vuelve escribiendo solo el nombre entra en la misma sala (clave recordada) |
 | Seguridad (27-10-2026, Chrome) | Fuentes sin Google; PeerJS con comprobación de integridad; un `.html` recibido llega como binario y una imagen sigue viéndose; dentro de un iframe, Cabina no arranca |
 | Sintaxis JavaScript de la web | OK |
