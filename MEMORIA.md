@@ -493,7 +493,7 @@ cabina/
 | Alojamiento de la web (Netlify / GitHub Pages) | 0 € |
 | Señalización (servidor público de PeerJS) | 0 € |
 | Archivos por el chat (de ordenador a ordenador) | 0 € |
-| TURN de relevo (Cloudflare Realtime TURN y el Worker que da sus claves) | 0 € hasta 1000 GB al mes de relevo y 100 000 peticiones al día al Worker; después, unos 0,05 $ por GB. Cloudflare no tiene aviso de uso para el relevo (solo para R2): sin tarjeta en *Billing → Payment info* no puede cobrar; el consumo se ve en *Realtime → TURN Server → cabina* |
+| TURN de relevo (Cloudflare Realtime TURN y el Worker que da sus claves) | 0 € hasta 1000 GB al mes de relevo y 100 000 peticiones al día al Worker; después, unos 0,05 $ por GB. Cloudflare no tiene aviso de uso para el relevo (solo para R2), así que hay uno propio: `aviso-relevo.yml` (ver §13, *Relevo*). El consumo también se ve en *Realtime → TURN Server → cabina* |
 | Compilación (GitHub Actions, repositorio público o cuota gratuita) | 0 € |
 | JUCE para uso personal | 0 € (ver §18) |
 | App de escritorio sin firmar | 0 € |
@@ -553,6 +553,8 @@ El riesgo principal que señalaban las auditorías: la web y las actualizaciones
   - Solo responde a la web publicada y a las páginas de los plugins (`Origin`); al resto, 403. Un programa podría inventarse el `Origin` y gastar relevo, pero no ver ni oír nada de nadie.
   - La web pide las claves al conectar (`iceServers`, guardadas 6 h); si el Worker no responde, sigue solo con STUN. En una copia local en otro puerto (p. ej. 8765) no hay relevo, porque el Worker no la acepta.
   - Probado el 29-10-2026: con *Ocultar mi IP*, la conexión se establece y va entera por el relevo (solo candidatos `relay`).
+  - **Aviso de gasto** (`.github/workflows/aviso-relevo.yml`): cada día a las 7:17 UTC (y a mano desde *Actions*) GitHub consulta a Cloudflare (GraphQL, `callsTurnUsageAdaptiveGroups`, suma de `egressBytes` del mes, lo que factura Cloudflare) y lo apunta en el resumen de la ejecución. Si pasa de 500 GB (`LIMITE_GB`), abre una incidencia en el repositorio (una por mes), y GitHub avisa por correo. Necesita el secreto de GitHub `CF_ANALYTICS_TOKEN`: un token de Cloudflare (*My Profile → API Tokens → Create Custom Token*) con solo el permiso *Account → Account Analytics → Read* de la cuenta de Pleiss. Las cifras de analítica de Cloudflare son aproximadas (muestreo), no la factura exacta.
+  - **Para cortar el relevo** (abuso o gasto): borrar los secretos del Worker `cabina-turn`. Cabina sigue conectando directo; solo fallan los routers estrictos y *Ocultar mi IP*.
 - STUN: Google y Cloudflare (`ICE`/`STUN` en `web/index.html`).
 - **Ocultar mi IP a los demás** (casilla en la entrada, `prefs.hideIp`): la conexión va siempre por el relevo (`iceTransportPolicy: 'relay'`) y los demás solo ven la IP de Cloudflare; tarda algo más. Si `TURN_URL` se vacía, la casilla desaparece.
 

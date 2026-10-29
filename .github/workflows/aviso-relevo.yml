@@ -1,0 +1,61 @@
+# Aviso de gasto del relevo de Cloudflare (TURN). Cloudflare no tiene aviso propio para el relevo, así que cada
+# día se consulta cuánto ha enviado este mes y, si pasa del límite, se abre una incidencia en el repositorio
+# (GitHub avisa por correo). Gratis hasta 1000 GB al mes; después, unos 0,05 $ por GB.
+# Necesita el secreto CF_ANALYTICS_TOKEN: un token de Cloudflare con solo el permiso "Account Analytics: Read".
+# Para cortar el relevo en caso de abuso: borrar los secretos del Worker cabina-turn (ver MEMORIA.md §13).
+name: Aviso del relevo
+
+on:
+  schedule:
+    - cron: "17 7 * * *"   # cada día a las 7:17 UTC
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  comprobar:
+    runs-on: ubuntu-latest
+    env:
+      CF_ANALYTICS_TOKEN: ${{ secrets.CF_ANALYTICS_TOKEN }}
+      CF_ACCOUNT_ID: 8c41e29ce2201fecd544b2f3fd583b98
+      LIMITE_GB: "500"
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Consultar el uso del mes
+        id: uso
+        run: |
+          if [ -z "$CF_ANALYTICS_TOKEN" ]; then echo "Falta el secreto CF_ANALYTICS_TOKEN"; exit 1; fi
+          node - <<'EOF'
+          const fs = require('fs');
+          const hoy = new Date(), desde = hoy.toISOString().slice(0, 8) + '01', hasta = hoy.toISOString().slice(0, 10);
+          const query = `{ viewer { accounts(filter: { accountTag: "${process.env.CF_ACCOUNT_ID}" }) {
+            callsTurnUsageAdaptiveGroups(limit: 10000, filter: { date_geq: "${desde}", date_leq: "${hasta}" }) { sum { egressBytes } } } } }`;
+          (async () => {
+            const r = await fetch('https://api.cloudflare.com/client/v4/graphql', {
+              method: 'POST',
+              headers: { Authorization: 'Bearer ' + process.env.CF_ANALYTICS_TOKEN, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ query }),
+            });
+            const j = await r.json();
+            if (!r.ok || (j.errors && j.errors.length)) { console.error(JSON.stringify(j.errors || j)); process.exit(1); }
+            const filas = j.data.viewer.accounts[0].callsTurnUsageAdaptiveGroups || [];
+            const gb = filas.reduce((s, f) => s + (f.sum.egressBytes || 0), 0) / 1e9;
+            const texto = `Relevo de Cloudflare: ${gb.toFixed(2)} GB enviados del ${desde} al ${hasta} (límite del aviso: ${process.env.LIMITE_GB} GB; gratis hasta 1000 GB)`;
+            console.log(texto);
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, texto + '\n');
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `gb=${gb.toFixed(2)}\nmes=${desde.slice(0, 7)}\n`);
+          })().catch(e => { console.error(e); process.exit(1); });
+          EOF
+      - name: Avisar si pasa del límite
+        run: |
+          GB="${{ steps.uso.outputs.gb }}"; MES="${{ steps.uso.outputs.mes }}"
+          if awk -v g="$GB" -v l="$LIMITE_GB" 'BEGIN { exit !(g > l) }'; then
+            TITULO="Relevo de Cloudflare: $GB GB en $MES"
+            if ! gh issue list --state open --search "Relevo de Cloudflare en:title $MES" --json number --jq '.[0].number' | grep -q .; then
+              gh issue create --title "$TITULO" --body "Este mes el relevo (TURN) de Cloudflare ha enviado **$GB GB**, más que el límite del aviso ($LIMITE_GB GB). Gratis hasta 1000 GB al mes; después, unos 0,05 \$ por GB.
+
+          Si no cuadra con el uso de Cabina, puede que alguien esté usando el relevo: borra los secretos TURN_KEY_ID y TURN_KEY_TOKEN del Worker cabina-turn en Cloudflare para cortarlo (Cabina sigue conectando directo) y revisa MEMORIA.md §13, Relevo."
+            fi
+          fi
