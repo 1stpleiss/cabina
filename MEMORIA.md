@@ -532,7 +532,7 @@ El riesgo principal que señalaban las auditorías: la web y las actualizaciones
 |---|---|
 | Audio, vídeo, pantalla, chat y archivos | **Solo los de la sala.** Van directos entre ordenadores y **cifrados de extremo a extremo** (DTLS-SRTP y DTLS, obligatorios en WebRTC). Si pasan por el servidor de relevo (TURN), este solo ve datos cifrados. No se guarda nada en ningún servidor. |
 | Un resumen del tipo y el nombre de la sala (no el nombre) y tu IP | El servidor público de PeerJS (`0.peerjs.com`), que pone en contacto a los navegadores. |
-| Tu IP | Los demás participantes (la conexión es directa; con *Ocultar mi IP*, cuando haya relevo, solo el relevo), el STUN de Google y el de Cloudflare, y GitHub Pages al cargar la web. Desde el 29-10-2026 ninguna otra: PeerJS, la reducción de ruido y el perrito (con su modelo) van con la web en `web/vendor/`. |
+| Tu IP | Los demás participantes (la conexión es directa; con *Ocultar mi IP*, cuando haya relevo, solo el relevo), el STUN de Google y el de Cloudflare, GitHub (la app busca actualizaciones de la app y de los plugins cada 6 horas; no se manda ningún dato tuyo ni de la sala) y GitHub Pages al cargar la web. Desde el 29-10-2026 ninguna otra: PeerJS, la reducción de ruido y el perrito (con su modelo) van con la web en `web/vendor/`. |
 | Lo que escribes en *Enviar comentarios* (y tu correo y nombre si los pones) | Web3Forms, que se lo reenvía por correo a Pleiss. Solo si lo envías. |
 | Tu nombre, dispositivos elegidos, volúmenes, contraseñas de salas | Solo tu navegador (`localStorage`) y los participantes (el nombre). Las contraseñas de sala se guardan como su clave derivada, caducan a los 30 días y se olvidan desde *Ajustes*. |
 
@@ -568,6 +568,10 @@ El riesgo principal que señalaban las auditorías: la web y las actualizaciones
   - **Para cortar el relevo** (abuso o gasto): borrar los secretos del Worker `cabina-turn`. Cabina sigue conectando directo; solo fallan los routers estrictos y *Ocultar mi IP*.
 - STUN: Google y Cloudflare (`ICE`/`STUN` en `web/index.html`).
 - **Ocultar mi IP a los demás** (casilla en la entrada, `prefs.hideIp`): la conexión va siempre por el relevo (`iceTransportPolicy: 'relay'`) y los demás solo ven la IP de Cloudflare; tarda algo más. Si `TURN_URL` se vacía, la casilla desaparece.
+
+### Revisión en cada cambio
+
+Desde el 29-10-2026, cada cambio lleva su revisión de seguridad y privacidad antes de subirlo (qué datos salen y a quién, que nada de fuera se ejecute, firma, CSP, permisos, secretos en el repositorio, y probar también el caso malo). La primera, la de los plugins al día desde la app: solo instala con firma válida y huella correcta (probado con un paquete alterado: no toca nada), no acepta versiones anteriores, las órdenes al sistema solo llevan rutas fijas, la web solo puede pedir "comprueba los plugins" y solo desde la ventana de la app, y en Mac no necesita administrador salvo para quitar una vez las copias del instalador.
 
 ### Respuesta a las auditorías (29-10-2026)
 
