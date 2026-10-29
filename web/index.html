@@ -5,9 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <!-- Política de seguridad (29-10-2026): de dónde puede cargar cosas y a dónde puede conectarse la página.
      Todo el código va con la web (vendor/); fuera solo se habla con el servidor de PeerJS (poner en contacto
-     a los navegadores), los plugins en 127.0.0.1 (puertos 47800-47808) y Web3Forms (comentarios). La web
+     a los navegadores), los plugins en 127.0.0.1 (puertos 47800-47808), Web3Forms (comentarios) y el
+     servicio de claves del relevo de Cloudflare (herramientas/turn). La web
      publicada va por su nombre porque la Cabina servida por el plugin (Safari) la carga desde 127.0.0.1. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://1stpleiss.github.io; worker-src 'self' blob: https://1stpleiss.github.io; connect-src 'self' https://1stpleiss.github.io https://0.peerjs.com wss://0.peerjs.com ws://127.0.0.1:47800 ws://127.0.0.1:47801 ws://127.0.0.1:47802 ws://127.0.0.1:47803 ws://127.0.0.1:47804 ws://127.0.0.1:47805 ws://127.0.0.1:47806 ws://127.0.0.1:47807 ws://127.0.0.1:47808 https://api.web3forms.com blob: data:; img-src 'self' blob: data: https://1stpleiss.github.io; media-src 'self' blob: https://1stpleiss.github.io; font-src 'self' https://1stpleiss.github.io; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://1stpleiss.github.io; worker-src 'self' blob: https://1stpleiss.github.io; connect-src 'self' https://1stpleiss.github.io https://0.peerjs.com wss://0.peerjs.com ws://127.0.0.1:47800 ws://127.0.0.1:47801 ws://127.0.0.1:47802 ws://127.0.0.1:47803 ws://127.0.0.1:47804 ws://127.0.0.1:47805 ws://127.0.0.1:47806 ws://127.0.0.1:47807 ws://127.0.0.1:47808 https://api.web3forms.com https://cabina-turn.portal-masters-tests.workers.dev blob: data:; img-src 'self' blob: data: https://1stpleiss.github.io; media-src 'self' blob: https://1stpleiss.github.io; font-src 'self' https://1stpleiss.github.io; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <title>Cabina</title>
 <link rel="icon" type="image/png" href="icono.png">
 <link rel="apple-touch-icon" href="icono.png">
@@ -924,11 +925,11 @@ function ready(p){
 //  - Relevo (TURN): para cuando dos routers no se dejan conectar directo (redes de empresa, algunas operadoras).
 //    PeerJS traía los suyos, pero el 29-10-2026 ya no existían (sus nombres no resuelven): sin relevo, esas
 //    conexiones fallan. El relevo previsto es el de Cloudflare (gratis hasta 1000 GB al mes), con claves
-//    temporales que da un pequeño servicio (herramientas/turn-worker.js). TURN_URL es su dirección; vacía,
+//    temporales que da un pequeño servicio (herramientas/turn/worker.js). TURN_URL es su dirección; vacía,
 //    no hay relevo. Por el relevo el audio sigue cifrado de extremo a extremo.
 //  - "Ocultar mi IP" (solo con relevo): la conexión va siempre por él (iceTransportPolicy 'relay') y los demás
 //    solo ven la IP del relevo, no la tuya; tarda algo más.
-const TURN_URL = ''; // al ponerla, añadir su dominio a connect-src en la política de seguridad (arriba)
+const TURN_URL = 'https://cabina-turn.portal-masters-tests.workers.dev'; // su dominio va en connect-src de la política de seguridad (arriba)
 const STUN = [{ urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302'] }];
 let turnServers = null;
 async function iceServers(){

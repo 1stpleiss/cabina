@@ -70,7 +70,7 @@ Los plugins son **opcionales**: la web funciona sola con un cable de audio virtu
                  └──────── PeerJS (solo para encontrarse) ────────────┘
 ```
 
-- **El audio y el vídeo van directos de ordenador a ordenador** (WebRTC peer-to-peer). No pasan por ningún servidor, salvo cuando un router no deja conectar directamente; entonces haría falta un servidor TURN de relevo. **Desde el 29-10-2026 no hay relevo**: los de PeerJS ya no existen (ver §13, *Relevo*), y quien esté detrás de un router estricto no puede conectarse hasta que se active el de Cloudflare.
+- **El audio y el vídeo van directos de ordenador a ordenador** (WebRTC peer-to-peer). No pasan por ningún servidor, salvo cuando un router no deja conectar directamente; entonces se usa un servidor TURN de relevo: el de Cloudflare desde el 29-10-2026 (los de PeerJS ya no existían; ver §13, *Relevo*).
 - **PeerJS** solo hace de "centralita" para que los navegadores se encuentren. Se usa su servidor público gratuito.
 - **Los plugins hablan con la web por localhost** (WebSocket en `127.0.0.1`). No abren nada hacia internet.
 
@@ -493,7 +493,7 @@ cabina/
 | Alojamiento de la web (Netlify / GitHub Pages) | 0 € |
 | Señalización (servidor público de PeerJS) | 0 € |
 | Archivos por el chat (de ordenador a ordenador) | 0 € |
-| TURN de relevo | Ninguno ahora (los de PeerJS ya no existen). Previsto: Cloudflare, 0 € hasta 1000 GB al mes |
+| TURN de relevo (Cloudflare Realtime TURN y el Worker que da sus claves) | 0 € hasta 1000 GB al mes de relevo y 100 000 peticiones al día al Worker; después, unos 0,05 $ por GB. Conviene poner un aviso de uso en Cloudflare |
 | Compilación (GitHub Actions, repositorio público o cuota gratuita) | 0 € |
 | JUCE para uso personal | 0 € (ver §18) |
 | App de escritorio sin firmar | 0 € |
@@ -548,9 +548,13 @@ El riesgo principal que señalaban las auditorías: la web y las actualizaciones
 ### Relevo (TURN) y ocultar la IP (29-10-2026)
 
 - **Los servidores de relevo de PeerJS (`eu-0` y `us-0.turn.peerjs.com`) ya no existen**: sus nombres no resuelven. Se descubrió al probar *Ocultar mi IP*. Sin relevo, dos personas detrás de routers estrictos (redes de empresa, algunas operadoras móviles o de fibra) no pueden conectarse; con routers normales se conecta directo y funciona. El `Open Relay` de Metered tampoco existe ya.
-- **Previsto**: el relevo de Cloudflare (Realtime TURN, gratis hasta 1000 GB al mes). Necesita una cuenta de Cloudflare y un pequeño servicio que dé claves temporales, ya escrito en `herramientas/turn-worker.js` (Cloudflare Worker, secretos `TURN_KEY_ID` y `TURN_KEY_TOKEN`, claves de 24 h, solo responde a la web y a las páginas de los plugins). Para activarlo: publicar el Worker, poner su dirección en `TURN_URL` (`web/index.html`) y su dominio en `connect-src` de la política de seguridad.
+- **Relevo de Cloudflare (activo desde el 29-10-2026)**: Realtime TURN, en la cuenta de Cloudflare de Pleiss (gratis hasta 1000 GB al mes). Una clave TURN llamada `cabina` (panel → Realtime → TURN Server) y un Worker, `cabina-turn` (`herramientas/turn/`, publicado con `npx wrangler@4.151.0 deploy`), en `https://cabina-turn.portal-masters-tests.workers.dev`, que pide a Cloudflare claves temporales (24 h) y se las da a la web.
+  - Secretos del Worker (panel → Workers & Pages → cabina-turn → Settings → Variables and Secrets, en *Production*): `TURN_KEY_ID` (el *Turn Token ID*) y `TURN_KEY_TOKEN` (el *API Token*). No están en el repositorio ni pasaron por ningún chat.
+  - Solo responde a la web publicada y a las páginas de los plugins (`Origin`); al resto, 403. Un programa podría inventarse el `Origin` y gastar relevo, pero no ver ni oír nada de nadie.
+  - La web pide las claves al conectar (`iceServers`, guardadas 6 h); si el Worker no responde, sigue solo con STUN. En una copia local en otro puerto (p. ej. 8765) no hay relevo, porque el Worker no la acepta.
+  - Probado el 29-10-2026: con *Ocultar mi IP*, la conexión se establece y va entera por el relevo (solo candidatos `relay`).
 - STUN: Google y Cloudflare (`ICE`/`STUN` en `web/index.html`).
-- **Ocultar mi IP a los demás** (casilla en la entrada, `prefs.hideIp`): con relevo, la conexión va siempre por él (`iceTransportPolicy: 'relay'`) y los demás solo ven la IP del relevo. Está hecho pero **oculto mientras no haya relevo** (`TURN_URL` vacía), porque sin él no se podría conectar.
+- **Ocultar mi IP a los demás** (casilla en la entrada, `prefs.hideIp`): la conexión va siempre por el relevo (`iceTransportPolicy: 'relay'`) y los demás solo ven la IP de Cloudflare; tarda algo más. Si `TURN_URL` se vacía, la casilla desaparece.
 
 ### Respuesta a las auditorías (29-10-2026)
 
@@ -649,7 +653,7 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 - [ ] Botón "marcar tiempo" en el chat que inserte la posición del transporte del DAW (el plugin la conoce).
 
 **Medio plazo**
-- [ ] **Relevo (TURN) de Cloudflare**: cuenta, publicar `herramientas/turn-worker.js` y poner `TURN_URL` (§13, *Relevo*). Urgente: sin relevo, los routers estrictos no conectan.
+- [x] **Relevo (TURN) de Cloudflare** y opción de ocultar la IP (29-10-2026).
 - [ ] Servidor PeerJS propio.
 - [x] Compartir archivos arrastrando (stems, bounces) por el canal de datos.
 - [x] Interfaz ordenada: barra de controles abajo, chat que se abre y se cierra solo, prueba de dispositivos antes de entrar y textos más cortos (27-10-2026).
@@ -678,7 +682,7 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 | Suena desfasado, como con un canal de más | El micro de quien emite capta el DAW (altavoces, monitorización directa, loopback de la interfaz) y llega dos veces | Auriculares o silenciar el micro. La web avisa al emisor si lo detecta |
 | "% retocado" alto en el DAW entrante | WebRTC estira o rellena audio por pérdidas o jitter de la red | Cable de red; probar el modo sin pérdidas |
 | Eco o acoples | Altavoces en lugar de auriculares | Auriculares |
-| No conecta con alguien concreto | Router o NAT estricto | Hace falta relevo (TURN): activar el de Cloudflare (§13, *Relevo*) |
+| No conecta con alguien concreto | Router o NAT estricto | Debería salvarlo el relevo de Cloudflare; comprobar que `https://cabina-turn.portal-masters-tests.workers.dev` responde (desde la web) y que los secretos del Worker siguen puestos |
 | En el DAW suena a trozos | El colchón del Retorno se vacía | Debería adaptarse solo en unos segundos (la ventana del plugin muestra el colchón). Si sigue, subir el valor inicial de `returnBuffer` en `PluginProcessor.h` (0.06 → 0.12) |
 | Al emitir, la web pone "N cortes" junto al plugin | La página del emisor se atasca (segundo plano, ordenador cargado) | El colchón crece solo; si siguen apareciendo, dejar la ventana de Cabina visible o cerrar pestañas pesadas |
 | Alguien aparece dos veces en la sala | Pulsó *Entrar* dos veces con una web anterior al 22-10-2026 | Que recargue la web y vuelva a entrar |

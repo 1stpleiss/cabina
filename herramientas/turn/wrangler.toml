@@ -1,0 +1,7 @@
+# Servicio de claves para el relevo (TURN) de Cloudflare: ver worker.js y MEMORIA.md §13, "Relevo".
+# Publicar: cd herramientas/turn && npx wrangler@4.151.0 deploy
+# Secretos (en el panel de Cloudflare o con `wrangler secret put`): TURN_KEY_ID y TURN_KEY_TOKEN.
+name = "cabina-turn"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
