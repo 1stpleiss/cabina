@@ -493,7 +493,7 @@ cabina/
 | Alojamiento de la web (Netlify / GitHub Pages) | 0 € |
 | Señalización (servidor público de PeerJS) | 0 € |
 | Archivos por el chat (de ordenador a ordenador) | 0 € |
-| TURN de relevo (Cloudflare Realtime TURN y el Worker que da sus claves) | 0 € hasta 1000 GB al mes de relevo y 100 000 peticiones al día al Worker; después, unos 0,05 $ por GB. Conviene poner un aviso de uso en Cloudflare |
+| TURN de relevo (Cloudflare Realtime TURN y el Worker que da sus claves) | 0 € hasta 1000 GB al mes de relevo y 100 000 peticiones al día al Worker; después, unos 0,05 $ por GB. Cloudflare no tiene aviso de uso para el relevo (solo para R2): sin tarjeta en *Billing → Payment info* no puede cobrar; el consumo se ve en *Realtime → TURN Server → cabina* |
 | Compilación (GitHub Actions, repositorio público o cuota gratuita) | 0 € |
 | JUCE para uso personal | 0 € (ver §18) |
 | App de escritorio sin firmar | 0 € |
