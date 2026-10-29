@@ -29,9 +29,11 @@ let asked = false;
 let onQuit = false;        // "Al cerrar Cabina": instalar al salir
 let expected = null;       // Windows: { version, sha512 } del latest.yml firmado
 
+// Directo a GitHub, sin pasar por la comprobación de la web (web-segura.js): aquí ya se comprueba la firma
+const fetchFeed = url => net.fetch(url, { cache: 'no-store', bypassCustomProtocolHandlers: true });
 // Lee latest.yml o latest-mac.yml y su firma. Sin firma válida, no hay actualización.
 async function signedYml(name){
-  const [y, s] = await Promise.all([name, name + '.sig'].map(f => net.fetch(FEED + f + '?t=' + Date.now(), { cache: 'no-store' })));
+  const [y, s] = await Promise.all([name, name + '.sig'].map(f => fetchFeed(FEED + f + '?t=' + Date.now())));
   if (!y.ok) throw new Error(name + ': ' + y.status);
   if (!s.ok) throw new Error(name + ' sin firmar todavía');
   const text = await y.text();
@@ -110,7 +112,7 @@ async function macCheck(){
   fs.mkdirSync(dir, { recursive: true });
   const zip = path.join(dir, 'Cabina.zip');
   state = 'downloading';
-  const dl = await net.fetch(FEED + file[1], { cache: 'no-store' });
+  const dl = await fetchFeed(FEED + file[1]);
   if (!dl.ok) throw new Error(file[1] + ': ' + dl.status);
   const hash = crypto.createHash('sha512');
   const body = Readable.fromWeb(dl.body);

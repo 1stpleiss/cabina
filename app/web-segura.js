@@ -24,7 +24,7 @@ function setup(ses, WEB){
   const pasar = req => {
     const headers = new Headers(req.headers);
     if (!headers.has('origin')) headers.set('origin', base.origin);
-    const init = { method: req.method, headers, redirect: req.redirect, bypassCustomProtocolHandlers: true };
+    const init = { method: req.method, headers, redirect: 'follow', bypassCustomProtocolHandlers: true };
     if (req.body) { init.body = req.body; init.duplex = 'half'; }
     return net.fetch(req.url, init);
   };
