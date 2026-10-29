@@ -249,6 +249,15 @@ Carpeta `app/`. Es Cabina dentro de una app hecha con **Electron 44.7.0** (empaq
 - **Compilación**: `.github/workflows/app.yml`, con cada cambio en `app/`. Publica en la release **`app`** `Cabina-App-Mac.dmg` y `Cabina-App-Windows.exe` (la web los enlaza en el aviso de los plugins) y, para las actualizaciones, `Cabina-App-Mac.zip`, `latest-mac.yml`, `latest.yml` y los `.blockmap`. En local: `cd app && npm install && npx electron-builder --mac`.
 - **Ojo en VS Code**: el terminal de VS Code define `ELECTRON_RUN_AS_NODE=1`, y con eso Electron arranca como Node y falla (`app` sin definir). Lanzarlo con `env -u ELECTRON_RUN_AS_NODE npm start`.
 
+### Plugins al día desde la app (29-10-2026)
+
+La app instala y mantiene al día Cabina Send y Cabina Retorno (`app/plugins.js`).
+- **De dónde**: cada compilación de los plugins (`compilar.yml`) es una versión (`0.1.<número de ejecución>`, también en el `.pkg` y en el instalador de Windows) y publica en la release `plugins` un `plugins.yml` con la versión y la huella sha512 de `Cabina-Mac.zip` y `Cabina-Windows.exe`, y una copia fija en `plugins-vX.Y.Z`. **Quien publica lo firma en su Mac**: `node herramientas/firmar.mjs plugins` (comprueba las huellas de lo publicado y sube `plugins.yml.sig`). Sin firma válida o con una huella que no cuadra, la app no instala nada.
+- **Cuándo**: al abrirse (a los 20 s) y cada 6 horas, **solo si ya hay plugins instalados** (a quien solo escucha no se le instala nada). La versión instalada por la app se apunta en `plugins.json` (carpeta de datos de la app); si hay plugins pero no ese archivo (instalados con el `.pkg` o el `.exe`), se consideran antiguos y se actualizan. Instalarlos la primera vez o forzar la comprobación: menú *Cabina → Instalar o actualizar los plugins…* (Mac) o, dentro de la web en la app, *Ajustes → Instalar o actualizar los plugins* y el aviso de los plugins (`window.CABINA_APP.plugins`).
+- **Mac**: en la carpeta del usuario (`~/Library/Audio/Plug-Ins/VST3` y `Components`), sin contraseña: se aparta el viejo, se pone el nuevo y, si falla, vuelve el viejo; luego se reinicia la caché de Audio Units. Si hay copias del `.pkg` en la del sistema (`/Library/Audio/Plug-Ins`), primero se pregunta y se quitan con la contraseña de administrador (una vez; también `pkgutil --forget com.cabina.plugins`): si no, el DAW vería los plugins repetidos. Si se dice que no, no se vuelve a preguntar en 7 días. Al acabar, una notificación: hay que volver a abrir el DAW o escanear los plugins.
+- **Windows**: pregunta (cierra el DAW y pulsa *Instalar*), descarga el instalador, comprueba su huella y lo ejecuta en silencio como administrador (Windows pide permiso; sin cerrar programas por su cuenta). Si falla (DAW abierto, permiso denegado), lo dice. Si se pospone, vuelve a preguntar al día siguiente.
+- **Probado el 29-10-2026** (Mac, en desarrollo, con carpetas y un servidor de prueba: `CABINA_PLUGINS_FEED`, `CABINA_PLUGINS_USER` y `CABINA_PLUGINS_SYS`, que solo valen en desarrollo): con un `plugins.yml` firmado, sustituye un plugin viejo e instala los cuatro (VST3 y AU) y apunta la versión; con el paquete alterado, no toca nada. La orden que quita las copias del sistema, probada sin administrador sobre carpetas de prueba. **Sin probar**: con la contraseña de verdad y en Windows.
+
 ### Control remoto
 
 Otro participante mueve tu ratón y escribe en tu ordenador mientras compartes la **pantalla entera** desde la **app de escritorio**. Quien controla puede estar en la web o en la app. Para hacer beats juntos en un solo ordenador. Creado el 28-10-2026.
@@ -465,6 +474,7 @@ cabina/
 │   ├── updater.js              ← actualizaciones de la app, solo firmadas (Windows: electron-updater; Mac: a mano)
 │   ├── firma.js                ← comprueba la firma propia (llave pública)
 │   ├── web-segura.js           ← solo deja cargar archivos de la web que están en la lista firmada
+│   ├── plugins.js              ← instala y mantiene al día los plugins (firmados)
 │   ├── control.js, control.html ← control remoto (permiso, aviso flotante, traducción de teclas)
 │   ├── helper/                 ← ayudantes que mueven el ratón y pulsan teclas (mac.swift, win.cs)
 │   ├── preload.js              ← window.CABINA_APP para la web
@@ -512,6 +522,7 @@ El riesgo principal que señalaban las auditorías: la web y las actualizaciones
   - La **app** solo carga la web firmada: cada petición a la web pasa por `app/web-segura.js`, que descarga el archivo, comprueba su huella con la lista firmada y solo entonces se lo da a la página. Si no cuadra, muestra "No se ha podido cargar Cabina" y no ejecuta nada. Los archivos ya comprobados se guardan en memoria. Las peticiones a otros servidores (PeerJS, relevo, Web3Forms) pasan por el mismo sitio y se reenvían tal cual, añadiendo la cabecera `Origin` de la web: al reenviarlas se perdía, y el servicio de claves del relevo respondía 403 dentro de la app (encontrado al probar la web publicada el 29-10-2026). Las descargas del actualizador van directas (`bypassCustomProtocolHandlers`), porque al pasar por ahí las redirecciones de GitHub fallaban (`ERR_UNEXPECTED`) y la app no podía actualizarse: **la 0.1.11 tiene ese fallo**; quien la tenga debe instalar una versión posterior a mano una vez.
   - La **Cabina servida por el plugin** (Safari) solo carga `index.html` si su huella está en `firma.json` y la firma es buena (Ed25519 de WebCrypto: Safari 17 o Chrome 137 en adelante). Las librerías las carga `index.html` con comprobación de integridad (PeerJS) desde `vendor/`.
   - En un navegador normal (la web abierta en Chrome o Safari) no hay nada que comprobar: es una web, y el navegador confía en GitHub Pages como en cualquier web.
+- **Plugins**: después de cada compilación de los plugins, `node herramientas/firmar.mjs plugins` (ver §5, *Plugins al día desde la app*).
 - **App**: después de cada compilación de la app, `node herramientas/firmar.mjs app` descarga `latest.yml` y `latest-mac.yml` de la release `app`, comprueba que el `.exe` y el `.zip` publicados tienen las huellas que dicen, y sube `latest.yml.sig` y `latest-mac.yml.sig`. La app (`updater.js`) solo actualiza si la firma es buena: en Mac comprueba la huella del `.zip` con el yml firmado; en Windows, la del instalador que descarga electron-updater con el `latest.yml` firmado, antes de instalar. **Mientras no se firme, nadie se actualiza** (la app se queda en su versión). Cada versión queda también en una release fija `app-vX.Y.Z` que no se sobrescribe.
 - Las apps hasta la 0.1.9 y los plugins anteriores al 29-10-2026 no comprueban nada; se protegen al actualizarse (la app sola, a la siguiente versión; los plugins, reinstalándolos).
 
@@ -667,6 +678,7 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 - [ ] SFU para salas grandes.
 - [x] App de escritorio (Electron) que carga la web y habla con los plugins sin los límites del navegador (26-10-2026).
 - [x] App de escritorio sin barra de título y que se actualiza sola (27-10-2026).
+- [x] La app instala y mantiene al día los plugins, firmados (29-10-2026).
 - [x] Dar control del ordenador a otro participante desde la app (ratón y teclado; en Mac, permiso de accesibilidad) (28-10-2026).
 - [ ] Enlaces `cabina://` para abrir una sala en la app directamente.
 

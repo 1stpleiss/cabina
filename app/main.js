@@ -5,6 +5,7 @@ const { app, BrowserWindow, Menu, session, shell, desktopCapturer, ipcMain } = r
 const path = require('path');
 const updater = require('./updater');
 const control = require('./control');
+const plugins = require('./plugins');
 const webSegura = require('./web-segura');
 
 // La web publicada. Cambiarla con CABINA_WEB solo vale en desarrollo (npm start): en la app instalada, una
@@ -122,12 +123,14 @@ function menu(){
     ...(mac ? [{ label: 'Cabina', submenu: [
       { role: 'about', label: 'Acerca de Cabina' },
       { label: 'Buscar actualizaciones…', click: () => updater.check(true) },
+      { label: 'Instalar o actualizar los plugins…', click: () => plugins.check(true) },
       { type: 'separator' },
       { role: 'hide', label: 'Ocultar Cabina' }, { role: 'hideOthers', label: 'Ocultar otros' }, { role: 'unhide', label: 'Mostrar todo' },
       { type: 'separator' },
       { role: 'quit', label: 'Salir de Cabina' },
     ] }] : [{ label: 'Cabina', submenu: [
       { label: 'Buscar actualizaciones…', click: () => updater.check(true) },
+      { label: 'Instalar o actualizar los plugins…', click: () => plugins.check(true) },
       { type: 'separator' },
       { role: 'quit', label: 'Salir' },
     ] }]),
@@ -145,6 +148,7 @@ function menu(){
 }
 
 app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
-app.whenReady().then(() => { permissions(); menu(); createWindow(); updater.start(() => win); control.setup(() => win); });
+ipcMain.on('plugins:check', e => { if (win && e.sender === win.webContents) plugins.check(true); });
+app.whenReady().then(() => { permissions(); menu(); createWindow(); updater.start(() => win); plugins.start(() => win); control.setup(() => win); });
 app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
 app.on('window-all-closed', () => app.quit());

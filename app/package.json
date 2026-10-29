@@ -21,6 +21,7 @@
       "main.js",
       "updater.js",
       "control.js",
+      "plugins.js",
       "firma.js",
       "web-segura.js",
       "preload.js",

@@ -402,6 +402,7 @@ html.app #join .card{-webkit-app-region:no-drag}
         <label>Cabina Retorno</label>
         <div class="line" style="margin:0"><button class="btn sm" id="scanRet">Buscar</button><span class="info mono" id="retInfo" style="margin:0"></span></div>
         <button class="linkbtn" type="button" id="plugOpen2">Descargar los plugins</button><br>
+        <span class="appplug" hidden><button class="linkbtn" type="button" id="appPlugins2">Instalar o actualizar los plugins</button><br></span>
         <button class="linkbtn" type="button" id="forgetKeys" title="Las salas con contraseña en las que has entrado se recuerdan 30 días en este navegador">Olvidar contraseñas guardadas</button>
         <span class="fbo" hidden><br><button class="linkbtn" type="button" id="fbOpen2">Enviar comentarios</button></span>
       </div>
@@ -423,6 +424,7 @@ html.app #join .card{-webkit-app-region:no-drag}
       <p>Luego, vuelve a escanear los plugins en el DAW.</p>
     </div>
     <p class="sub" id="appOffer">O usa <b>la app de escritorio</b>: <a href="https://github.com/1stpleiss/cabina/releases/download/app/Cabina-App-Mac.dmg">Mac</a> · <a href="https://github.com/1stpleiss/cabina/releases/download/app/Cabina-App-Windows.exe">Windows</a></p>
+    <p class="sub appplug" hidden>Con la app, los plugins se mantienen al día solos. <button class="linkbtn" type="button" id="appPlugins1">Instalarlos ahora</button></p>
     <div class="actions"><button class="btn" id="plugHave">Ya los tengo</button><button class="btn" id="plugSkip">Solo escucho</button></div>
   </div>
 </div>
@@ -533,6 +535,11 @@ qInfo();
 const isWin = /windows/i.test(navigator.userAgent);
 if (window.CABINA_APP) {
   $('#appOffer').hidden = true;
+  // La app instala y mantiene al día los plugins (app/plugins.js)
+  if (window.CABINA_APP.plugins) {
+    document.querySelectorAll('.appplug').forEach(e => e.hidden = false);
+    ['#appPlugins1', '#appPlugins2'].forEach(id => $(id).onclick = () => { window.CABINA_APP.plugins(); plugModal(false); closePops(); });
+  }
   document.documentElement.classList.add('app', 'app-' + window.CABINA_APP.platform);
 }
 if (isWin) { $('#dlBtns').prepend($('#dlWin')); $('#dlWin').classList.add('primary'); $('#dlMac').classList.remove('primary'); }

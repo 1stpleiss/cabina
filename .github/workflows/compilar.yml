@@ -1,6 +1,9 @@
 # Compila Cabina Send y Cabina Retorno para Mac (VST3 + AU, universal) y Windows (VST3),
 # genera los instaladores (.pkg y .exe) y los publica en la release "plugins", que es de donde
 # los descarga la web. También quedan en la pestaña "Actions", en "Artifacts".
+# Cada compilación es una versión nueva (0.1.<número de ejecución>). Se publica también plugins.yml, con la versión y
+# la huella de los paquetes, para que la app de escritorio mantenga los plugins al día (app/plugins.js); la app solo
+# instala si quien publica lo ha firmado en su Mac (node herramientas/firmar.mjs plugins).
 name: Compilar plugins
 
 on:
@@ -23,6 +26,7 @@ jobs:
       APPLE_ID: ${{ secrets.APPLE_ID }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+      VERSION: 0.1.${{ github.run_number }}
     defaults:
       run:
         shell: bash
@@ -95,7 +99,7 @@ jobs:
           chmod +x scripts/postinstall
           firma=(); [ -n "$FIRMA_PKG" ] && firma=(--sign "$FIRMA_PKG" --timestamp)
           pkgbuild --root root --component-plist comp.plist --scripts scripts "${firma[@]}" \
-            --identifier com.cabina.plugins --version 0.1.0 --install-location / paquetes/Cabina-Mac.pkg
+            --identifier com.cabina.plugins --version "$VERSION" --install-location / paquetes/Cabina-Mac.pkg
           # Notarizar: Apple revisa el instalador y macOS deja de pedir "Abrir igualmente"
           if [ -n "$FIRMA_PKG" ] && [ -n "$APPLE_ID" ]; then
             xcrun notarytool submit paquetes/Cabina-Mac.pkg --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
@@ -109,10 +113,10 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $iss = @'
+          $iss = @"
           [Setup]
           AppName=Cabina
-          AppVersion=0.1.0
+          AppVersion=$($env:VERSION)
           AppPublisher=Cabina
           DefaultDirName={commoncf64}\VST3
           DisableDirPage=yes
@@ -132,7 +136,7 @@ jobs:
 
           [Files]
           Source: "dist\*"; DestDir: "{commoncf64}\VST3"; Flags: recursesubdirs createallsubdirs ignoreversion
-          '@
+          "@
           Set-Content -Path cabina.iss -Value $iss -Encoding UTF8
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (!(Test-Path $iscc)) { choco install innosetup -y --no-progress }
@@ -169,7 +173,19 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           ls -la paquetes
+          # Versión y huellas de los paquetes, para las actualizaciones de la app de escritorio
+          VERSION=0.1.${{ github.run_number }}
+          { echo "version: $VERSION"; echo "files:"
+            for f in Cabina-Mac.zip Cabina-Windows.exe; do
+              echo "  - url: $f"; echo "    sha512: $(openssl dgst -sha512 -binary "paquetes/$f" | base64 -w0)"
+            done; } > paquetes/plugins.yml
+          cat paquetes/plugins.yml
           gh release view plugins >/dev/null 2>&1 || gh release create plugins \
             --title "Plugins Cabina" --target "${{ github.sha }}" --latest \
             --notes "Instaladores de Cabina Send y Cabina Retorno. Se actualizan solos con cada cambio en los plugins."
           gh release upload plugins paquetes/* --clobber
+          # Copia fija de cada versión, que no se sobrescribe
+          gh release view "plugins-v$VERSION" >/dev/null 2>&1 || gh release create "plugins-v$VERSION" \
+            --title "Plugins Cabina $VERSION" --target "${{ github.sha }}" --latest=false \
+            --notes "Versión $VERSION de los plugins. Huellas en plugins.yml; firma propia en plugins.yml.sig."
+          gh release upload "plugins-v$VERSION" paquetes/* --clobber

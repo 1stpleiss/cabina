@@ -10,5 +10,7 @@ contextBridge.exposeInMainWorld('CABINA_APP', {
     end: () => ipcRenderer.send('control:end'),
     onEnded: cb => ipcRenderer.on('control:ended', () => cb()),
   },
+  // Instalar o actualizar los plugins (app/plugins.js)
+  plugins: () => ipcRenderer.send('plugins:check'),
 });
 ipcRenderer.on('fullscreen', (e, on) => document.documentElement.classList.toggle('app-full', on));

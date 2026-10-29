@@ -8,6 +8,7 @@
 //   node herramientas/firmar.mjs app           Firma la última versión de la app publicada en la release "app":
 //                                              descarga latest.yml y latest-mac.yml, comprueba que las huellas de
 //                                              sus archivos coinciden con lo publicado y sube latest*.yml.sig
+//   node herramientas/firmar.mjs plugins       Lo mismo con los plugins (release "plugins", plugins.yml)
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -44,27 +45,28 @@ if (orden === 'web') {
   const mal = [...new Set([...Object.keys(firmados), ...Object.keys(ahora)])].filter(k => firmados[k] !== ahora[k]);
   if (mal.length) { console.error('Archivos sin firmar o cambiados desde la firma:', mal.join(', ')); process.exit(1); }
   console.log('web/firma.json válido:', Object.keys(ahora).length, 'archivos');
-} else if (orden === 'app') {
+} else if (orden === 'app' || orden === 'plugins') {
+  // Firma los yml de una release después de comprobar que cada archivo publicado tiene la huella que dicen
+  const release = orden, ymls = orden === 'app' ? ['latest.yml', 'latest-mac.yml'] : ['plugins.yml'];
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cabina-firma-'));
   const gh = (...a) => execFileSync('gh', a, { cwd: RAIZ, stdio: ['ignore', 'pipe', 'inherit'] }).toString();
-  for (const yml of ['latest.yml', 'latest-mac.yml']) {
-    gh('release', 'download', 'app', '-p', yml, '-D', tmp, '--clobber');
+  for (const yml of ymls) {
+    gh('release', 'download', release, '-p', yml, '-D', tmp, '--clobber');
     const texto = fs.readFileSync(path.join(tmp, yml), 'utf8');
-    // Cada archivo de la actualización debe tener la huella que dice el yml
     for (const [, url, sha] of texto.matchAll(/-\s*url:\s*(\S+)\s*\n\s*sha512:\s*(\S+)/g)) {
-      gh('release', 'download', 'app', '-p', url, '-D', tmp, '--clobber');
+      gh('release', 'download', release, '-p', url, '-D', tmp, '--clobber');
       const real = crypto.createHash('sha512').update(fs.readFileSync(path.join(tmp, url))).digest('base64');
       if (real !== sha) { console.error(`${url}: la huella no coincide con ${yml}. No se firma.`); process.exit(1); }
       fs.rmSync(path.join(tmp, url));
     }
     fs.writeFileSync(path.join(tmp, yml + '.sig'), firmar(texto));
-    gh('release', 'upload', 'app', path.join(tmp, yml + '.sig'), '--clobber');
+    gh('release', 'upload', release, path.join(tmp, yml + '.sig'), '--clobber');
     const version = (texto.match(/^version:\s*'?([\d.]+)/m) || [])[1];
-    try { gh('release', 'upload', 'app-v' + version, path.join(tmp, yml + '.sig'), '--clobber'); } catch {}
+    try { gh('release', 'upload', release + '-v' + version, path.join(tmp, yml + '.sig'), '--clobber'); } catch {}
     console.log(`${yml} (versión ${version}) firmado y subido`);
   }
   fs.rmSync(tmp, { recursive: true, force: true });
 } else {
-  console.log('Uso: node herramientas/firmar.mjs web | comprobar | app');
+  console.log('Uso: node herramientas/firmar.mjs web | comprobar | app | plugins');
   process.exit(1);
 }
