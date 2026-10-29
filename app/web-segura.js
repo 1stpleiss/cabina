@@ -18,7 +18,16 @@ function setup(ses, WEB){
   const base = new URL(WEB), scheme = base.protocol.slice(0, -1);
   let lista = null, listaT = 0;
   const verificados = new Map(); // ruta → { huella, cuerpo, tipo }
-  const pasar = req => net.fetch(req, { bypassCustomProtocolHandlers: true });
+  // Lo que no es la web pasa tal cual, pero al reenviarlo se pierde la cabecera Origin, y algunos servicios la
+  // exigen (el de claves del relevo responde 403 sin ella). En la app solo hay una página, la web de Cabina, así
+  // que se pone la suya, como haría el navegador.
+  const pasar = req => {
+    const headers = new Headers(req.headers);
+    if (!headers.has('origin')) headers.set('origin', base.origin);
+    const init = { method: req.method, headers, redirect: req.redirect, bypassCustomProtocolHandlers: true };
+    if (req.body) { init.body = req.body; init.duplex = 'half'; }
+    return net.fetch(req.url, init);
+  };
   const traer = url => net.fetch(url, { bypassCustomProtocolHandlers: true, cache: 'no-store' });
 
   async function cargarLista(nueva){
