@@ -2221,7 +2221,7 @@ $('#chatClose').onclick = () => chatOpen(false);
 // La clave de Web3Forms es pública por diseño: solo sirve para mandar mensajes a ese correo, que no aparece
 // aquí. Va el mensaje, el correo si lo ponen, el nombre y si es la web o la app (no la sala). Sin clave, el
 // botón no sale.
-const FEEDBACK_KEY = '';
+const FEEDBACK_KEY = '3dc8c2ad-f087-421c-84b2-da53357e9d9c';
 if (FEEDBACK_KEY) document.querySelectorAll('.fbo').forEach(e => e.hidden = false);
 const fbShow = on => { $('#fb').hidden = !on; if (on) { closePops(); $('#fbText').focus(); } };
 ['#fbOpen1', '#fbOpen2'].forEach(id => $(id).onclick = () => fbShow(true));
@@ -2234,12 +2234,13 @@ $('#fbForm').onsubmit = async e => {
   btn.disabled = true; btn.textContent = 'Enviando…';
   const where = window.CABINA_APP ? 'app de escritorio (' + window.CABINA_APP.platform + ')' : ON_PLUGIN ? 'web desde el plugin' : 'web';
   try {
-    const r = await fetch('https://api.web3forms.com/submit', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ access_key: FEEDBACK_KEY, subject: 'Comentarios de Cabina', from_name: 'Cabina',
-        nombre: S.name || $('#name').value.trim() || 'Anónimo', ...(mail ? { email: mail } : {}),
-        mensaje: text, desde: where, navegador: navigator.userAgent }),
-    });
+    // Como formulario normal (no JSON): así el navegador no hace la consulta previa (CORS), que Cloudflare,
+    // delante de Web3Forms, rechaza
+    const f = new FormData();
+    Object.entries({ access_key: FEEDBACK_KEY, subject: 'Comentarios de Cabina', from_name: 'Cabina',
+      nombre: S.name || $('#name').value.trim() || 'Anónimo', ...(mail ? { email: mail } : {}),
+      mensaje: text, desde: where, navegador: navigator.userAgent }).forEach(([k, v]) => f.append(k, v));
+    const r = await fetch('https://api.web3forms.com/submit', { method: 'POST', headers: { Accept: 'application/json' }, body: f });
     const j = await r.json().catch(() => ({}));
     if (!r.ok || j.success === false) throw new Error(j.message || r.status);
     $('#fbText').value = ''; fbShow(false);

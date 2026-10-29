@@ -12,6 +12,10 @@ const ORIGIN = new URL(WEB).origin;
 const APP_FILES = require('url').pathToFileURL(__dirname + path.sep).href;
 const ours = url => { try { return new URL(url).origin === ORIGIN || url.startsWith(APP_FILES); } catch { return false; } };
 
+// Presentarse como un Chrome normal (sin "Electron" ni "cabina" en el identificador del navegador): algunos
+// servicios, como Web3Forms (comentarios), rechazan lo que no parece un navegador
+app.userAgentFallback = app.userAgentFallback.replace(/ (cabina|Electron)\/\S+/gi, '');
+
 // Que el audio pueda sonar sin esperar a un clic (lo que llega de los demás, el hitmarker...)
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
