@@ -26,7 +26,8 @@ jobs:
       - name: Consultar el uso del mes
         id: uso
         run: |
-          if [ -z "$CF_ANALYTICS_TOKEN" ]; then echo "Falta el secreto CF_ANALYTICS_TOKEN"; exit 1; fi
+          # Sin el secreto todavía, se apunta y se termina sin error (para no mandar un correo de fallo cada día)
+          if [ -z "$CF_ANALYTICS_TOKEN" ]; then echo "Falta el secreto CF_ANALYTICS_TOKEN: no se comprueba" | tee -a "$GITHUB_STEP_SUMMARY"; exit 0; fi
           node - <<'EOF'
           const fs = require('fs');
           const hoy = new Date(), desde = hoy.toISOString().slice(0, 8) + '01', hasta = hoy.toISOString().slice(0, 10);
@@ -49,6 +50,7 @@ jobs:
           })().catch(e => { console.error(e); process.exit(1); });
           EOF
       - name: Avisar si pasa del límite
+        if: steps.uso.outputs.gb != ''
         run: |
           GB="${{ steps.uso.outputs.gb }}"; MES="${{ steps.uso.outputs.mes }}"
           if awk -v g="$GB" -v l="$LIMITE_GB" 'BEGIN { exit !(g > l) }'; then
