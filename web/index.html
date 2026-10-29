@@ -90,6 +90,8 @@ h1{font-size:22px;margin:0;letter-spacing:-.01em}
 .seg button.on{background:var(--panel2);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.4)}
 .modes input{flex:1;min-width:180px}
 .modehint{margin:6px 0 0;color:var(--muted);font-size:12.5px}
+.chk{display:flex;align-items:center;gap:7px;margin:8px 0 0;font-size:12.5px;color:var(--muted);cursor:pointer;width:max-content;max-width:100%}
+.chk input{accent-color:var(--accent-glow);margin:0}
 #fb textarea{min-height:130px;resize:vertical;font:inherit;line-height:1.45}
 #fb .card{max-width:480px}
 header .room .lock{display:grid;color:var(--muted)}
@@ -303,9 +305,10 @@ html.app #join .card{-webkit-app-region:no-drag}
         <button type="button" role="radio" data-mode="publica" class="on" aria-checked="true"><i data-i="globe"></i>Pública</button>
         <button type="button" role="radio" data-mode="privada" aria-checked="false"><i data-i="lock"></i>Con contraseña</button>
       </div>
-      <input id="pass" type="password" maxlength="100" placeholder="Contraseña de la sala" autocomplete="off" aria-label="Contraseña de la sala" hidden>
+      <input id="pass" type="password" maxlength="100" placeholder="Contraseña (8 caracteres o más)" autocomplete="off" aria-label="Contraseña de la sala" hidden>
     </div>
     <p class="modehint" id="modeHint"></p>
+    <label class="chk" title="Tu conexión pasa siempre por el servidor de relevo: los demás no ven tu IP, a cambio de algo más de retardo"><input type="checkbox" id="hideIp"> Ocultar mi IP a los demás (más retardo)</label>
 
     <div id="devs" class="setup" hidden>
       <div id="pv"><video id="pvVideo" autoplay playsinline muted></video><div class="pvoff">Sin cámara</div></div>
@@ -748,7 +751,7 @@ $('#enter').onclick = async () => {
   pvStop();
   S.name = $('#name').value.trim() || 'Anónimo';
   const setup = await roomSetup();
-  if (!setup) { toast('Pon la contraseña de la sala.'); $('#pass').focus(); S.entering = false; $('#enter').disabled = false; pvAll(); return; }
+  if (!setup || setup.corta) { toast(setup ? 'La contraseña tiene que tener al menos 8 caracteres.' : 'Pon la contraseña de la sala.'); $('#pass').focus(); S.entering = false; $('#enter').disabled = false; pvAll(); return; }
   await useRoom(setup);
   prefs.mode = S.mode;
   try { localStorage.setItem('cabina-name', $('#name').value.trim()); } catch {}
@@ -851,6 +854,8 @@ async function roomSetup(){
   if (mode === 'publica') key = b64u(await crypto.subtle.digest('SHA-256', enc('cabina-publica|' + room)));
   else {
     const pass = $('#pass').hidden ? '' : $('#pass').value;
+    // Al menos 8 caracteres: con menos, quien lo intente desde dentro de la sala lo acaba adivinando antes
+    if (pass && pass.length < 8) return { corta: true };
     if (pass) {
       const base = await crypto.subtle.importKey('raw', enc(pass), 'PBKDF2', false, ['deriveBits']);
       key = b64u(await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: enc('cabina|' + room), iterations: 300000, hash: 'SHA-256' }, base, 256));
@@ -914,9 +919,35 @@ function ready(p){
 }
 
 /* ---------- red (PeerJS) ---------- */
-function connect(){
+// Servidores para atravesar routers.
+//  - STUN (Google y Cloudflare): para descubrir la dirección pública y conectar directo, que es lo normal.
+//  - Relevo (TURN): para cuando dos routers no se dejan conectar directo (redes de empresa, algunas operadoras).
+//    PeerJS traía los suyos, pero el 29-10-2026 ya no existían (sus nombres no resuelven): sin relevo, esas
+//    conexiones fallan. El relevo previsto es el de Cloudflare (gratis hasta 1000 GB al mes), con claves
+//    temporales que da un pequeño servicio (herramientas/turn-worker.js). TURN_URL es su dirección; vacía,
+//    no hay relevo. Por el relevo el audio sigue cifrado de extremo a extremo.
+//  - "Ocultar mi IP" (solo con relevo): la conexión va siempre por él (iceTransportPolicy 'relay') y los demás
+//    solo ven la IP del relevo, no la tuya; tarda algo más.
+const TURN_URL = ''; // al ponerla, añadir su dominio a connect-src en la política de seguridad (arriba)
+const STUN = [{ urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302'] }];
+let turnServers = null;
+async function iceServers(){
+  if (!TURN_URL) return STUN;
+  if (turnServers && Date.now() - turnServers.t < 6 * 3600e3) return turnServers.list;
+  try {
+    const j = await (await fetch(TURN_URL, { cache: 'no-store' })).json();
+    const list = Array.isArray(j.iceServers) ? j.iceServers : [j.iceServers];
+    turnServers = { t: Date.now(), list: [...STUN, ...list.filter(x => x && x.urls)] };
+    return turnServers.list;
+  } catch { return STUN; }
+}
+const peerOpts = async () => ({ debug: 1, config: { iceServers: await iceServers(), ...(TURN_URL && prefs.hideIp ? { iceTransportPolicy: 'relay' } : {}) } });
+$('#hideIp').closest('label').hidden = !TURN_URL;
+$('#hideIp').checked = !!prefs.hideIp;
+$('#hideIp').onchange = e => { prefs.hideIp = e.target.checked; savePrefs(); };
+async function connect(){
   setStatus('Conectando…');
-  const p = new Peer(S.base, { debug: 1 });
+  const p = new Peer(S.base, await peerOpts());
   p.on('open', () => { S.isHost = true; S.peer = p; wirePeer(p); updateCount(); $('#studio').classList.add('host'); });
   p.on('error', e => {
     if (S.peer !== p) {
@@ -925,8 +956,8 @@ function connect(){
     } else handleErr(e);
   });
 }
-function joinGuest(){
-  const p = new Peer(S.base + '-' + rid(), { debug: 1 });
+async function joinGuest(){
+  const p = new Peer(S.base + '-' + rid(), await peerOpts());
   p.on('open', () => { S.isHost = false; S.peer = p; wirePeer(p); connectTo(HOST()); updateCount(); $('#studio').classList.remove('host'); });
   p.on('error', handleErr);
 }
@@ -1366,7 +1397,7 @@ async function safariPlugin(){
   if (await localAllowed()) return false;
   const name = $('#name').value.trim();
   const setup = S.room ? { room: S.room, mode: S.mode, key: S.key } : await roomSetup();
-  if (!setup) { toast('Pon la contraseña de la sala.'); return true; }
+  if (!setup || setup.corta) { toast(setup ? 'La contraseña tiene que tener al menos 8 caracteres.' : 'Pon la contraseña de la sala.'); return true; }
   const q = new URLSearchParams({ sala: setup.room, daw: 'plugin', entrar: '1' });
   if (setup.mode === 'privada') q.set('privada', '1');
   if (name) q.set('nombre', name);

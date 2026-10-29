@@ -86,7 +86,11 @@ const say = t => { document.getElementById("s").textContent = t; };
   const t = "?t=" + Date.now();
   const f = await (await fetch(WEB + "firma.json" + t, { cache: "no-store" })).json();
   if (!await crypto.subtle.verify({ name: "Ed25519" }, llave, b64(f.firma), new TextEncoder().encode(f.datos))) throw new Error("firma");
-  const quiere = JSON.parse(f.datos).archivos["index.html"];
+  // No volver atr\u00e1s: una web firmada m\u00e1s antigua que la \u00faltima cargada aqu\u00ed no se acepta
+  const d = JSON.parse(f.datos), vista = localStorage.getItem("cabina-web-firmada") || "";
+  if (typeof d.fecha !== "string" || d.fecha < vista) throw new Error("firma");
+  localStorage.setItem("cabina-web-firmada", d.fecha);
+  const quiere = d.archivos["index.html"];
   const r = await fetch(WEB + "index.html" + t, { cache: "no-store" });
   if (!r.ok) throw new Error("red");
   const buf = await r.arrayBuffer();

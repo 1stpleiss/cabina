@@ -70,7 +70,7 @@ Los plugins son **opcionales**: la web funciona sola con un cable de audio virtu
                  └──────── PeerJS (solo para encontrarse) ────────────┘
 ```
 
-- **El audio y el vídeo van directos de ordenador a ordenador** (WebRTC peer-to-peer). No pasan por ningún servidor, salvo cuando un router no deja conectar directamente; entonces se usa un servidor TURN de relevo.
+- **El audio y el vídeo van directos de ordenador a ordenador** (WebRTC peer-to-peer). No pasan por ningún servidor, salvo cuando un router no deja conectar directamente; entonces haría falta un servidor TURN de relevo. **Desde el 29-10-2026 no hay relevo**: los de PeerJS ya no existen (ver §13, *Relevo*), y quien esté detrás de un router estricto no puede conectarse hasta que se active el de Cloudflare.
 - **PeerJS** solo hace de "centralita" para que los navegadores se encuentren. Se usa su servidor público gratuito.
 - **Los plugins hablan con la web por localhost** (WebSocket en `127.0.0.1`). No abren nada hacia internet.
 
@@ -493,7 +493,7 @@ cabina/
 | Alojamiento de la web (Netlify / GitHub Pages) | 0 € |
 | Señalización (servidor público de PeerJS) | 0 € |
 | Archivos por el chat (de ordenador a ordenador) | 0 € |
-| TURN de relevo (el que trae PeerJS por defecto) | 0 € |
+| TURN de relevo | Ninguno ahora (los de PeerJS ya no existen). Previsto: Cloudflare, 0 € hasta 1000 GB al mes |
 | Compilación (GitHub Actions, repositorio público o cuota gratuita) | 0 € |
 | JUCE para uso personal | 0 € (ver §18) |
 | App de escritorio sin firmar | 0 € |
@@ -521,7 +521,7 @@ El riesgo principal que señalaban las auditorías: la web y las actualizaciones
 |---|---|
 | Audio, vídeo, pantalla, chat y archivos | **Solo los de la sala.** Van directos entre ordenadores y **cifrados de extremo a extremo** (DTLS-SRTP y DTLS, obligatorios en WebRTC). Si pasan por el servidor de relevo (TURN), este solo ve datos cifrados. No se guarda nada en ningún servidor. |
 | Un resumen del tipo y el nombre de la sala (no el nombre) y tu IP | El servidor público de PeerJS (`0.peerjs.com`), que pone en contacto a los navegadores. |
-| Tu IP | Los demás participantes (la conexión es directa), el STUN de Google y el TURN de PeerJS, y GitHub Pages al cargar la web. Desde el 29-10-2026 ninguna otra: PeerJS, la reducción de ruido y el perrito (con su modelo) van con la web en `web/vendor/`. |
+| Tu IP | Los demás participantes (la conexión es directa; con *Ocultar mi IP*, cuando haya relevo, solo el relevo), el STUN de Google y el de Cloudflare, y GitHub Pages al cargar la web. Desde el 29-10-2026 ninguna otra: PeerJS, la reducción de ruido y el perrito (con su modelo) van con la web en `web/vendor/`. |
 | Lo que escribes en *Enviar comentarios* (y tu correo y nombre si los pones) | Web3Forms, que se lo reenvía por correo a Pleiss. Solo si lo envías. |
 | Tu nombre, dispositivos elegidos, volúmenes, contraseñas de salas | Solo tu navegador (`localStorage`) y los participantes (el nombre). Las contraseñas de sala se guardan como su clave derivada, caducan a los 30 días y se olvidan desde *Ajustes*. |
 
@@ -545,6 +545,13 @@ El riesgo principal que señalaban las auditorías: la web y las actualizaciones
   - **Control remoto**: lo concede quien comparte, cada vez; dura como mucho una hora y luego hay que volver a pedirlo; "Quitar control" solo se acepta desde el propio aviso flotante.
 - **Plugins** (29-10-2026): JUCE 8.0.16-security (antes 8.0.9; corrige, entre otras, la libpng que señalaba la auditoría) y, en Windows, Control Flow Guard (`/guard:cf`).
 
+### Relevo (TURN) y ocultar la IP (29-10-2026)
+
+- **Los servidores de relevo de PeerJS (`eu-0` y `us-0.turn.peerjs.com`) ya no existen**: sus nombres no resuelven. Se descubrió al probar *Ocultar mi IP*. Sin relevo, dos personas detrás de routers estrictos (redes de empresa, algunas operadoras móviles o de fibra) no pueden conectarse; con routers normales se conecta directo y funciona. El `Open Relay` de Metered tampoco existe ya.
+- **Previsto**: el relevo de Cloudflare (Realtime TURN, gratis hasta 1000 GB al mes). Necesita una cuenta de Cloudflare y un pequeño servicio que dé claves temporales, ya escrito en `herramientas/turn-worker.js` (Cloudflare Worker, secretos `TURN_KEY_ID` y `TURN_KEY_TOKEN`, claves de 24 h, solo responde a la web y a las páginas de los plugins). Para activarlo: publicar el Worker, poner su dirección en `TURN_URL` (`web/index.html`) y su dominio en `connect-src` de la política de seguridad.
+- STUN: Google y Cloudflare (`ICE`/`STUN` en `web/index.html`).
+- **Ocultar mi IP a los demás** (casilla en la entrada, `prefs.hideIp`): con relevo, la conexión va siempre por él (`iceTransportPolicy: 'relay'`) y los demás solo ven la IP del relevo. Está hecho pero **oculto mientras no haya relevo** (`TURN_URL` vacía), porque sin él no se podría conectar.
+
 ### Respuesta a las auditorías (29-10-2026)
 
 | Hallazgo | Estado |
@@ -553,7 +560,7 @@ El riesgo principal que señalaban las auditorías: la web y las actualizaciones
 | Actualizaciones de la app sin firma (H-01, alto) | **Resuelto** con la firma propia: sin firma válida no se actualiza; nada se instala sin pedirlo; versiones fijas `app-vX.Y.Z`. Falta la firma de Apple y de Windows (de pago), que quitaría los avisos de instalación. |
 | Web remota con todos los permisos y sin CSP (H-02, alto) | **Resuelto**: la app solo carga la web firmada; permisos uno por uno; CSP; librerías propias; sin herramientas de desarrollo. |
 | Identidad y cadena de suministro no verificables (H-03, alto) | **En parte**: la firma propia hace que la cuenta de GitHub ya no baste para colar código. Sin certificados de pago, macOS y Windows siguen avisando al instalar. **Recomendado**: verificación en dos pasos en GitHub y guardar la llave privada a salvo. |
-| Control remoto sin comprobar que se comparte (H-04, medio) | **En parte**: con la web firmada, una web alterada ya no puede pedirlo; límite de una hora; consentimiento cada vez; aviso siempre visible. El proceso principal no puede saber si hay captura con el selector de macOS (no avisa a la app). Las ventanas de administrador (UAC) no reciben la entrada simulada en Windows. |
+| Control remoto sin comprobar que se comparte (H-04, medio) | **En parte**: con la web firmada, una web alterada ya no puede pedirlo; límite de una hora; consentimiento cada vez; aviso siempre visible. En Windows la app solo deja pedirlo si en su ventana se eligió una pantalla entera. En Mac no puede saberlo: el selector del sistema no avisa a la app. Las ventanas de administrador (UAC) no reciben la entrada simulada en Windows. |
 | `CABINA_WEB` / `CABINA_FEED` (H-05, medio) | **Resuelto**: solo en desarrollo. |
 | Servidor de los plugins sin autenticación (H-06, medio; y punto 2 del informe del plugin) | **En parte**: solo orígenes exactos (web publicada y puertos de los plugins), sin `Origin` vacío. Un programa del propio ordenador podría inventarse el `Origin`; con ese acceso ya podría grabar el audio de otras formas. Un emparejamiento con código haría falta para cerrarlo del todo. |
 | Reglas del firewall en Windows (H-07, medio) | **No las crea Cabina**: las crea Windows cuando aceptas su aviso al abrir la app, porque WebRTC escucha conexiones directas (el audio va de ordenador a ordenador). Si se deniega, funciona igual pero más a menudo por el servidor de relevo. |
@@ -570,13 +577,13 @@ El riesgo principal que señalaban las auditorías: la web y las actualizaciones
 
 ### Lo que queda
 
-- **En las salas públicas entra quien adivine el nombre.** En las de contraseña, quien tenga el enlace de *Invitar* entra sin ella, y no hay forma de cambiar la contraseña de una sala: si se filtra, usa otro nombre. Una contraseña corta y común se puede acabar adivinando probando poco a poco.
+- **En las salas públicas entra quien adivine el nombre.** En las de contraseña, quien tenga el enlace de *Invitar* entra sin ella, y no hay forma de cambiar la contraseña de una sala: si se filtra, usa otro nombre. Las contraseñas tienen que tener al menos 8 caracteres (desde el 29-10-2026); aun así, una muy común se podría acabar adivinando probando poco a poco.
 - Quien sepa el nombre de una sala con contraseña puede ocupar el sitio del anfitrión antes que nadie: no entraría, pero los demás no podrían reunirse hasta que lo deje.
 - Los nombres no se comprueban: cualquiera puede ponerse el nombre de otro.
 - Los participantes ven tu IP (la conexión es directa).
 - **Aceptar el control remoto es dar el teclado y el ratón**: solo a gente de confianza.
 - Sin certificados de Apple y de Windows, al instalar macOS pide "Abrir igualmente" y Windows "Ejecutar de todas formas".
-- Un servidor web publicado con una versión vieja y firmada (anterior a un arreglo) seguiría siendo aceptado: la firma no impide volver a una versión anterior.
+- **No volver atrás** (29-10-2026): la app y la página del plugin recuerdan la fecha de la web firmada más reciente que han cargado y rechazan una más antigua (alguien podría servir una versión vieja, bien firmada, con un fallo ya arreglado). La app también rechaza actualizaciones a una versión anterior.
 
 ## 14. Limitaciones conocidas
 
@@ -642,7 +649,8 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 - [ ] Botón "marcar tiempo" en el chat que inserte la posición del transporte del DAW (el plugin la conoce).
 
 **Medio plazo**
-- [ ] Servidor PeerJS + TURN propios (coturn) en un VPS barato.
+- [ ] **Relevo (TURN) de Cloudflare**: cuenta, publicar `herramientas/turn-worker.js` y poner `TURN_URL` (§13, *Relevo*). Urgente: sin relevo, los routers estrictos no conectan.
+- [ ] Servidor PeerJS propio.
 - [x] Compartir archivos arrastrando (stems, bounces) por el canal de datos.
 - [x] Interfaz ordenada: barra de controles abajo, chat que se abre y se cierra solo, prueba de dispositivos antes de entrar y textos más cortos (27-10-2026).
 - [ ] Cuenta de desarrollador de Apple para firmar los plugins (el flujo ya está listo, §10.1).
@@ -670,7 +678,7 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 | Suena desfasado, como con un canal de más | El micro de quien emite capta el DAW (altavoces, monitorización directa, loopback de la interfaz) y llega dos veces | Auriculares o silenciar el micro. La web avisa al emisor si lo detecta |
 | "% retocado" alto en el DAW entrante | WebRTC estira o rellena audio por pérdidas o jitter de la red | Cable de red; probar el modo sin pérdidas |
 | Eco o acoples | Altavoces en lugar de auriculares | Auriculares |
-| No conecta con alguien concreto | Router o NAT estricto | Normalmente lo salva el TURN; si no, montar TURN propio |
+| No conecta con alguien concreto | Router o NAT estricto | Hace falta relevo (TURN): activar el de Cloudflare (§13, *Relevo*) |
 | En el DAW suena a trozos | El colchón del Retorno se vacía | Debería adaptarse solo en unos segundos (la ventana del plugin muestra el colchón). Si sigue, subir el valor inicial de `returnBuffer` en `PluginProcessor.h` (0.06 → 0.12) |
 | Al emitir, la web pone "N cortes" junto al plugin | La página del emisor se atasca (segundo plano, ordenador cargado) | El colchón crece solo; si siguen apareciendo, dejar la ventana de Cabina visible o cerrar pestañas pesadas |
 | Alguien aparece dos veces en la sala | Pulsó *Entrar* dos veces con una web anterior al 22-10-2026 | Que recargue la web y vuelva a entrar |

@@ -122,6 +122,9 @@ async function ask(name, w, h){
   if (!['darwin', 'win32'].includes(process.platform)) return { ok: false, reason: 'sistema' };
   if (ctl) return { ok: false, reason: 'ocupado' };
   if (!fs.existsSync(helperPath())) return { ok: false, reason: 'falta' };
+  // En Windows la app sabe qué se eligió en su ventana para compartir: tiene que ser una pantalla entera (en Mac,
+  // con el selector del sistema, la app no se entera; allí lo comprueba la web y lo decide quien acepta)
+  if (process.platform === 'win32' && lastDisplayId == null) return { ok: false, reason: 'pantalla' };
   if (process.platform === 'darwin') app.dock.bounce('critical'); else if (win) win.flashFrame(true);
   // En Mac hace falta el permiso de Accesibilidad para mover el ratón y escribir
   if (process.platform === 'darwin' && !systemPreferences.isTrustedAccessibilityClient(false)) {

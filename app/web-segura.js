@@ -4,8 +4,15 @@
 // Si algo no cuadra (archivo cambiado, lista sin firmar o con otra firma), no se carga.
 // Así, quien entrara en la cuenta de GitHub o en GitHub Pages podría cambiar la web, pero la app no la usaría:
 // micro, cámara, pantalla y control remoto quedan fuera de su alcance. Las demás direcciones pasan tal cual.
-const { net } = require('electron');
+const { app, net } = require('electron');
+const fs = require('fs');
+const path = require('path');
 const firma = require('./firma');
+
+// No volver atrás: se recuerda la fecha de la web firmada más reciente que se ha cargado y se rechaza una más
+// antigua (alguien podría servir una versión vieja, bien firmada, con un fallo ya arreglado)
+const VISTA = () => path.join(app.getPath('userData'), 'web-firmada.json');
+const ultima = () => { try { return JSON.parse(fs.readFileSync(VISTA(), 'utf8')).fecha || ''; } catch { return ''; } };
 
 function setup(ses, WEB){
   const base = new URL(WEB), scheme = base.protocol.slice(0, -1);
@@ -20,7 +27,10 @@ function setup(ses, WEB){
     if (!r.ok) throw new Error('firma.json: ' + r.status);
     const j = await r.json();
     if (!firma.valida(j.datos, j.firma)) throw new Error('la firma de la web no es válida');
-    lista = JSON.parse(j.datos).archivos; listaT = Date.now();
+    const d = JSON.parse(j.datos);
+    if (typeof d.fecha !== 'string' || d.fecha < ultima()) throw new Error('la firma de la web es de una versión anterior');
+    if (d.fecha > ultima()) { try { fs.writeFileSync(VISTA(), JSON.stringify({ fecha: d.fecha })); } catch {} }
+    lista = d.archivos; listaT = Date.now();
     return lista;
   }
   async function archivo(rel, nueva){
