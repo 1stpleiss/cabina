@@ -84,3 +84,10 @@ jobs:
             --title "Cabina para escritorio" --target "${{ github.sha }}" --latest=false \
             --notes "La app de escritorio de Cabina para Mac y Windows. Se actualiza sola con cada cambio en la app."
           gh release upload app paquetes/* --clobber
+          # Copia fija de cada versión (no se sobrescribe), para conservar el historial con sus huellas.
+          # La app no se actualiza hasta que quien publica firma latest*.yml en su Mac (herramientas/firmar.mjs app).
+          VERSION=$(grep -m1 '^version:' paquetes/latest-mac.yml | sed "s/version: *//; s/'//g")
+          gh release view "app-v$VERSION" >/dev/null 2>&1 || gh release create "app-v$VERSION" \
+            --title "Cabina para escritorio $VERSION" --target "${{ github.sha }}" --latest=false \
+            --notes "Versión $VERSION de la app. Huellas en latest.yml y latest-mac.yml; firma propia en los .sig."
+          gh release upload "app-v$VERSION" paquetes/* --clobber

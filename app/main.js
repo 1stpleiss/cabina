@@ -5,8 +5,11 @@ const { app, BrowserWindow, Menu, session, shell, desktopCapturer, ipcMain } = r
 const path = require('path');
 const updater = require('./updater');
 const control = require('./control');
+const webSegura = require('./web-segura');
 
-const WEB = process.env.CABINA_WEB || 'https://1stpleiss.github.io/cabina/';
+// La web publicada. Cambiarla con CABINA_WEB solo vale en desarrollo (npm start): en la app instalada, una
+// variable de entorno no puede llevarla a otra web (que heredaría micro, cámara y control remoto)
+const WEB = (!app.isPackaged && process.env.CABINA_WEB) || 'https://1stpleiss.github.io/cabina/';
 const ORIGIN = new URL(WEB).origin;
 // Cabina es la web publicada y, de los archivos del ordenador, solo las páginas de la propia app (sin internet)
 const APP_FILES = require('url').pathToFileURL(__dirname + path.sep).href;
@@ -37,6 +40,9 @@ function createWindow(){
       preload: path.join(__dirname, 'preload.js'),
       // Sin esto, con la ventana tapada o minimizada se ralentiza la página y el audio da cortes
       backgroundThrottling: false,
+      // Aislada del sistema (son los valores por defecto, explícitos) y sin herramientas de desarrollo en la app instalada
+      contextIsolation: true, sandbox: true, nodeIntegration: false, webSecurity: true,
+      devTools: !app.isPackaged,
     },
   });
   win.once('ready-to-show', () => win.show());
@@ -63,11 +69,16 @@ function createWindow(){
   win.loadURL(WEB);
 }
 
-// Permisos (micro, cámara, salida de audio, hablar con los plugins en 127.0.0.1...): solo para Cabina
+// Permisos: solo para la web de Cabina y solo los que usa (micro y cámara, compartir pantalla, pantalla completa,
+// copiar el enlace, elegir la salida de audio y hablar con los plugins en 127.0.0.1). Ningún otro (ubicación,
+// notificaciones, USB, MIDI, leer el portapapeles...), aunque los pida.
+const PERMISOS = new Set(['media', 'display-capture', 'fullscreen', 'clipboard-sanitized-write', 'speaker-selection',
+  'local-network', 'local-network-access', 'loopback-network']);
 function permissions(){
   const s = session.defaultSession;
-  s.setPermissionRequestHandler((wc, perm, cb, details) => cb(ours(details.requestingUrl || wc.getURL())));
-  s.setPermissionCheckHandler((wc, perm, origin) => ours(origin || (wc && wc.getURL()) || ''));
+  s.setPermissionRequestHandler((wc, perm, cb, details) => cb(PERMISOS.has(perm) && ours(details.requestingUrl || wc.getURL())));
+  s.setPermissionCheckHandler((wc, perm, origin) => PERMISOS.has(perm) && ours(origin || (wc && wc.getURL()) || ''));
+  webSegura.setup(s, WEB); // solo la web firmada
 
   // Compartir pantalla. En Mac (macOS 15 o posterior) se usa el selector del propio sistema, el de FaceTime
   // o Safari: no necesita el permiso de grabación de pantalla, que hay que dar a mano en Ajustes, obliga a
@@ -123,7 +134,7 @@ function menu(){
     { role: 'editMenu' },
     { label: 'Ver', submenu: [
       { label: 'Volver a cargar', accelerator: 'CmdOrCtrl+R', click: () => win && win.loadURL(WEB) },
-      { role: 'toggleDevTools', label: 'Herramientas de desarrollo' },
+      ...(app.isPackaged ? [] : [{ role: 'toggleDevTools', label: 'Herramientas de desarrollo' }]),
       { type: 'separator' },
       { role: 'resetZoom', label: 'Tamaño real' }, { role: 'zoomIn', label: 'Ampliar' }, { role: 'zoomOut', label: 'Reducir' },
       { type: 'separator' },

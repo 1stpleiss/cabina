@@ -237,7 +237,7 @@ Carpeta `app/`. Es Cabina dentro de una app hecha con **Electron 44.7.0** (empaq
 - La web sabe que está en la app por `window.CABINA_APP` (lo pone `preload.js`): entonces no ofrece descargarla. Como no hay barra de direcciones, en el campo *Sala* se puede **pegar el enlace entero** de una sala (`roomOf`); esto vale también en la web.
 - **Firma**: ad-hoc (`identity: "-"`, `hardenedRuntime: false`). Sin ella, el `.dmg` descargado diría que la app "está dañada" y no se podría abrir. Con ella, macOS pide *Abrir igualmente* (como los plugins), y Windows *Más información → Ejecutar de todas formas*.
 - **Sin barra de título** (27-10-2026): `titleBarStyle: 'hidden'`. Los botones de la ventana quedan dentro de la cabecera de la sala: en Mac el semáforo a la izquierda (`trafficLightPosition` 16,16: así su centro queda a la altura de la luz azul y del nombre de la sala. Medido en píxeles en una captura (columna central de cada círculo): con 17 quedaba 1 pt bajo y con 18, 2 pt); en Windows, `titleBarOverlay` a la derecha (46 px de alto, colores de Cabina). La web pone en `<html>` las clases `app` y `app-darwin`/`app-win32` (desde `window.CABINA_APP.platform`) y con ellas: la cabecera se arrastra (`-webkit-app-region: drag`, salvo los botones y selectores), deja 96 px a la izquierda en Mac (con menos, la luz azul parece un cuarto botón) o 150 px a la derecha en Windows, y en la pantalla de entrada se arrastra desde el fondo. En pantalla completa de Mac no hay semáforo: `main.js` avisa a `preload.js`, que pone `app-full` y la web quita el hueco. `offline.html` también se arrastra. En Windows, al no haber barra de menú, *Buscar actualizaciones* solo está en Mac (la comprobación automática vale para los dos).
-- **Actualizaciones** (27-10-2026, `updater.js`): la web se actualiza sola al abrir la app; esto es para la "carcasa". Al abrirse (a los 10 s) y cada 6 horas mira la release `app`; si hay versión nueva la descarga en segundo plano y pregunta *Reiniciar ahora* o *Al cerrar Cabina*. También desde el menú *Cabina → Buscar actualizaciones…* (Mac).
+- **Actualizaciones** (27-10-2026, `updater.js`; desde el 29-10-2026 solo firmadas, ver §13 *Firma propia*): la web se actualiza sola al abrir la app; esto es para la "carcasa". Al abrirse (a los 10 s) y cada 6 horas mira la release `app`; si hay versión nueva la descarga en segundo plano y pregunta *Reiniciar ahora* o *Al cerrar Cabina*. También desde el menú *Cabina → Buscar actualizaciones…* (Mac).
   - **Windows**: `electron-updater` 6.8.10 con proveedor `generic` apuntando a la release `app` (lee `latest.yml`) e instala el NSIS en silencio. Sin firma funciona (no hay `publisherName` que comprobar).
   - **Mac**: a mano, porque el actualizador de Electron en Mac (Squirrel) exige firma de Apple. Lee `latest-mac.yml`, descarga `Cabina-App-Mac.zip`, comprueba su sha512, lo descomprime con `ditto` en la carpeta temporal y, al cerrar, un script espera a que termine el proceso, aparta `Cabina.app`, pone la nueva (si falla, deja la vieja), le quita la cuarentena y, si se eligió reiniciar, la abre. Como la descarga la hace la propia app, macOS no le pone cuarentena y no vuelve a pedir *Abrir igualmente*. Solo se actualiza si la app está en una carpeta donde se puede escribir (Aplicaciones): abierta desde el `.dmg` o desde Descargas sin mover (App Translocation) no, y *Buscar actualizaciones* lo explica.
   - **Versiones**: cada compilación de GitHub es la `0.1.<número de ejecución del workflow>` (`-c.extraMetadata.version`); `package.json` se queda en 0.1.0 para lo local.
@@ -456,11 +456,15 @@ cabina/
 ├── .github/workflows/
 │   ├── compilar.yml            ← compila los plugins, crea instaladores y los publica
 │   ├── app.yml                 ← compila la app de escritorio y la publica
-│   └── web.yml                 ← publica web/ en GitHub Pages
+│   └── web.yml                 ← comprueba la firma de web/ y la publica en GitHub Pages
+├── firma/publica.txt           ← llave pública de la firma propia (la privada: ~/.cabina-firma/, solo en el Mac)
+├── herramientas/firmar.mjs     ← firma la web (web/firma.json) y las actualizaciones de la app (latest*.yml.sig)
 ├── app/                        ← app de escritorio (Electron)
 │   ├── package.json            ← versiones y configuración del empaquetado
 │   ├── main.js                 ← ventana, permisos, compartir pantalla, enlaces
-│   ├── updater.js              ← actualizaciones de la app (Windows: electron-updater; Mac: a mano)
+│   ├── updater.js              ← actualizaciones de la app, solo firmadas (Windows: electron-updater; Mac: a mano)
+│   ├── firma.js                ← comprueba la firma propia (llave pública)
+│   ├── web-segura.js           ← solo deja cargar archivos de la web que están en la lista firmada
 │   ├── control.js, control.html ← control remoto (permiso, aviso flotante, traducción de teclas)
 │   ├── helper/                 ← ayudantes que mueven el ratón y pulsan teclas (mac.swift, win.cs)
 │   ├── preload.js              ← window.CABINA_APP para la web
@@ -471,7 +475,9 @@ cabina/
 │   ├── index.html              ← toda la web en un archivo
 │   ├── icono.png               ← icono de la pestaña (logo de Cabina, 180×180)
 │   ├── hitmarker.mp3           ← sonido de la bola (Freesound 322640, CC0)
-│   └── fuentes/                ← Inter y JetBrains Mono (woff2, latin y latin-ext)
+│   ├── fuentes/                ← Inter y JetBrains Mono (woff2, latin y latin-ext)
+│   ├── vendor/                 ← PeerJS, reducción de ruido (RNNoise) y MediaPipe con su modelo, de npm
+│   └── firma.json              ← huella de cada archivo de web/, firmada (herramientas/firmar.mjs web)
 └── plugin/
     ├── CMakeLists.txt          ← genera Cabina Send y Cabina Retorno
     └── Source/
@@ -495,7 +501,19 @@ cabina/
 
 ## 13. Seguridad y privacidad
 
-Revisado el 27-10-2026.
+Revisado el 27-10-2026 y, a fondo, el 29-10-2026 con dos auditorías externas (una del plugin y otra de la app, la web y los plugins, sobre la versión 0.1.8; ver *Respuesta a las auditorías*).
+
+### Firma propia (29-10-2026)
+
+El riesgo principal que señalaban las auditorías: la web y las actualizaciones de la app se descargan de GitHub sin nada que demuestre que son las auténticas, así que quien entrara en la cuenta de GitHub podría colar código con acceso a micro, cámara, pantalla y control remoto. Sin pagar certificados, se resuelve con una **firma propia**:
+
+- **Llave Ed25519.** La privada está **solo en el Mac de Pleiss**, en `~/.cabina-firma/privada.pem` (permisos 600), nunca en GitHub. La pública está en `firma/publica.txt`, en la app (`app/firma.js`) y en el plugin (`CABINA_PUBLIC_KEY` en `WebSocketServer.cpp`). **Si se pierde la privada** no se podrán publicar ni web ni actualizaciones que la app y el plugin acepten: habría que crear otra, poner la nueva pública y que todos reinstalen la app y los plugins a mano. **Hay que guardar una copia en un sitio seguro** (gestor de contraseñas, USB cifrado).
+- **Web**: `node herramientas/firmar.mjs web` escribe `web/firma.json` con la huella SHA-256 de cada archivo de `web/`, firmada. **Hay que hacerlo después de cada cambio en `web/` y antes del commit.** GitHub comprueba la firma al publicar (`firmar.mjs comprobar` en `web.yml`) y, si no cuadra, no publica.
+  - La **app** solo carga la web firmada: cada petición a la web pasa por `app/web-segura.js`, que descarga el archivo, comprueba su huella con la lista firmada y solo entonces se lo da a la página. Si no cuadra, muestra "No se ha podido cargar Cabina" y no ejecuta nada. Los archivos ya comprobados se guardan en memoria.
+  - La **Cabina servida por el plugin** (Safari) solo carga `index.html` si su huella está en `firma.json` y la firma es buena (Ed25519 de WebCrypto: Safari 17 o Chrome 137 en adelante). Las librerías las carga `index.html` con comprobación de integridad (PeerJS) desde `vendor/`.
+  - En un navegador normal (la web abierta en Chrome o Safari) no hay nada que comprobar: es una web, y el navegador confía en GitHub Pages como en cualquier web.
+- **App**: después de cada compilación de la app, `node herramientas/firmar.mjs app` descarga `latest.yml` y `latest-mac.yml` de la release `app`, comprueba que el `.exe` y el `.zip` publicados tienen las huellas que dicen, y sube `latest.yml.sig` y `latest-mac.yml.sig`. La app (`updater.js`) solo actualiza si la firma es buena: en Mac comprueba la huella del `.zip` con el yml firmado; en Windows, la del instalador que descarga electron-updater con el `latest.yml` firmado, antes de instalar. **Mientras no se firme, nadie se actualiza** (la app se queda en su versión). Cada versión queda también en una release fija `app-vX.Y.Z` que no se sobrescribe.
+- Las apps hasta la 0.1.9 y los plugins anteriores al 29-10-2026 no comprueban nada; se protegen al actualizarse (la app sola, a la siguiente versión; los plugins, reinstalándolos).
 
 ### Qué sale de tu ordenador y quién lo ve
 
@@ -503,29 +521,62 @@ Revisado el 27-10-2026.
 |---|---|
 | Audio, vídeo, pantalla, chat y archivos | **Solo los de la sala.** Van directos entre ordenadores y **cifrados de extremo a extremo** (DTLS-SRTP y DTLS, obligatorios en WebRTC). Si pasan por el servidor de relevo (TURN), este solo ve datos cifrados. No se guarda nada en ningún servidor. |
 | Un resumen del tipo y el nombre de la sala (no el nombre) y tu IP | El servidor público de PeerJS (`0.peerjs.com`), que pone en contacto a los navegadores. |
-| Tu IP | Los demás participantes (la conexión es directa), el STUN de Google y el TURN de PeerJS, GitHub Pages al cargar la web, unpkg (PeerJS) y jsDelivr (solo si usas la reducción de ruido *Fuerte* o el perrito; el perrito además descarga el modelo de Google Storage). |
+| Tu IP | Los demás participantes (la conexión es directa), el STUN de Google y el TURN de PeerJS, y GitHub Pages al cargar la web. Desde el 29-10-2026 ninguna otra: PeerJS, la reducción de ruido y el perrito (con su modelo) van con la web en `web/vendor/`. |
 | Lo que escribes en *Enviar comentarios* (y tu correo y nombre si los pones) | Web3Forms, que se lo reenvía por correo a Pleiss. Solo si lo envías. |
-| Tu nombre, dispositivos elegidos, volúmenes | Solo tu navegador (`localStorage`) y los participantes (el nombre). |
+| Tu nombre, dispositivos elegidos, volúmenes, contraseñas de salas | Solo tu navegador (`localStorage`) y los participantes (el nombre). Las contraseñas de sala se guardan como su clave derivada, caducan a los 30 días y se olvidan desde *Ajustes*. |
 
 ### Protecciones
 
 - **Salas con contraseña** (29-10-2026): quien no la sepa (ni tenga el enlace de *Invitar*) no puede entrar ni recibe nada, y no puede probar contraseñas desde fuera: tiene que preguntar a la sala, que tras 5 fallos en un minuto deja de aceptar (ver §4, *Sala*). Las salas públicas son de quien sepa el nombre.
-- **Los plugins solo aceptan conexiones de Cabina** (27-10-2026): miran el `Origin` de cada conexión y solo admiten la web publicada (también dentro de la app), páginas de `http://127.0.0.1` o `http://localhost` (la Cabina servida por el plugin, o una copia local para probar) y programas del propio ordenador (sin `Origin`). Al resto le responden 403. Hasta entonces, cualquier web abierta en el navegador podía escuchar el máster por Cabina Send o meter audio en el DAW por Cabina Retorno. Además solo escuchan en `127.0.0.1`: nadie de fuera de tu ordenador puede conectarse. La ventana del plugin sigue mostrando desde qué web está conectado.
-- **Sin fuentes de Google** (27-10-2026): Inter y JetBrains Mono van con la web (`web/fuentes/`, de Google Fonts y Fontsource, licencia OFL). Cargarlas desde Google le daba la IP de cada visitante y ya ha dado multas en la UE. Se declaran por JavaScript con la ruta de la web publicada para que también carguen en la Cabina servida por el plugin.
-- **PeerJS con comprobación de integridad** (`integrity` sha384): si unpkg sirviera otro archivo, el navegador no lo ejecuta. La reducción de ruido y el perrito se cargan con `import()`, que no admite esa comprobación; van con versión fija.
-- **Cabina no funciona dentro de otra web** (iframe): una página ajena podría usar el micro y la cámara ya permitidos y meterte en una sala suya. Si `window.top !== window.self`, solo muestra "Abre Cabina en su propia pestaña".
-- **Archivos recibidos**: solo audio e imágenes normales (png, jpeg, gif, webp, avif) conservan su tipo, para escucharlos o verlos en el chat. Lo demás llega como binario: antes, un `.html` o `.svg` con su tipo se abría como página de Cabina con un clic central. Como mucho 3 archivos a la vez por persona (lo que llega se guarda en memoria hasta 1 GB por archivo).
-- Nada de lo que mandan los demás se mete como HTML en la página: nombres, mensajes, nombres de archivo y de los retornos van como texto (`textContent`).
-- Los mensajes de los demás se comprueban (tipos, longitudes); *Echar* solo se obedece si viene del anfitrión; la lista de participantes solo admite IDs de la misma sala.
-- **App de escritorio**: aislamiento de contexto y sandbox de Electron (por defecto), la página solo recibe `CABINA_APP.platform`. Micro, cámara y demás permisos solo para la web de Cabina. Solo navega por la web de Cabina y, de los archivos del ordenador, solo por sus propias páginas (desde el 27-10-2026; antes valía cualquier `file://`). Las actualizaciones se comprueban con el sha512 publicado en la misma release de GitHub (no hay firma, ver §5).
+- **Política de seguridad de contenido (CSP)** (29-10-2026, `<meta>` en `index.html`): la página solo carga código propio (y de `1stpleiss.github.io`, para la Cabina servida por el plugin), y solo se conecta al servidor de PeerJS, a los plugins (`ws://127.0.0.1:47800` a `47808`, uno por uno) y a Web3Forms. Sin `object`, `base` ni formularios externos. Lleva `'unsafe-inline'` porque el código va dentro de la página; aun así, un fallo no podría mandar datos a otro sitio. Probado: sala, reducción de ruido fuerte, perrito y fuentes funcionan, sin avisos.
+- **Sin código de terceros servido por otros** (29-10-2026): PeerJS 1.5.4, `@sapphi-red/web-noise-suppressor` 0.4.1 y `@mediapipe/tasks-vision` 0.10.21 con el modelo `face_landmarker` van en `web/vendor/`, copiados de los paquetes oficiales de npm (PeerJS es idéntico al que servía unpkg: misma huella sha384). Antes venían de unpkg, jsDelivr y Google Storage. PeerJS se carga con comprobación de integridad.
+- **Los plugins solo aceptan conexiones de Cabina**: miran el `Origin` y solo admiten la web publicada (también dentro de la app) y las páginas de los propios plugins (`http://127.0.0.1:47800` a `47808`). Al resto le responden 403. Hasta el 27-10-2026 aceptaban cualquiera; hasta el 29-10-2026, también cualquier página de 127.0.0.1 o localhost y las conexiones sin `Origin`. Solo escuchan en `127.0.0.1`: nadie de fuera de tu ordenador puede conectarse.
+- **Sin fuentes de Google** (27-10-2026): Inter y JetBrains Mono van con la web (`web/fuentes/`, licencia OFL).
+- **Cabina no funciona dentro de otra web** (iframe).
+- **Archivos recibidos**: solo audio e imágenes normales conservan su tipo; lo demás llega como binario. Como mucho 3 a la vez por persona.
+- Nada de lo que mandan los demás se mete como HTML en la página (`textContent`). Los mensajes se comprueban (tipos, longitudes); *Echar* y la lista de participantes solo valen del anfitrión.
+- **App de escritorio** (29-10-2026):
+  - Aislamiento de contexto, sandbox, sin Node en la página, sin herramientas de desarrollo en la app instalada (ni en el menú).
+  - **Permisos solo los que usa** y solo para la web de Cabina: micro y cámara, compartir pantalla, pantalla completa, copiar el enlace, elegir la salida de audio y hablar con los plugins en 127.0.0.1. Ningún otro (ubicación, notificaciones, USB, MIDI, leer el portapapeles...). Antes se concedía cualquiera que pidiera la web.
+  - `CABINA_WEB` y `CABINA_FEED` solo valen en desarrollo: en la app instalada, una variable de entorno no puede llevarla a otra web ni a otras actualizaciones.
+  - Solo navega por la web de Cabina y por sus propias páginas.
+  - Las actualizaciones no se instalan sin que se pida ("Reiniciar ahora" o "Al cerrar Cabina"); antes, en Windows, una versión descargada se instalaba al cerrar aunque no se hubiera contestado. En Mac ya no se quita la cuarentena a la app nueva.
+  - El ejecutable dice que es de Pleiss (antes, los datos por defecto de Electron, "GitHub, Inc.").
+  - **Control remoto**: lo concede quien comparte, cada vez; dura como mucho una hora y luego hay que volver a pedirlo; "Quitar control" solo se acepta desde el propio aviso flotante.
+- **Plugins** (29-10-2026): JUCE 8.0.16-security (antes 8.0.9; corrige, entre otras, la libpng que señalaba la auditoría) y, en Windows, Control Flow Guard (`/guard:cf`).
+
+### Respuesta a las auditorías (29-10-2026)
+
+| Hallazgo | Estado |
+|---|---|
+| Interfaz del plugin descargada sin comprobar (crítico) | **Resuelto**: solo carga la web firmada. |
+| Actualizaciones de la app sin firma (H-01, alto) | **Resuelto** con la firma propia: sin firma válida no se actualiza; nada se instala sin pedirlo; versiones fijas `app-vX.Y.Z`. Falta la firma de Apple y de Windows (de pago), que quitaría los avisos de instalación. |
+| Web remota con todos los permisos y sin CSP (H-02, alto) | **Resuelto**: la app solo carga la web firmada; permisos uno por uno; CSP; librerías propias; sin herramientas de desarrollo. |
+| Identidad y cadena de suministro no verificables (H-03, alto) | **En parte**: la firma propia hace que la cuenta de GitHub ya no baste para colar código. Sin certificados de pago, macOS y Windows siguen avisando al instalar. **Recomendado**: verificación en dos pasos en GitHub y guardar la llave privada a salvo. |
+| Control remoto sin comprobar que se comparte (H-04, medio) | **En parte**: con la web firmada, una web alterada ya no puede pedirlo; límite de una hora; consentimiento cada vez; aviso siempre visible. El proceso principal no puede saber si hay captura con el selector de macOS (no avisa a la app). Las ventanas de administrador (UAC) no reciben la entrada simulada en Windows. |
+| `CABINA_WEB` / `CABINA_FEED` (H-05, medio) | **Resuelto**: solo en desarrollo. |
+| Servidor de los plugins sin autenticación (H-06, medio; y punto 2 del informe del plugin) | **En parte**: solo orígenes exactos (web publicada y puertos de los plugins), sin `Origin` vacío. Un programa del propio ordenador podría inventarse el `Origin`; con ese acceso ya podría grabar el audio de otras formas. Un emparejamiento con código haría falta para cerrarlo del todo. |
+| Reglas del firewall en Windows (H-07, medio) | **No las crea Cabina**: las crea Windows cuando aceptas su aviso al abrir la app, porque WebRTC escucha conexiones directas (el audio va de ordenador a ordenador). Si se deniega, funciona igual pero más a menudo por el servidor de relevo. |
+| Electron desactualizado (H-08, bajo) | **Resuelto**: 44.7.2 (la más reciente con al menos dos semanas). |
+| Ejecutable atribuido a "GitHub, Inc." (H-09, bajo) | **Resuelto**: autor Pleiss y copyright. |
+| Claves de sala en `localStorage` (H-10, bajo) | **Mejorado**: caducan a los 30 días y se pueden olvidar. Son la clave derivada, no la contraseña. |
+| Firma débil en Mac (H-11, bajo) | **En parte**: ya no se quita la cuarentena; actualizaciones con firma propia. Developer ID y notarización necesitan la cuenta de Apple (99 €/año). |
+| VST3 sin CFG y libpng antigua (H-12, bajo) | **Resuelto**: `/guard:cf` y JUCE 8.0.16-security. Pendiente de comprobar en el binario compilado. |
+| Sin Mark-of-the-Web (H-13, informativo) | Lo pone el navegador al descargar; las actualizaciones las descarga la propia app y se comprueban con la firma. |
+| Transporte de audio en la red local sin cifrar (punto 3 del plugin) | **No aplica**: los plugins solo hablan con el propio ordenador (127.0.0.1); entre ordenadores, el audio va por WebRTC, cifrado de extremo a extremo. |
+| Firma de los binarios (punto 4 del plugin) | Pendiente: certificados de pago (Apple 99 €/año; Windows, aparte). |
+| Identificadores "ABCDEF01" (punto 7 del plugin) | **No aplica**: es texto interno de JUCE; los códigos de Cabina son propios (`Cbna`, `CbSd`, `CbRt`). |
+| Sin desinstalador (punto 8 del plugin) | **No aplica**: el instalador de Windows (Inno Setup) crea su desinstalador ("Cabina (plugins VST3)" en Aplicaciones de Windows). En Mac, borrar los `.vst3` y `.component` de `/Library/Audio/Plug-Ins/`. |
 
 ### Lo que queda
 
 - **En las salas públicas entra quien adivine el nombre.** En las de contraseña, quien tenga el enlace de *Invitar* entra sin ella, y no hay forma de cambiar la contraseña de una sala: si se filtra, usa otro nombre. Una contraseña corta y común se puede acabar adivinando probando poco a poco.
-- Quien sepa el nombre de una sala con contraseña puede ocupar el sitio del anfitrión antes que nadie: no entraría (no tiene la contraseña), pero los demás no podrían reunirse hasta que lo deje.
+- Quien sepa el nombre de una sala con contraseña puede ocupar el sitio del anfitrión antes que nadie: no entraría, pero los demás no podrían reunirse hasta que lo deje.
 - Los nombres no se comprueban: cualquiera puede ponerse el nombre de otro.
-- Los participantes ven tu IP (la conexión es directa). Forzar el relevo la ocultaría, a cambio de más latencia y coste.
-- Sin política de seguridad de contenido (CSP): el código va dentro de la página y la Cabina servida por el plugin la reescribe, así que sería difícil de mantener sin romper Safari. No se ha encontrado ninguna forma de meter código en la página.
+- Los participantes ven tu IP (la conexión es directa).
+- **Aceptar el control remoto es dar el teclado y el ratón**: solo a gente de confianza.
+- Sin certificados de Apple y de Windows, al instalar macOS pide "Abrir igualmente" y Windows "Ejecutar de todas formas".
+- Un servidor web publicado con una versión vieja y firmada (anterior a un arreglo) seguiría siendo aceptado: la firma no impide volver a una versión anterior.
 
 ## 14. Limitaciones conocidas
 
@@ -549,6 +600,7 @@ Revisado el 27-10-2026.
 
 | Prueba | Resultado |
 |---|---|
+| Firma propia y auditorías (29-10-2026) | App con la web firmada: carga, entra en sala, reducción de ruido fuerte (archivos comprobados), copiar enlace; con `index.html` alterado sin firmar, no carga y lo explica. Página del plugin (compilada aparte y abierta en Chrome): con la web firmada carga Cabina; con una copia alterada se niega. Web con CSP y librerías propias: sala de dos, reducción de ruido fuerte, perrito y fuentes funcionan sin avisos, y la página solo pide cosas a su propio servidor. Salas: las 7 pruebas anteriores siguen bien. **Sin probar**: el plugin compilado (lo compila GitHub) y la actualización firmada de la app de punta a punta (se prueba con la próxima versión) |
 | Salas públicas y con contraseña (29-10-2026, Chrome, 8 participantes) | Pública: dos que escriben el nombre se juntan. Con contraseña: la buena entra; la mala vuelve a la entrada con "Contraseña incorrecta" y la sala sigue igual; el mismo nombre en pública es otra sala; con el enlace de *Invitar* no se pide contraseña y se entra; quien vuelve escribiendo solo el nombre entra (clave recordada); sin contraseña no deja entrar. Sin errores en la consola |
 | Salas con clave (27-10-2026, Chrome, varios participantes y un intruso) | Con el enlace se ven y llega el chat; con el mismo nombre y sin enlace se acaba en otra sala; un intruso que conoce el ID de la sala pero no la clave no aparece, no recibe nada (ni chat, ni voz) y se le echa a los 10 s; al salir la anfitriona los otros dos se vuelven a ver; quien vuelve escribiendo solo el nombre entra en la misma sala (clave recordada) |
 | Seguridad (27-10-2026, Chrome) | Fuentes sin Google; PeerJS con comprobación de integridad; un `.html` recibido llega como binario y una imagen sigue viéndose; dentro de un iframe, Cabina no arranca |
@@ -628,7 +680,7 @@ Pendiente de probar en real: sesión entre dos ordenadores en redes distintas, y
 ## 18. Licencias
 
 - **JUCE 8**: doble licencia, AGPLv3 o comercial. Para uso personal entre colegas, sin vender, encaja en la AGPLv3 publicando el código (el repositorio de GitHub sirve). Si algún día se vende, revisar las condiciones de licencia de JUCE.
-- **PeerJS**: MIT.
+- **PeerJS**: MIT (copia en `web/vendor/peerjs.LICENSE`).
 - **web-noise-suppressor** (RNNoise): MIT; RNNoise es BSD.
 - **MediaPipe tasks-vision** y el modelo Face Landmarker: Apache 2.0.
 - **Logo de Cabina** (`web/icono.png`, `app/build/icon.png`, `app/build/icon-win.png`): propio, diseñado por Pleiss el 27-10-2026 (sustituye al de 1st, blanco sobre círculo azul). Dos C enfrentadas que forman una cápsula partida arriba y abajo en el centro, con una cápsula rellena dentro, en el azul de Cabina sobre negro. Acabado de icono de Apple (27-10-2026): forma de icono de macOS (lados rectos y esquinas de curva continua; en la app de Mac con el margen de 824/1024 y sombra), fondo casi negro con degradado y un brillo azul detrás, aros y cápsula con degradado (de `#6882FF` a `#1E34CD`), resplandor, reflejo en la cápsula, canto de luz en el borde y un grano casi invisible para que los degradados no hagan bandas. Proporciones: aros de 0,80 del lado de la forma y la mitad de alto, trazo del 8,5 % de su alto, hueco entre las C del 12 % de su ancho; cápsula de la mitad de ancho y el 60 % de alto de los aros. Se genera con `python3 app/build/icono.py` (Pillow) desde la raíz: Mac con el margen de macOS; Windows y la web con un margen pequeño (la forma ocupa el 92 %; hasta el 28-10-2026 ocupaba todo y quedaba cortada por los bordes, con los lados rectos). La web pide el icono como `icono.png?v=3` (constante `ICONO`): los navegadores guardan el de la pestaña mucho tiempo y seguían enseñando el de 1st. **Al cambiar el icono, subir el número.**

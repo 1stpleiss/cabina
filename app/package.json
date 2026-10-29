@@ -11,7 +11,7 @@
     "win": "electron-builder --win"
   },
   "devDependencies": {
-    "electron": "44.7.0",
+    "electron": "44.7.2",
     "electron-builder": "26.17.0"
   },
   "build": {
@@ -21,6 +21,8 @@
       "main.js",
       "updater.js",
       "control.js",
+      "firma.js",
+      "web-segura.js",
       "preload.js",
       "control-preload.js",
       "picker.html",
@@ -107,9 +109,13 @@
         "provider": "generic",
         "url": "https://github.com/1stpleiss/cabina/releases/download/app/"
       }
-    ]
+    ],
+    "copyright": "© 2026 Pleiss"
   },
   "dependencies": {
     "electron-updater": "6.8.10"
+  },
+  "author": {
+    "name": "Pleiss"
   }
 }

@@ -40,7 +40,8 @@ const MODS = /^(Shift|Control|Alt|Meta)(Left|Right)$|^CapsLock$/;
 
 let getWin = () => null;
 let lastDisplayId = null; // pantalla elegida en la ventana propia (Windows)
-let ctl = null;           // { proc, display, pill, name }
+let ctl = null;           // { proc, display, pill, name, limite }
+const LIMITE = 60 * 60 * 1000;
 
 const helperPath = () => {
   const f = process.platform === 'win32' ? 'cabina-control.exe' : 'cabina-control';
@@ -79,13 +80,16 @@ function start(name, d){
   const proc = spawn(helperPath(), [], { stdio: ['pipe', 'ignore', 'ignore'], windowsHide: true });
   proc.on('exit', () => { if (ctl && ctl.proc === proc) stop(true); });
   proc.stdin.on('error', () => {});
-  ctl = { proc, display: d, name, pill: showPill(name, d) };
+  // Como mucho una hora: después se corta solo y hay que volver a pedirlo y aceptarlo
+  const limite = setTimeout(() => { if (ctl && ctl.proc === proc) stop(true); }, LIMITE);
+  ctl = { proc, display: d, name, pill: showPill(name, d), limite };
 }
 
 // fromUser: lo ha quitado quien comparte (aviso flotante) o se ha cerrado el ayudante: avisar a la web
 function stop(fromUser){
   if (!ctl) return;
   const c = ctl; ctl = null;
+  clearTimeout(c.limite);
   try { c.proc.stdin.end(); c.proc.kill(); } catch {}
   if (c.pill && !c.pill.isDestroyed()) c.pill.close();
   const win = getWin();
@@ -150,7 +154,7 @@ function setup(win){
   ipcMain.handle('control:ask', (e, o) => fromApp(e) ? ask(o && o.name, o && o.w, o && o.h) : { ok: false });
   ipcMain.on('control:ev', (e, ev) => { if (fromApp(e)) handle(ev); });
   ipcMain.on('control:end', e => { if (fromApp(e)) stop(false); });
-  ipcMain.on('control:quitar', () => stop(true)); // botón del aviso flotante
+  ipcMain.on('control:quitar', e => { if (ctl && ctl.pill && !ctl.pill.isDestroyed() && e.sender === ctl.pill.webContents) stop(true); }); // botón del aviso flotante
   app.on('before-quit', () => stop(false));
 }
 

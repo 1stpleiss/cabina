@@ -56,9 +56,18 @@ namespace
     // ws://127.0.0.1 (contenido mixto), pero una página de http://127.0.0.1 sí puede, y además cuenta
     // como segura (micro y cámara). Esta página descarga la web publicada y la pone en su lugar, así
     // que los cambios de la web llegan sin recompilar el plugin.
+    // Solo si está firmada con la llave propia (29-10-2026): descarga firma.json, comprueba su firma
+    // (Ed25519) con la llave pública de abajo y que index.html tiene la huella firmada. Si no, no la carga:
+    // quien entrara en la cuenta de GitHub no podría meter su código en esta página, que habla con el plugin.
+    // Las librerías que carga la web van con comprobación de integridad desde el propio index.html.
+    // Necesita Ed25519 en el navegador (Safari 17, Chrome 137 o posteriores).
     // Solo ASCII (entidades HTML) para que compile igual en todos los sistemas.
    #ifndef CABINA_WEB_URL
     #define CABINA_WEB_URL "https://1stpleiss.github.io/cabina/"
+   #endif
+    // Llave pública de la firma propia (firma/publica.txt; la privada nunca sale del Mac de quien publica)
+   #ifndef CABINA_PUBLIC_KEY
+    #define CABINA_PUBLIC_KEY "Ma1gzT0Gbizc7qVGhh9h-uE8cBElCqeV2XeC3d6rzYA"
    #endif
     const std::string loaderPage = std::string (R"HTML(<!doctype html><html lang="es"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Cabina</title>
@@ -66,14 +75,30 @@ namespace
 <p id="s">Cargando Cabina&hellip;</p>
 <script>
 const WEB = ")HTML") + CABINA_WEB_URL + R"HTML(";
-fetch(WEB + "index.html", { cache: "no-store" })
-  .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
-  .then(h => {
-    h = h.split('href="icono.png"').join('href="' + WEB + 'icono.png"')
-         .replace("<head>", "<head><script>window.CABINA_WEB = " + JSON.stringify(WEB) + "<\/script>");
-    document.open(); document.write(h); document.close();
-  })
-  .catch(() => { document.getElementById("s").textContent = "No se pudo descargar Cabina de " + WEB + ". \u00bfHay conexi\u00f3n a internet?"; });
+const PUBLICA = ")HTML" + std::string (CABINA_PUBLIC_KEY) + R"HTML(";
+const b64 = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+const say = t => { document.getElementById("s").textContent = t; };
+(async () => {
+  if (!crypto.subtle) throw new Error("navegador");
+  let llave;
+  try { llave = await crypto.subtle.importKey("raw", b64(PUBLICA), { name: "Ed25519" }, false, ["verify"]); }
+  catch (e) { throw new Error("navegador"); }
+  const t = "?t=" + Date.now();
+  const f = await (await fetch(WEB + "firma.json" + t, { cache: "no-store" })).json();
+  if (!await crypto.subtle.verify({ name: "Ed25519" }, llave, b64(f.firma), new TextEncoder().encode(f.datos))) throw new Error("firma");
+  const quiere = JSON.parse(f.datos).archivos["index.html"];
+  const r = await fetch(WEB + "index.html" + t, { cache: "no-store" });
+  if (!r.ok) throw new Error("red");
+  const buf = await r.arrayBuffer();
+  const h = btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.digest("SHA-256", buf))));
+  if (h !== quiere) throw new Error("firma");
+  let html = new TextDecoder().decode(buf);
+  html = html.split('href="icono.png"').join('href="' + WEB + 'icono.png"')
+             .replace("<head>", "<head><script>window.CABINA_WEB = " + JSON.stringify(WEB) + "<\/script>");
+  document.open(); document.write(html); document.close();
+})().catch(e => say(e.message === "firma" ? "La web descargada no est\u00e1 firmada por Cabina, as\u00ed que no se carga. Prueba en unos minutos."
+  : e.message === "navegador" ? "Este navegador no puede comprobar la firma de Cabina. Actualiza Safari (17 o posterior) o usa Chrome."
+  : "No se pudo descargar Cabina de " + WEB + ". \u00bfHay conexi\u00f3n a internet?"));
 </script></html>)HTML";
 }
 
@@ -141,19 +166,27 @@ private:
         return true;
     }
 
-    // Solo se aceptan conexiones de Cabina: la web publicada (también dentro de la app de escritorio) o una
-    // página del propio ordenador (la Cabina que sirve el plugin, o una copia local para probar). Hasta el
-    // 27-10-2026 se aceptaba cualquiera, y cualquier web abierta en el navegador podía escuchar el máster o
-    // meter audio en el DAW. Los navegadores siempre mandan Origin y la web no lo puede falsear; sin Origin
-    // solo llegan programas del propio ordenador.
+    // Solo se aceptan conexiones de Cabina: la web publicada (también dentro de la app de escritorio) y la
+    // Cabina que sirven los propios plugins (http://127.0.0.1:47800 a 47808). Hasta el 27-10-2026 se aceptaba
+    // cualquiera, y cualquier web abierta en el navegador podía escuchar el máster o meter audio en el DAW;
+    // hasta el 29-10-2026, también cualquier página de 127.0.0.1 o localhost y las conexiones sin Origin.
+    // Los navegadores siempre mandan Origin y una web no lo puede falsear. Un programa del propio ordenador sí
+    // podría inventárselo: contra eso no protege (ya podría hacer cosas peores en ese ordenador).
+    // Para probar con una copia local de la web, compilar con CABINA_DEV_ORIGIN="http://127.0.0.1:8765".
     static bool originAllowed (const juce::String& origin)
     {
         const juce::String web (CABINA_WEB_URL);
         const auto webOrigin = web.substring (0, web.indexOf (web.indexOf ("://") + 3, "/"));
-        return origin.isEmpty()
-            || origin == webOrigin
-            || origin == "http://127.0.0.1" || origin.startsWith ("http://127.0.0.1:")
-            || origin == "http://localhost" || origin.startsWith ("http://localhost:");
+        if (origin == webOrigin)
+            return true;
+        for (int port = 47800; port <= 47808; ++port)
+            if (origin == "http://127.0.0.1:" + juce::String (port))
+                return true;
+       #ifdef CABINA_DEV_ORIGIN
+        if (origin == CABINA_DEV_ORIGIN)
+            return true;
+       #endif
+        return false;
     }
 
     bool handshake()

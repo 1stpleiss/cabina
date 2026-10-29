@@ -10,7 +10,7 @@ option(CABINA_COPY_AFTER_BUILD "Copiar los plugins a la carpeta de plugins del s
 include(FetchContent)
 FetchContent_Declare(JUCE
     GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
-    GIT_TAG        8.0.9
+    GIT_TAG        8.0.16-security
     GIT_SHALLOW    TRUE)
 FetchContent_MakeAvailable(JUCE)
 
@@ -55,6 +55,16 @@ function(cabina_plugin target product_name plugin_code is_return)
             juce::juce_recommended_config_flags
             juce::juce_recommended_lto_flags
             juce::juce_recommended_warning_flags)
+
+    # Windows: Control Flow Guard, protección extra contra ataques que desvían el programa (29-10-2026)
+    if(MSVC)
+        foreach(t ${target} ${target}_VST3)
+            if(TARGET ${t})
+                target_compile_options(${t} PRIVATE /guard:cf)
+                target_link_options(${t} PRIVATE /GUARD:CF)
+            endif()
+        endforeach()
+    endif()
 endfunction()
 
 cabina_plugin(CabinaSend   "Cabina Send"    CbSd 0)

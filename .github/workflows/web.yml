@@ -5,7 +5,7 @@ name: Publicar web
 on:
   push:
     branches: [main]
-    paths: ["web/**", ".github/workflows/web.yml"]
+    paths: ["web/**", "firma/**", "herramientas/firmar.mjs", ".github/workflows/web.yml"]
   workflow_dispatch:
 
 permissions:
@@ -25,6 +25,10 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      # La web tiene que ir firmada con la llave propia (node herramientas/firmar.mjs web, en el Mac de quien
+      # publica): la app y el plugin no cargan una web sin firma. Si falta o no cuadra, no se publica.
+      - name: Comprobar la firma de la web
+        run: node herramientas/firmar.mjs comprobar
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

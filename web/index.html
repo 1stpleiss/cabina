@@ -3,6 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- Política de seguridad (29-10-2026): de dónde puede cargar cosas y a dónde puede conectarse la página.
+     Todo el código va con la web (vendor/); fuera solo se habla con el servidor de PeerJS (poner en contacto
+     a los navegadores), los plugins en 127.0.0.1 (puertos 47800-47808) y Web3Forms (comentarios). La web
+     publicada va por su nombre porque la Cabina servida por el plugin (Safari) la carga desde 127.0.0.1. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://1stpleiss.github.io; worker-src 'self' blob: https://1stpleiss.github.io; connect-src 'self' https://1stpleiss.github.io https://0.peerjs.com wss://0.peerjs.com ws://127.0.0.1:47800 ws://127.0.0.1:47801 ws://127.0.0.1:47802 ws://127.0.0.1:47803 ws://127.0.0.1:47804 ws://127.0.0.1:47805 ws://127.0.0.1:47806 ws://127.0.0.1:47807 ws://127.0.0.1:47808 https://api.web3forms.com blob: data:; img-src 'self' blob: data: https://1stpleiss.github.io; media-src 'self' blob: https://1stpleiss.github.io; font-src 'self' https://1stpleiss.github.io; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <title>Cabina</title>
 <link rel="icon" type="image/png" href="icono.png">
 <link rel="apple-touch-icon" href="icono.png">
@@ -392,7 +397,8 @@ html.app #join .card{-webkit-app-region:no-drag}
         <label for="out">Escuchar por</label><select id="out"></select>
         <label>Cabina Retorno</label>
         <div class="line" style="margin:0"><button class="btn sm" id="scanRet">Buscar</button><span class="info mono" id="retInfo" style="margin:0"></span></div>
-        <button class="linkbtn" type="button" id="plugOpen2">Descargar los plugins</button>
+        <button class="linkbtn" type="button" id="plugOpen2">Descargar los plugins</button><br>
+        <button class="linkbtn" type="button" id="forgetKeys" title="Las salas con contraseña en las que has entrado se recuerdan 30 días en este navegador">Olvidar contraseñas guardadas</button>
         <span class="fbo" hidden><br><button class="linkbtn" type="button" id="fbOpen2">Enviar comentarios</button></span>
       </div>
     </div>
@@ -440,7 +446,13 @@ html.app #join .card{-webkit-app-region:no-drag}
 
 <div id="toast"></div>
 
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" integrity="sha384-nlUQ8ZqCbvStErob+biJNzSgltf6urV3VGqhfIfzhmg9RXmpeRm76ELw0pYnKlTR" crossorigin="anonymous"></script>
+<script>
+// Archivos de la web (librerías, modelos): con la ruta de la web publicada para la Cabina servida por el plugin
+const ASSET = p => new URL(p, window.CABINA_WEB || location.href).href;
+// PeerJS 1.5.4, copiado del paquete oficial a vendor/ (antes venía de unpkg), con comprobación de integridad
+{ const s = document.createElement('script'); s.src = ASSET('vendor/peerjs.min.js'); s.async = false;
+  s.integrity = 'sha384-nlUQ8ZqCbvStErob+biJNzSgltf6urV3VGqhfIfzhmg9RXmpeRm76ELw0pYnKlTR'; s.crossOrigin = 'anonymous'; document.head.append(s); }
+</script>
 <script>
 // Cabina no funciona metida dentro de otra web: una página ajena podría usar tu micro y tu cámara ya
 // permitidos y meterte en una sala suya sin que lo notes
@@ -692,7 +704,7 @@ const talkAudio = () => ({ echoCancellation: !WEBKIT, noiseSuppression: S.ns ===
 // (red neuronal, la de muchas apps de llamadas), que quita teclado, ventiladores, ruido de calle...
 // Necesita la página a 48 kHz, así que en Safari no está.
 S.ns = ['normal', 'fuerte', 'off'].includes(prefs.ns) ? prefs.ns : 'normal';
-const NS_CDN = 'https://cdn.jsdelivr.net/npm/@sapphi-red/web-noise-suppressor@0.4.1/dist/';
+const NS_CDN = ASSET('vendor/rnnoise/'); // @sapphi-red/web-noise-suppressor 0.4.1, copiado a vendor/ (antes de jsDelivr)
 let rnLoad = null;
 function loadRnnoise(){
   if (!rnLoad) {
@@ -792,8 +804,15 @@ const enc = t => new TextEncoder().encode(t);
 const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
 // Claves de las salas con contraseña en las que has entrado, en este navegador: si vuelves a escribir el
 // nombre no hace falta la contraseña. Se guardan al conectar con alguien que la ha aceptado, o al crear la sala.
+// Caducan a los 30 días sin entrar en esa sala, y se pueden olvidar todas desde Ajustes.
+const KEYS_DIAS = 30;
 let keys = {}; try { keys = JSON.parse(localStorage.getItem('cabina-claves-v3')) || {}; } catch {}
-function saveKey(){ if (S.mode !== 'privada') return; keys[S.room] = S.key; try { localStorage.setItem('cabina-claves-v3', JSON.stringify(keys)); } catch {} }
+const storeKeys = () => { try { localStorage.setItem('cabina-claves-v3', JSON.stringify(keys)); } catch {} };
+for (const [r, v] of Object.entries(keys)) if (!v || typeof v !== 'object' || Date.now() - v.t > KEYS_DIAS * 864e5) delete keys[r];
+storeKeys();
+const savedKey = room => keys[room] && keys[room].k;
+function saveKey(){ if (S.mode !== 'privada') return; keys[S.room] = { k: S.key, t: Date.now() }; storeKeys(); }
+function forgetKeys(){ keys = {}; storeKeys(); toast('Contraseñas de salas olvidadas en este navegador.', true); }
 const QS = new URLSearchParams(location.search);
 const URL_ROOM = slug(QS.get('sala') || ''), URL_KEY = keyOf(location.hash);
 const privOf = t => /[?&]privada=1/.test(t);
@@ -807,7 +826,7 @@ function setMode(m){
 // Si ya hay clave para esa sala (enlace de invitación o sala recordada) no se pide la contraseña
 function knownKey(){
   const typed = $('#room').value, room = slug(roomOf(typed));
-  return keyOf(typed) || (room && room === URL_ROOM && URL_KEY) || (room && keys[room]) || '';
+  return keyOf(typed) || (room && room === URL_ROOM && URL_KEY) || (room && savedKey(room)) || '';
 }
 function modeHint(){
   const priv = S.mode === 'privada', invited = priv && !!knownKey();
@@ -835,7 +854,7 @@ async function roomSetup(){
     if (pass) {
       const base = await crypto.subtle.importKey('raw', enc(pass), 'PBKDF2', false, ['deriveBits']);
       key = b64u(await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: enc('cabina|' + room), iterations: 300000, hash: 'SHA-256' }, base, 256));
-    } else key = keyOf(typed) || (room === URL_ROOM && URL_KEY) || keys[room];
+    } else key = keyOf(typed) || (room === URL_ROOM && URL_KEY) || savedKey(room);
     if (!key) return null;
   }
   return { room, mode, key };
@@ -1842,8 +1861,10 @@ async function followDevices(){
 // Orejas, nariz y lengua (al abrir la boca) dibujadas sobre la cámara siguiendo cada cara con el detector
 // de caras de Google (MediaPipe). Se envía el vídeo ya con el filtro, así que los demás lo ven igual.
 // El dibujo es propio, no el de Snapchat. El espejo lo pone cada pantalla, no se dibuja aquí.
-const MP = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/';
-const FACE_MODEL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+// @mediapipe/tasks-vision 0.10.21 y el modelo face_landmarker (float16/1), copiados a vendor/ (antes de jsDelivr y
+// Google Storage)
+const MP = ASSET('vendor/mediapipe/');
+const FACE_MODEL = MP + 'face_landmarker.task';
 let faceLoad = null;
 function loadFace(){
   if (!faceLoad) {
@@ -2055,7 +2076,7 @@ function ctlRelease(notify){
   ctlButton();
 }
 function ctlGone(p){ if (S.ctl && S.ctl.p === p) endCtl(false); if (S.ctlOf === p || S.ctlAsk === p) ctlRelease(false); }
-if (APPCTL) APPCTL.onEnded(() => { if (S.ctl) { const p = S.ctl.p; S.ctl = null; send(p.dc, { type: 'ctl-end' }); toast(`Le has quitado el control a ${p.name}.`, true); } });
+if (APPCTL) APPCTL.onEnded(() => { if (S.ctl) { const p = S.ctl.p; S.ctl = null; send(p.dc, { type: 'ctl-end' }); toast(`${p.name} ya no controla tu ordenador.`, true); } });
 const CTL_NO = { no: n => `${n} no te ha dado el control.`, permiso: n => `${n} tiene que dar a Cabina el permiso de Accesibilidad. Vuelve a pedirlo después.`,
   ocupado: n => `Ya hay alguien controlando el ordenador de ${n}.`, pantalla: n => `Solo se puede controlar cuando ${n} comparte la pantalla entera.`,
   falta: n => `La app de ${n} no permite el control remoto. Que la actualice.`, sistema: n => `La app de ${n} no permite el control remoto.` };
@@ -2214,6 +2235,7 @@ function chatOpen(on){
 }
 function chatNew(mine){ if ($('#chatBox').hidden && !mine) setUnread(unread + 1); }
 $('#chatBtn').onclick = () => chatOpen($('#chatBox').hidden);
+$('#forgetKeys').onclick = () => { forgetKeys(); closePops(); };
 $('#chatClose').onclick = () => chatOpen(false);
 
 /* ---------- comentarios ---------- */
