@@ -113,6 +113,18 @@ Un único archivo HTML (más el icono `icono.png`, el logo de Cabina, y las fuen
 | Datos "file" | un archivo del chat (una conexión por archivo y persona) | fiable y ordenado, trozos de 64 KB |
 | Llamada "screen" | pantalla compartida (solo vídeo) | hasta 30 fps, 4 Mbps, prioriza nitidez (`contentHint = detail`, `maintain-resolution`) |
 
+### Estética (30-10-2026)
+
+Capa de estilo "Estética" al final del `<style>` de `web/index.html`, a juego con el icono. Solo cambia el aspecto (mismos elementos y comportamiento):
+- **Fondo** casi negro (`#07080b`) con un resplandor azul arriba y otro tenue abajo a la derecha.
+- **Superficies de cristal** (tarjetas, paneles, menús, dock, avisos): degradado translúcido, desenfoque (`backdrop-filter`), borde fino y un canto de luz arriba; esquinas grandes (18–24 px) y sombras suaves.
+- **Logo** (las dos C con la cápsula, SVG en la propia página con el degradado `lgC`) en la entrada y en la cabecera, en lugar del punto azul; sigue sonando a hitmarker al pulsarlo (clase `dot`).
+- **Botones**: translúcidos; el principal (Entrar, Emitir DAW, descargar) con degradado azul y brillo. **Campos** más altos, con anillo azul al enfocar; desplegables con flecha propia.
+- **Sala**: cabecera sin línea; contador con punto verde; vídeos con esquinas de 20 px, etiqueta del nombre en cristal y aro azul brillante al hablar; sin cámara, un círculo azul con la inicial; con pocas personas los vídeos se centran en vertical. **Dock** de controles flotante y centrado, con separadores. **Chat** en burbujas (las tuyas a la derecha, en azul; clase `mine`).
+- **Movimiento** suave al aparecer menús, ventanas y avisos; desactivado con "reducir movimiento" del sistema.
+- **Móvil** (≤ 560 px): dock compacto en una fila (sin compartir pantalla, que el móvil no permite, y *Emitir DAW* solo con icono); la versión, solo en *Ajustes*.
+- En la app, la cabecera mantiene 46 px de alto (centro a 23 px, donde se alinearon los botones de la ventana): comprobado el 30-10-2026.
+
 ### Interfaz (rehecha el 27-10-2026)
 
 Antes había diez controles sueltos en la cabecera y cajas fijas a la derecha. Ahora:
@@ -630,6 +642,7 @@ Desde el 29-10-2026, cada cambio lleva su revisión de seguridad y privacidad an
 | Prueba | Resultado |
 |---|---|
 | Firma propia y auditorías (29-10-2026) | App con la web firmada: carga, entra en sala, reducción de ruido fuerte (archivos comprobados), copiar enlace; con `index.html` alterado sin firmar, no carga y lo explica. Página del plugin (compilada aparte y abierta en Chrome): con la web firmada carga Cabina; con una copia alterada se niega. Web con CSP y librerías propias: sala de dos, reducción de ruido fuerte, perrito y fuentes funcionan sin avisos, y la página solo pide cosas a su propio servidor. Salas: las 7 pruebas anteriores siguen bien. Con la web publicada: la app la carga firmada y el relevo funciona dentro; la página del plugin (servida en 127.0.0.1:47800) la comprueba y carga, con relevo. Actualización firmada de punta a punta: una app 0.1.11 compilada aquí (ya corregida) encontró la 0.1.12 publicada, comprobó la firma y la descargó. Plugins compilados por GitHub sin errores (JUCE 8.0.16-security, CFG). **Sin probar**: el plugin real con FL Studio y la app en Windows |
+| Estética nueva (30-10-2026, Chrome a 1440 × 900 y 390 × 844, y la app) | Entrada, sala con DAW entrante, chat con archivo, menú del micro, aviso de los plugins, persona sin cámara y móvil, sin errores en la consola; en la app, cabecera de 46 px con el logo y el nombre centrados a 23 px |
 | Salas públicas y con contraseña (29-10-2026, Chrome, 8 participantes) | Pública: dos que escriben el nombre se juntan. Con contraseña: la buena entra; la mala vuelve a la entrada con "Contraseña incorrecta" y la sala sigue igual; el mismo nombre en pública es otra sala; con el enlace de *Invitar* no se pide contraseña y se entra; quien vuelve escribiendo solo el nombre entra (clave recordada); sin contraseña no deja entrar. Sin errores en la consola |
 | Salas con clave (27-10-2026, Chrome, varios participantes y un intruso) | Con el enlace se ven y llega el chat; con el mismo nombre y sin enlace se acaba en otra sala; un intruso que conoce el ID de la sala pero no la clave no aparece, no recibe nada (ni chat, ni voz) y se le echa a los 10 s; al salir la anfitriona los otros dos se vuelven a ver; quien vuelve escribiendo solo el nombre entra en la misma sala (clave recordada) |
 | Seguridad (27-10-2026, Chrome) | Fuentes sin Google; PeerJS con comprobación de integridad; un `.html` recibido llega como binario y una imagen sigue viéndose; dentro de un iframe, Cabina no arranca |
