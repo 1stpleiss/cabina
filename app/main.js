@@ -148,6 +148,7 @@ function menu(){
 }
 
 app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
+ipcMain.on('app:version', e => { e.returnValue = app.getVersion(); });
 ipcMain.on('plugins:check', e => { if (win && e.sender === win.webContents) plugins.check(true); });
 app.whenReady().then(() => { permissions(); menu(); createWindow(); updater.start(() => win); plugins.start(() => win); control.setup(() => win); });
 app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });

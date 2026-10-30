@@ -65,6 +65,8 @@ function setup(ses, WEB){
     if (u.origin !== base.origin || !u.pathname.startsWith(base.pathname) || req.method !== 'GET') return pasar(req);
     let rel = decodeURIComponent(u.pathname.slice(base.pathname.length));
     if (!rel || rel.endsWith('/')) rel += 'index.html';
+    // La propia lista firmada (la web la lee para mostrar la fecha de la versión): pasa tal cual, va firmada
+    if (rel === 'firma.json') return traer(new URL('firma.json?t=' + Date.now(), WEB).href);
     const doc = rel === 'index.html';
     try {
       let a = await archivo(rel, doc);

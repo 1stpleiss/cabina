@@ -4,6 +4,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('CABINA_APP', {
   platform: process.platform,
+  version: ipcRenderer.sendSync('app:version'), // para mostrarla en la web
   control: {
     ask: (name, w, h) => ipcRenderer.invoke('control:ask', { name, w, h }),
     send: ev => ipcRenderer.send('control:ev', ev),
