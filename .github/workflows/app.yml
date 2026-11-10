@@ -43,6 +43,15 @@ jobs:
           lipo -create -output helper/build/cabina-control helper/build/arm64 helper/build/x86_64
           rm helper/build/arm64 helper/build/x86_64
           codesign --force -s - helper/build/cabina-control
+      # Ayudante del audio del sistema al compartir pantalla (app/audio.js), macOS 14.2 o posterior
+      - name: Ayudante del audio del sistema (Mac)
+        if: runner.os == 'macOS'
+        run: |
+          swiftc -O -target arm64-apple-macos14.2 -o helper/build/a-arm64 helper/audio.swift
+          swiftc -O -target x86_64-apple-macos14.2 -o helper/build/a-x86_64 helper/audio.swift
+          lipo -create -output helper/build/cabina-audio helper/build/a-arm64 helper/build/a-x86_64
+          rm helper/build/a-arm64 helper/build/a-x86_64
+          codesign --force -s - helper/build/cabina-audio
       - name: Ayudante del control remoto (Windows)
         if: runner.os == 'Windows'
         run: |

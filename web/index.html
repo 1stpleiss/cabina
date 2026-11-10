@@ -2244,18 +2244,40 @@ const micOn = () => { const t = S.talk && S.talk.getAudioTracks()[0]; return !!(
 // Se prioriza la nitidez (texto de plugins, automatizaciones) sobre la fluidez.
 if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) $('#screenBtn').hidden = false;
 // Audio del sistema (casilla del aviso de pantalla compartida, prefs.screenAudio): se pide junto con la imagen.
-// Lo permiten Chrome y Edge (en Mac, desde Chrome 141 y macOS 14.2) y la app en Windows; si el sistema no lo da,
-// se comparte solo la imagen y se avisa. Lo que suena en la propia Cabina (las voces, el DAW que llega) se deja
-// fuera con restrictOwnAudio cuando el navegador lo permite; si no, se avisa: los demás se oirían a sí mismos.
-const ownAudioExcluded = () => { const md = navigator.mediaDevices; return !window.CABINA_APP && !!(md.getSupportedConstraints && md.getSupportedConstraints().restrictOwnAudio); };
+// Lo permiten Chrome y Edge (en Mac, desde Chrome 141 y macOS 14.2), la app en Windows (Electron) y la app en Mac
+// (macOS 14.2 o posterior, con un ayudante propio: app/audio.js). Si el sistema no lo da, se comparte solo la imagen
+// y se avisa. Lo que suena en la propia Cabina (las voces, el DAW que llega) se deja fuera con restrictOwnAudio en el
+// navegador que lo permite y con el ayudante en la app de Mac; si no (app de Windows), se avisa: los demás se oirían.
+const ownAudioExcluded = () => { const md = navigator.mediaDevices; return !!S.sysAudio || (!window.CABINA_APP && !!(md.getSupportedConstraints && md.getSupportedConstraints().restrictOwnAudio)); };
+const macTap = () => !!(window.CABINA_APP && window.CABINA_APP.systemAudio && window.CABINA_APP.systemAudio.supported);
+// App de Mac: el audio del ayudante llega en bloques (float32 estéreo intercalado) y se convierte en una pista con el
+// mismo procesador que el audio del plugin ("cabina-in")
+async function startSysAudio(){
+  await ensureWorklet();
+  const node = new AudioWorkletNode(S.ctx, 'cabina-in', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2] });
+  const dest = S.ctx.createMediaStreamDestination(); dest.channelCount = 2;
+  node.connect(dest);
+  const g = silentSink(node);
+  const r = await window.CABINA_APP.systemAudio.start(buf => { const f = new Float32Array(buf); node.port.postMessage(f, [f.buffer]); }).catch(() => null);
+  if (!r || !r.ok) { node.disconnect(); g.disconnect(); window.CABINA_APP.systemAudio.stop(); return null; }
+  node.port.postMessage({ sr: r.sr, buf: 0.08 });
+  S.sysAudio = { node, g };
+  return dest.stream.getAudioTracks()[0];
+}
+function stopSysAudio(){
+  if (!S.sysAudio) return;
+  const x = S.sysAudio; S.sysAudio = null;
+  window.CABINA_APP.systemAudio.stop();
+  x.node.port.onmessage = null; x.node.disconnect(); x.g.disconnect();
+}
 async function startScreen(){
-  const wantAudio = !!prefs.screenAudio;
+  const wantAudio = !!prefs.screenAudio, tap = wantAudio && macTap();
   let s;
   try {
     s = await navigator.mediaDevices.getDisplayMedia({
       video: { frameRate: { ideal: 30, max: 30 } },
-      audio: wantAudio ? { echoCancellation: false, noiseSuppression: false, autoGainControl: false, suppressLocalAudioPlayback: false, restrictOwnAudio: true } : false,
-      systemAudio: wantAudio ? 'include' : 'exclude', selfBrowserSurface: 'exclude',
+      audio: wantAudio && !tap ? { echoCancellation: false, noiseSuppression: false, autoGainControl: false, suppressLocalAudioPlayback: false, restrictOwnAudio: true } : false,
+      systemAudio: wantAudio && !tap ? 'include' : 'exclude', selfBrowserSurface: 'exclude',
     });
   }
   // Cancelar la elección no es un error (en la app de escritorio llega como AbortError)
@@ -2263,6 +2285,7 @@ async function startScreen(){
   const tr = s.getVideoTracks()[0];
   try { tr.contentHint = 'detail'; } catch {}
   tr.onended = stopScreen; // "Dejar de compartir" del propio navegador
+  if (tap) { const t = await startSysAudio(); if (t) s.addTrack(t); }
   const au = s.getAudioTracks()[0];
   if (au) { try { au.contentHint = 'music'; } catch {} }
   if (wantAudio && !au) toast('Aquí no se puede compartir el audio del ordenador: se comparte solo la imagen.', false, 7000);
@@ -2292,6 +2315,7 @@ if (window.CABINA_APP && window.CABINA_APP.onShareStop) window.CABINA_APP.onShar
 function stopScreen(){
   if (!S.screen) return;
   S.screen.getTracks().forEach(t => t.stop()); S.screen = null;
+  stopSysAudio();
   endCtl(true);
   peers.forEach(sendCap);
   peers.forEach(p => { send(p.dc, { type: 'screen-stop', gen: S.screenGen }); try { p.screenOut && p.screenOut.close(); } catch {} p.screenOut = null; });

@@ -32,7 +32,8 @@
       "control.html",
       "compartir.js",
       "compartir-preload.js",
-      "compartir.html"
+      "compartir.html",
+      "audio.js"
     ],
     "directories": {
       "output": "dist",
@@ -59,12 +60,17 @@
       "artifactName": "Cabina-App-Mac.${ext}",
       "extendInfo": {
         "NSMicrophoneUsageDescription": "Cabina usa el micro para que tus colegas te oigan en la sala.",
-        "NSCameraUsageDescription": "Cabina usa la cámara para que tus colegas te vean en la sala."
+        "NSCameraUsageDescription": "Cabina usa la cámara para que tus colegas te vean en la sala.",
+        "NSAudioCaptureUsageDescription": "Cabina lo usa para compartir el audio del ordenador con tu sala cuando compartes la pantalla con «Audio del sistema»."
       },
       "extraResources": [
         {
           "from": "helper/build/cabina-control",
           "to": "cabina-control"
+        },
+        {
+          "from": "helper/build/cabina-audio",
+          "to": "cabina-audio"
         }
       ]
     },

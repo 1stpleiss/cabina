@@ -7,6 +7,7 @@ const updater = require('./updater');
 const control = require('./control');
 const plugins = require('./plugins');
 const compartir = require('./compartir');
+const audioSistema = require('./audio');
 const webSegura = require('./web-segura');
 
 // La web publicada. Cambiarla con CABINA_WEB solo vale en desarrollo (npm start): en la app instalada, una
@@ -154,6 +155,6 @@ function menu(){
 app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
 ipcMain.on('app:version', e => { e.returnValue = app.getVersion(); });
 ipcMain.on('plugins:check', e => { if (win && e.sender === win.webContents) plugins.check(true); });
-app.whenReady().then(() => { permissions(); menu(); createWindow(); updater.start(() => win); plugins.start(() => win); control.setup(() => win); compartir.setup(() => win); });
+app.whenReady().then(() => { permissions(); menu(); createWindow(); updater.start(() => win); plugins.start(() => win); control.setup(() => win); compartir.setup(() => win); audioSistema.setup(() => win); });
 app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
 app.on('window-all-closed', () => app.quit());
