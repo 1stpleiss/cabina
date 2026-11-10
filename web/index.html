@@ -443,13 +443,39 @@ main.sharing #grid{flex:none;align-content:start}
 #appOffer a{text-decoration:none;font-weight:600}
 #appOffer a:hover{text-decoration:underline;text-underline-offset:3px}
 /* Aviso de pantalla compartida */
-.hud{position:fixed;top:58px;left:50%;transform:translateX(-50%);z-index:7;display:flex;align-items:center;gap:12px;padding:7px 8px 7px 14px;border-radius:999px;border:1px solid rgba(229,72,77,.35);background:var(--glass),rgba(24,14,16,.86);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);box-shadow:var(--edge),0 14px 40px -10px rgba(0,0,0,.7);white-space:nowrap;max-width:calc(100% - 24px)}
+.hud,.hudTab{--hud-bg:linear-gradient(180deg,rgba(58,26,31,.9),rgba(22,13,16,.92));--hud-shadow:inset 0 1px 0 rgba(255,255,255,.09),inset 0 0 0 1px rgba(229,72,77,.24),0 1px 2px rgba(0,0,0,.45),0 8px 18px -6px rgba(0,0,0,.6),0 22px 48px -18px rgba(229,72,77,.45)}
+/* Se coloca con left/top desde shareHud (se puede arrastrar); se esconde deslizándose hacia el borde más cercano */
+.hud{position:fixed;top:58px;left:8px;z-index:7;display:flex;align-items:center;gap:12px;padding:7px 8px 7px 6px;border-radius:999px;background:var(--hud-bg);-webkit-backdrop-filter:blur(22px) saturate(1.3);backdrop-filter:blur(22px) saturate(1.3);box-shadow:var(--hud-shadow);white-space:nowrap;max-width:calc(100% - 16px);touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-app-region:no-drag}
+.hud.drag{cursor:grabbing;box-shadow:var(--hud-shadow),0 30px 60px -16px rgba(0,0,0,.8)}
+.hud.away{transform:translateX(var(--off,0));opacity:0;pointer-events:none}
+.hud .grip{display:flex;color:rgba(255,255,255,.32);margin-right:-4px}
+.hud .grip svg,.hudTab svg{width:14px;height:14px}
+.hud:hover .grip{color:rgba(255,255,255,.6)}
+.hudHide{display:grid;place-items:center;width:28px;height:28px;border:0;border-radius:50%;background:transparent;color:var(--muted);cursor:pointer;margin-left:-6px}
+.hudHide:hover{background:rgba(255,255,255,.08);color:var(--text)}
+.hudHide svg{width:16px;height:16px;transition:transform .2s}
+.hud.to-l .hudHide svg{transform:scaleX(-1)}
+.hudTab{position:fixed;z-index:7;display:flex;align-items:center;gap:6px;height:34px;padding:0 8px;border:0;background:var(--hud-bg);-webkit-backdrop-filter:blur(22px);backdrop-filter:blur(22px);box-shadow:var(--hud-shadow);color:var(--muted);cursor:pointer;-webkit-app-region:no-drag}
+.hudTab.l{left:0;border-radius:0 12px 12px 0;transform:translateX(-110%);padding-left:7px}
+.hudTab.r{right:0;left:auto;border-radius:12px 0 0 12px;transform:translateX(110%);flex-direction:row-reverse;padding-right:7px}
+.hudTab.r svg{transform:scaleX(-1)}
+.hudTab.in{transform:none}
+.hudTab:hover{color:var(--text)}
+.hudTab.l:hover{padding-left:11px}.hudTab.r:hover{padding-right:11px}
+@media (prefers-reduced-motion:no-preference){
+  .hud{transition:transform .5s cubic-bezier(.22,1,.36,1),opacity .35s ease,box-shadow .2s}
+  .hud.away{transition:transform .45s cubic-bezier(.55,0,.75,.2),opacity .35s ease .1s}
+  .hud:not([hidden]):not(.away){animation:hudIn .35s cubic-bezier(.22,1,.36,1)}
+  .hudTab{transition:transform .25s ease-in,padding .2s ease}
+  .hudTab.in{transition:transform .45s cubic-bezier(.22,1,.36,1) .3s,padding .2s ease}
+}
+@keyframes hudIn{from{opacity:0;translate:0 -8px}}
 .hud b{font-weight:600;font-size:13px}
 .hud .chk{margin:0;color:var(--text)}
 .hud .warn{font-size:12px;color:#ffb487;white-space:normal;max-width:260px}
 .recdot{width:9px;height:9px;border-radius:50%;background:var(--red);box-shadow:0 0 10px var(--red);flex:none}
 @media (prefers-reduced-motion:no-preference){.recdot{animation:live 1.6s ease-in-out infinite}}
-@media (max-width:560px){.hud{top:54px;gap:8px;padding-left:10px}.hud b{display:none}}
+@media (max-width:560px){.hud{gap:8px}.hud b{display:none}}
 /* Móvil: dock compacto en una sola fila */
 @media (max-width:560px){
   #bar{flex-wrap:nowrap;gap:5px;padding:7px;margin:4px 8px 10px;max-width:calc(100% - 16px)}
@@ -640,10 +666,13 @@ html.app #join .card{-webkit-app-region:no-drag}
 
 <!-- Aviso mientras compartes la pantalla: para saberlo siempre, quitarlo y elegir si va el audio del sistema -->
 <div id="shareHud" class="hud" hidden role="status">
+  <span class="grip" aria-hidden="true" title="Arrastra para moverlo (doble clic: vuelve al centro)"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>
   <span class="recdot"></span><b>Compartiendo tu pantalla</b>
   <label class="chk" title="Comparte también lo que suena en el ordenador. Al cambiarlo se vuelve a elegir qué compartir"><input type="checkbox" id="shareAudio"> Audio del sistema</label>
   <button class="btn sm danger" type="button" id="shareStop">Dejar de compartir</button>
+  <button class="hudHide" type="button" id="shareHide" title="Esconder" aria-label="Esconder el aviso"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button>
 </div>
+<button id="shareTab" class="hudTab l" type="button" hidden title="Mostrar el aviso" aria-label="Mostrar el aviso de pantalla compartida"><span class="recdot"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button>
 
 <div id="fb" class="modal" hidden>
   <form class="card" id="fbForm">
@@ -2295,15 +2324,57 @@ async function startScreen(){
   shareHud();
 }
 // Aviso de pantalla compartida (en la página y, en la app, también flotante sobre todo)
+const hud = $('#shareHud'), hudTab = $('#shareTab');
+let hudAway = false;
+// Coloca el aviso donde se dejó (centro horizontal en proporción al ancho, para que aguante cambios de tamaño)
+// sin salirse de la ventana, y la pestaña en el borde más cercano a su misma altura
+function placeHud(){
+  if (hud.hidden) return;
+  const W = innerWidth, H = innerHeight, w = hud.offsetWidth, h = hud.offsetHeight;
+  const pos = prefs.hudPos && isFinite(prefs.hudPos.fx) && isFinite(prefs.hudPos.y) ? prefs.hudPos : null;
+  const x = Math.max(8, Math.min((pos ? pos.fx * W : W / 2) - w / 2, W - w - 8));
+  const y = Math.max(8, Math.min(pos ? pos.y : (W <= 560 ? 54 : 58), H - h - 8));
+  hud.style.left = x + 'px'; hud.style.top = y + 'px';
+  const left = x + w / 2 < W / 2;
+  hud.classList.toggle('to-l', left);
+  hud.style.setProperty('--off', (left ? -(x + w + 30) : W - x + 30) + 'px');
+  hudTab.style.top = (y + h / 2 - 17) + 'px';
+  hudTab.className = 'hudTab ' + (left ? 'l' : 'r') + (hudAway ? ' in' : '');
+}
+function setHudAway(a){
+  const hadFocus = (a ? hud : hudTab).contains(document.activeElement);
+  hudAway = a; hud.classList.toggle('away', a); hud.inert = a; hudTab.classList.toggle('in', a);
+  if (hadFocus) (a ? hudTab : $('#shareHide')).focus({ preventScroll: true });
+}
+$('#shareHide').onclick = () => setHudAway(true);
+hudTab.onclick = () => setHudAway(false);
+hud.addEventListener('pointerdown', e => {
+  if (e.button !== 0 || e.target.closest('button,label,input')) return;
+  e.preventDefault();
+  const r = hud.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
+  hud.setPointerCapture(e.pointerId); hud.classList.add('drag');
+  const move = ev => { prefs.hudPos = { fx: (ev.clientX - dx + r.width / 2) / innerWidth, y: ev.clientY - dy }; placeHud(); };
+  const up = () => {
+    hud.classList.remove('drag');
+    ['pointermove', 'pointerup', 'pointercancel'].forEach((t, i) => hud.removeEventListener(t, i ? up : move));
+    // Se guarda lo que de verdad se ve (ya dentro de la ventana)
+    if (prefs.hudPos) { prefs.hudPos = { fx: (parseFloat(hud.style.left) + hud.offsetWidth / 2) / innerWidth, y: parseFloat(hud.style.top) }; savePrefs(); }
+  };
+  hud.addEventListener('pointermove', move); hud.addEventListener('pointerup', up); hud.addEventListener('pointercancel', up);
+});
+hud.addEventListener('dblclick', e => { if (e.target.closest('button,label,input')) return; delete prefs.hudPos; savePrefs(); placeHud(); });
+addEventListener('resize', placeHud);
 function shareHud(){
   const on = !!S.screen, au = on && S.screen.getAudioTracks().length > 0;
-  $('#shareHud').hidden = !on;
+  if (on && hud.hidden) setHudAway(false); // cada vez que se empieza a compartir, se ve
+  hud.hidden = !on; hudTab.hidden = !on;
   $('#shareAudio').checked = on ? au : !!prefs.screenAudio;
   let w = $('#shareHud .warn');
   if (au && !ownAudioExcluded()) {
     if (!w) { w = document.createElement('span'); w.className = 'warn'; $('#shareStop').before(w); }
     w.textContent = 'Lo que suena en Cabina también se envía: silencia a los demás mientras.';
   } else if (w) w.remove();
+  placeHud();
   if (window.CABINA_APP && window.CABINA_APP.sharing) window.CABINA_APP.sharing(on);
 }
 $('#shareStop').onclick = () => stopScreen();
