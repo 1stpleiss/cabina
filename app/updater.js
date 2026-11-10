@@ -192,7 +192,7 @@ function start(win){
   if (process.platform === 'win32') windows();
   // Si se eligió "Al cerrar Cabina", en Mac se cambia al salir sin volver a abrir (en Windows lo hace electron-updater)
   if (process.platform === 'darwin') app.on('will-quit', () => { if (pending && onQuit) macSwap(false); });
-  setTimeout(() => check(false), 10e3);
+  check(false); // nada más abrirla
   setInterval(() => check(false), EVERY);
 }
 
