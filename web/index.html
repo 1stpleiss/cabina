@@ -1023,7 +1023,7 @@ $('#enter').onclick = async () => {
   addLocalTile();
   chatOpen(true);
   connect();
-  if ($('#dawIn').value) startDaw();
+  // El DAW no se emite al entrar: se empieza con "Emitir DAW" (la entrada elegida se recuerda)
   requestAnimationFrame(drawMeters);
 };
 
@@ -2364,10 +2364,13 @@ hud.addEventListener('pointerdown', e => {
 });
 hud.addEventListener('dblclick', e => { if (e.target.closest('button,label,input')) return; delete prefs.hudPos; savePrefs(); placeHud(); });
 addEventListener('resize', placeHud);
+// En la app (desde la 0.1.19) el aviso es una ventana flotante propia, encima de todo y fuera de la ventana de
+// Cabina: la de la página no se muestra para no tener dos
+const floatHud = !!(window.CABINA_APP && window.CABINA_APP.hud);
 function shareHud(){
   const on = !!S.screen, au = on && S.screen.getAudioTracks().length > 0;
   if (on && hud.hidden) setHudAway(false); // cada vez que se empieza a compartir, se ve
-  hud.hidden = !on; hudTab.hidden = !on;
+  hud.hidden = !on || floatHud; hudTab.hidden = hud.hidden;
   $('#shareAudio').checked = on ? au : !!prefs.screenAudio;
   let w = $('#shareHud .warn');
   if (au && !ownAudioExcluded()) {
@@ -2375,13 +2378,16 @@ function shareHud(){
     w.textContent = 'Lo que suena en Cabina también se envía: silencia a los demás mientras.';
   } else if (w) w.remove();
   placeHud();
-  if (window.CABINA_APP && window.CABINA_APP.sharing) window.CABINA_APP.sharing(on);
+  if (window.CABINA_APP && window.CABINA_APP.sharing) window.CABINA_APP.sharing(on, { audio: au, warn: w ? w.textContent : '' });
 }
 $('#shareStop').onclick = () => stopScreen();
-$('#shareAudio').onchange = e => {
-  prefs.screenAudio = e.target.checked; savePrefs();
+function setShareAudio(on){
+  prefs.screenAudio = on; savePrefs();
   if (S.screen) { stopScreen(); startScreen(); } // el navegador no deja añadir audio a una captura ya empezada
-};
+}
+$('#shareAudio').onchange = e => setShareAudio(e.target.checked);
+// La casilla del aviso flotante de la app: llega como evento con el gesto del usuario (para poder abrir el selector)
+if (floatHud) addEventListener('cabina-share-audio', e => { if (S.screen) setShareAudio(!!e.detail); });
 if (window.CABINA_APP && window.CABINA_APP.onShareStop) window.CABINA_APP.onShareStop(() => stopScreen());
 function stopScreen(){
   if (!S.screen) return;

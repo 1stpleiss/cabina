@@ -2,24 +2,67 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
 <title>Compartiendo tu pantalla</title>
+<!-- Aviso flotante de pantalla compartida (compartir.js): el mismo que el de la web, pero fuera de la ventana de
+     Cabina. Se arrastra por la pantalla; la flecha lo esconde en una pestañita en el borde. -->
 <style>
 html,body{margin:0;height:100%;background:transparent;overflow:hidden}
-body{display:grid;place-items:center;font:500 13px/1 Inter,system-ui,sans-serif;-webkit-user-select:none;user-select:none}
-.pill{display:flex;align-items:center;gap:10px;height:40px;padding:0 6px 0 14px;border-radius:20px;background:rgba(20,22,28,.92);color:#ebe8e3;border:1px solid rgba(255,255,255,.12);box-shadow:0 6px 20px rgba(0,0,0,.45)}
-.dot{width:9px;height:9px;border-radius:50%;background:#e5484d;box-shadow:0 0 10px #e5484d;animation:p 1.6s ease-in-out infinite}
+body{font:500 13px/1.2 Inter,-apple-system,system-ui,"Segoe UI",sans-serif;color:#eef0f5;-webkit-user-select:none;user-select:none;
+  --pad:14px;--bg:linear-gradient(180deg,rgba(58,26,31,.94),rgba(22,13,16,.96));
+  --shadow:inset 0 1px 0 rgba(255,255,255,.09),inset 0 0 0 1px rgba(229,72,77,.28),0 1px 2px rgba(0,0,0,.45),0 6px 12px -4px rgba(0,0,0,.55),0 8px 14px -8px rgba(229,72,77,.5)}
+.pill{position:absolute;left:var(--pad);top:var(--pad);display:flex;align-items:center;gap:12px;padding:7px 8px 7px 8px;border-radius:999px;background:var(--bg);box-shadow:var(--shadow);white-space:nowrap;-webkit-app-region:drag;cursor:grab}
+.grip{display:flex;color:rgba(255,255,255,.32);margin-right:-4px}
+.grip svg{width:14px;height:14px}
+.pill:hover .grip{color:rgba(255,255,255,.6)}
+.dot{width:9px;height:9px;border-radius:50%;background:#e5484d;box-shadow:0 0 10px #e5484d;flex:none;animation:p 1.6s ease-in-out infinite}
 @keyframes p{50%{opacity:.4}}
-#t{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-button{height:28px;padding:0 12px;border-radius:14px;border:0;background:rgba(255,255,255,.12);color:#fff;font:600 12.5px Inter,system-ui,sans-serif;cursor:pointer}
-button:hover{background:rgba(255,255,255,.2)}
+b{font-weight:600}
+label,button{-webkit-app-region:no-drag}
+label{display:flex;align-items:center;gap:7px;cursor:pointer}
+input{width:16px;height:16px;margin:0;accent-color:#2f4be3;cursor:pointer}
+.warn{font-size:12px;color:#ffb487;white-space:normal;max-width:260px}
+.stop{height:30px;padding:0 13px;border-radius:9px;border:1px solid rgba(229,72,77,.45);background:rgba(229,72,77,.14);color:#ff8a8d;font:600 13px Inter,-apple-system,system-ui,sans-serif;cursor:pointer}
+.stop:hover{background:rgba(229,72,77,.24);color:#ffb0b2}
+.hide{display:grid;place-items:center;width:28px;height:28px;border:0;border-radius:50%;background:transparent;color:#8e95a3;cursor:pointer;margin-left:-6px}
+.hide:hover{background:rgba(255,255,255,.08);color:#eef0f5}
+.hide svg,.tab svg{width:16px;height:16px}
+.tab{position:absolute;top:var(--pad);display:none;align-items:center;gap:6px;height:34px;width:46px;box-sizing:border-box;padding:0 9px;border:0;background:var(--bg);box-shadow:var(--shadow);color:#8e95a3;cursor:pointer}
+.tab:hover{color:#eef0f5}
+body.l .tab{left:0;border-radius:0 12px 12px 0;display:flex}
+body.r .tab{right:0;border-radius:12px 0 0 12px;display:flex;flex-direction:row-reverse}
+body.r .tab svg{transform:scaleX(-1)}
+body.to-l .hide svg{transform:scaleX(-1)}
+body.l .pill,body.r .pill{display:none}
+@media (prefers-reduced-motion:reduce){.dot{animation:none}}
 </style>
 </head>
 <body>
-<div class="pill"><span class="dot"></span><span id="t"></span><button id="q">Quitar control</button></div>
+<div class="pill" id="pill">
+  <span class="grip" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>
+  <span class="dot"></span><b>Compartiendo tu pantalla</b>
+  <label title="Comparte también lo que suena en el ordenador. Al cambiarlo se vuelve a elegir qué compartir"><input type="checkbox" id="audio"> Audio del sistema</label>
+  <span class="warn" id="warn" hidden></span>
+  <button class="stop" id="stop" type="button">Dejar de compartir</button>
+  <button class="hide" id="hide" type="button" title="Esconder" aria-label="Esconder el aviso"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button>
+</div>
+<button class="tab" id="tab" type="button" title="Mostrar el aviso" aria-label="Mostrar el aviso de pantalla compartida"><span class="dot"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button>
 <script>
-document.getElementById('t').textContent = 'Compartiendo tu pantalla';
-document.getElementById('q').textContent = 'Dejar de compartir';
-document.getElementById('q').onclick = () => window.pill.parar();
+const $ = id => document.getElementById(id), pad = 14;
+const report = () => { const p = $('pill'); window.pill.size(p.offsetWidth + 2 * pad, p.offsetHeight + 2 * pad); };
+$('stop').onclick = () => window.pill.parar();
+$('audio').onchange = e => window.pill.audio(e.target.checked);
+$('hide').onclick = () => window.pill.esconder();
+$('tab').onclick = () => window.pill.mostrar();
+window.pill.onState(st => {
+  $('audio').checked = !!st.audio;
+  $('warn').textContent = st.warn || ''; $('warn').hidden = !st.warn;
+  document.body.classList.toggle('to-l', !!st.toLeft);
+  report();
+});
+// full: el aviso entero; l / r: la pestañita pegada al borde izquierdo o derecho
+window.pill.onMode(m => { document.body.classList.remove('l', 'r'); if (m === 'l' || m === 'r') document.body.classList.add(m); });
+report();
 </script>
 </body>
 </html>

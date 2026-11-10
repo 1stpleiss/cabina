@@ -21,8 +21,10 @@ contextBridge.exposeInMainWorld('CABINA_APP', {
   },
   // Instalar o actualizar los plugins (app/plugins.js)
   plugins: () => ipcRenderer.send('plugins:check'),
-  // Aviso flotante mientras se comparte la pantalla (app/compartir.js) y su botón "Dejar de compartir"
-  sharing: on => ipcRenderer.send('share:state', !!on),
+  // Aviso flotante mientras se comparte la pantalla (app/compartir.js): sustituye al de la página (hud), con su
+  // casilla de audio del sistema y "Dejar de compartir"
+  hud: true,
+  sharing: (on, info) => ipcRenderer.send('share:state', !!on, { audio: !!(info && info.audio), warn: String((info && info.warn) || '').slice(0, 200) }),
   onShareStop: cb => ipcRenderer.on('share:stop', () => cb()),
   systemAudio: {
     supported: ipcRenderer.sendSync('sysaudio:supported'),
