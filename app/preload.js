@@ -13,5 +13,8 @@ contextBridge.exposeInMainWorld('CABINA_APP', {
   },
   // Instalar o actualizar los plugins (app/plugins.js)
   plugins: () => ipcRenderer.send('plugins:check'),
+  // Aviso flotante mientras se comparte la pantalla (app/compartir.js) y su botón "Dejar de compartir"
+  sharing: on => ipcRenderer.send('share:state', !!on),
+  onShareStop: cb => ipcRenderer.on('share:stop', () => cb()),
 });
 ipcRenderer.on('fullscreen', (e, on) => document.documentElement.classList.toggle('app-full', on));

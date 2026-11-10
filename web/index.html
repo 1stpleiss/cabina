@@ -370,6 +370,10 @@ header .room{gap:11px}
 header .room h2{font-size:16.5px;font-weight:650;letter-spacing:-.015em}
 .pill{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.05);border-color:var(--line);padding:4px 10px;font-weight:500}
 .pill.ok{color:#7fe3b5;border-color:rgba(62,207,142,.28);background:rgba(62,207,142,.08)}
+.pill.ip{gap:5px}
+.pill.ip svg{width:12px;height:12px}
+.pill.ip.oculta{color:#a9b8ff;border-color:rgba(102,128,255,.3);background:rgba(93,120,255,.1)}
+.pill.ip.aviso{color:#ffc58a;border-color:rgba(242,163,58,.35);background:rgba(242,163,58,.1)}
 .pill.ok::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
 html.app header{min-height:46px;padding-top:6px;padding-bottom:6px} /* en la app, la altura con la que se alinearon los botones de la ventana (centro a 23 px) */
 
@@ -438,6 +442,14 @@ main.sharing #grid{flex:none;align-content:start}
 .msg:has(.fcard) .who{display:inline;margin-right:6px}
 #appOffer a{text-decoration:none;font-weight:600}
 #appOffer a:hover{text-decoration:underline;text-underline-offset:3px}
+/* Aviso de pantalla compartida */
+.hud{position:fixed;top:58px;left:50%;transform:translateX(-50%);z-index:7;display:flex;align-items:center;gap:12px;padding:7px 8px 7px 14px;border-radius:999px;border:1px solid rgba(229,72,77,.35);background:var(--glass),rgba(24,14,16,.86);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);box-shadow:var(--edge),0 14px 40px -10px rgba(0,0,0,.7);white-space:nowrap;max-width:calc(100% - 24px)}
+.hud b{font-weight:600;font-size:13px}
+.hud .chk{margin:0;color:var(--text)}
+.hud .warn{font-size:12px;color:#ffb487;white-space:normal;max-width:260px}
+.recdot{width:9px;height:9px;border-radius:50%;background:var(--red);box-shadow:0 0 10px var(--red);flex:none}
+@media (prefers-reduced-motion:no-preference){.recdot{animation:live 1.6s ease-in-out infinite}}
+@media (max-width:560px){.hud{top:54px;gap:8px;padding-left:10px}.hud b{display:none}}
 /* Móvil: dock compacto en una sola fila */
 @media (max-width:560px){
   #bar{flex-wrap:nowrap;gap:5px;padding:7px;margin:4px 8px 10px;max-width:calc(100% - 16px)}
@@ -523,7 +535,7 @@ html.app #join .card{-webkit-app-region:no-drag}
 
 <section id="studio" hidden>
   <header>
-    <div class="room"><svg class="logo dot " viewBox="0 0 72 36" role="img" aria-label="Cabina"><path d="M30 3.5H18a14.5 14.5 0 0 0 0 29h12M42 3.5h12a14.5 14.5 0 0 1 0 29H42" fill="none" stroke="url(#lgC)" stroke-width="3.4" stroke-linecap="round"/><rect x="21" y="10.5" width="30" height="15" rx="7.5" fill="url(#lgC)"/></svg><h2 id="roomName"></h2><span class="lock" id="roomLock" title="Sala con contraseña" hidden></span><span class="pill" id="status">Conectando…</span></div>
+    <div class="room"><svg class="logo dot " viewBox="0 0 72 36" role="img" aria-label="Cabina"><path d="M30 3.5H18a14.5 14.5 0 0 0 0 29h12M42 3.5h12a14.5 14.5 0 0 1 0 29H42" fill="none" stroke="url(#lgC)" stroke-width="3.4" stroke-linecap="round"/><rect x="21" y="10.5" width="30" height="15" rx="7.5" fill="url(#lgC)"/></svg><h2 id="roomName"></h2><span class="lock" id="roomLock" title="Sala con contraseña" hidden></span><span class="pill" id="status">Conectando…</span><span class="pill ip" id="ipPill" hidden></span></div>
     <button class="btn sm" id="copy" title="Copiar el enlace de la sala"><i data-i="link"></i>Invitar</button>
   </header>
   <div class="layout solo">
@@ -540,7 +552,7 @@ html.app #join .card{-webkit-app-region:no-drag}
         <div class="chathead"><h3>Chat</h3><button class="x" id="chatClose" title="Cerrar" aria-label="Cerrar el chat">×</button></div>
         <div id="chatLog"></div>
         <form id="chatForm"><input type="text" id="chatIn" maxlength="500" placeholder="Escribe…" autocomplete="off">
-          <button type="button" class="btn" id="fileBtn" title="Mandar archivos (hasta 1 GB)" aria-label="Mandar archivos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.1 12.2 20.3a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg></button>
+          <button type="button" class="btn" id="fileBtn" title="Mandar archivos (hasta 100 MB)" aria-label="Mandar archivos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.1 12.2 20.3a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg></button>
           <button class="btn">Enviar</button><input type="file" id="fileIn" multiple hidden></form>
       </div>
     </aside>
@@ -626,6 +638,13 @@ html.app #join .card{-webkit-app-region:no-drag}
 
 <div class="ver" id="ver"></div>
 
+<!-- Aviso mientras compartes la pantalla: para saberlo siempre, quitarlo y elegir si va el audio del sistema -->
+<div id="shareHud" class="hud" hidden role="status">
+  <span class="recdot"></span><b>Compartiendo tu pantalla</b>
+  <label class="chk" title="Comparte también lo que suena en el ordenador. Al cambiarlo se vuelve a elegir qué compartir"><input type="checkbox" id="shareAudio"> Audio del sistema</label>
+  <button class="btn sm danger" type="button" id="shareStop">Dejar de compartir</button>
+</div>
+
 <div id="fb" class="modal" hidden>
   <form class="card" id="fbForm">
     <h2>Enviar comentarios</h2>
@@ -668,6 +687,7 @@ const ICONS = {
   set: '<path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/>',
   leave: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
   up: '<path d="m18 15-6-6-6 6"/>',
+  shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
   lock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
   globe: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
   play: '<path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5Z" fill="currentColor"/>',
@@ -1141,7 +1161,18 @@ const hideIp = () => !!TURN_URL && prefs.hideIp !== false;
 async function peerOpts(){
   const servers = await iceServers(), relay = servers.length > STUN.length;
   if (hideIp() && !relay && !S.ipWarned) { S.ipWarned = true; toast('No se ha podido ocultar tu IP: el relevo no responde. Conexión directa.', false, 7000); }
+  ipPill(hideIp() && relay);
   return { debug: 1, config: { iceServers: servers, ...(hideIp() && relay ? { iceTransportPolicy: 'relay' } : {}) } };
+}
+// Dentro de la sala, junto al contador: cómo ha quedado de verdad tu IP (se elige al entrar)
+function ipPill(hidden){
+  const el = $('#ipPill'); if (!TURN_URL) return;
+  el.hidden = false; el.className = 'pill ip ' + (hidden ? 'oculta' : hideIp() ? 'aviso' : '');
+  el.textContent = hidden ? 'IP oculta' : 'IP visible';
+  setIcon(el, 'shield');
+  el.title = hidden ? 'Los demás solo ven la IP del relevo de Cloudflare, no la tuya'
+    : hideIp() ? 'El relevo no ha respondido: los demás pueden ver tu IP. Vuelve a entrar para intentarlo de nuevo'
+    : 'Los demás pueden ver tu IP (conexión directa). Se cambia al entrar, con "Ocultar mi IP"';
 }
 $('#hideIp').closest('label').hidden = !TURN_URL;
 $('#hideIp').checked = hideIp();
@@ -1257,7 +1288,7 @@ function onCall(call){
     call.on('stream', s => { roomyJitter(call); attachDaw(p, s, call, gen); });
     call.on('close', () => { if (p.dawIn && p.dawIn.call === call) removeDawIn(p); });
   } else if (call.metadata && call.metadata.kind === 'screen') {
-    call.answer();
+    call.answer(undefined, { sdpTransform: hqOpus });
     p.screenIn = call;
     call.on('stream', s => showScreen(p, s, call));
     call.on('close', () => hideScreen(p, call));
@@ -2212,18 +2243,52 @@ const micOn = () => { const t = S.talk && S.talk.getAudioTracks()[0]; return !!(
 // La pantalla va en una llamada aparte ("screen"), solo vídeo: el sonido sigue yendo por el DAW.
 // Se prioriza la nitidez (texto de plugins, automatizaciones) sobre la fluidez.
 if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) $('#screenBtn').hidden = false;
+// Audio del sistema (casilla del aviso de pantalla compartida, prefs.screenAudio): se pide junto con la imagen.
+// Lo permiten Chrome y Edge (en Mac, desde Chrome 141 y macOS 14.2) y la app en Windows; si el sistema no lo da,
+// se comparte solo la imagen y se avisa. Lo que suena en la propia Cabina (las voces, el DAW que llega) se deja
+// fuera con restrictOwnAudio cuando el navegador lo permite; si no, se avisa: los demás se oirían a sí mismos.
+const ownAudioExcluded = () => { const md = navigator.mediaDevices; return !window.CABINA_APP && !!(md.getSupportedConstraints && md.getSupportedConstraints().restrictOwnAudio); };
 async function startScreen(){
+  const wantAudio = !!prefs.screenAudio;
   let s;
-  try { s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 30, max: 30 } }, audio: false }); }
+  try {
+    s = await navigator.mediaDevices.getDisplayMedia({
+      video: { frameRate: { ideal: 30, max: 30 } },
+      audio: wantAudio ? { echoCancellation: false, noiseSuppression: false, autoGainControl: false, suppressLocalAudioPlayback: false, restrictOwnAudio: true } : false,
+      systemAudio: wantAudio ? 'include' : 'exclude', selfBrowserSurface: 'exclude',
+    });
+  }
   // Cancelar la elección no es un error (en la app de escritorio llega como AbortError)
   catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') toast('No se pudo compartir la pantalla: ' + e.message); return; }
   const tr = s.getVideoTracks()[0];
   try { tr.contentHint = 'detail'; } catch {}
   tr.onended = stopScreen; // "Dejar de compartir" del propio navegador
+  const au = s.getAudioTracks()[0];
+  if (au) { try { au.contentHint = 'music'; } catch {} }
+  if (wantAudio && !au) toast('Aquí no se puede compartir el audio del ordenador: se comparte solo la imagen.', false, 7000);
   S.screen = s; S.screenGen = (S.screenGen || 0) + 1;
   peers.forEach((p, pid) => { if (p.dc && p.dc.open) { callScreen(pid); sendCap(p); } });
   const b = $('#screenBtn'); b.title = 'Dejar de compartir'; b.classList.add('on');
+  shareHud();
 }
+// Aviso de pantalla compartida (en la página y, en la app, también flotante sobre todo)
+function shareHud(){
+  const on = !!S.screen, au = on && S.screen.getAudioTracks().length > 0;
+  $('#shareHud').hidden = !on;
+  $('#shareAudio').checked = on ? au : !!prefs.screenAudio;
+  let w = $('#shareHud .warn');
+  if (au && !ownAudioExcluded()) {
+    if (!w) { w = document.createElement('span'); w.className = 'warn'; $('#shareStop').before(w); }
+    w.textContent = 'Lo que suena en Cabina también se envía: silencia a los demás mientras.';
+  } else if (w) w.remove();
+  if (window.CABINA_APP && window.CABINA_APP.sharing) window.CABINA_APP.sharing(on);
+}
+$('#shareStop').onclick = () => stopScreen();
+$('#shareAudio').onchange = e => {
+  prefs.screenAudio = e.target.checked; savePrefs();
+  if (S.screen) { stopScreen(); startScreen(); } // el navegador no deja añadir audio a una captura ya empezada
+};
+if (window.CABINA_APP && window.CABINA_APP.onShareStop) window.CABINA_APP.onShareStop(() => stopScreen());
 function stopScreen(){
   if (!S.screen) return;
   S.screen.getTracks().forEach(t => t.stop()); S.screen = null;
@@ -2231,11 +2296,13 @@ function stopScreen(){
   peers.forEach(sendCap);
   peers.forEach(p => { send(p.dc, { type: 'screen-stop', gen: S.screenGen }); try { p.screenOut && p.screenOut.close(); } catch {} p.screenOut = null; });
   const b = $('#screenBtn'); b.title = 'Compartir pantalla'; b.classList.remove('on');
+  shareHud();
 }
 function callScreen(id){
   const p = peers.get(id); if (!p || !p.ready || !S.screen || !S.peer) return;
   try { p.screenOut && p.screenOut.close(); } catch {}
-  const call = S.peer.call(id, S.screen, { metadata: { kind: 'screen', gen: S.screenGen } });
+  const call = S.peer.call(id, S.screen, { metadata: { kind: 'screen', gen: S.screenGen }, sdpTransform: hqOpus });
+  if (S.screen.getAudioTracks().length) boostBitrate(call);
   p.screenOut = call;
   const pc = call.peerConnection; if (!pc) return;
   pc.addEventListener('connectionstatechange', () => {
@@ -2270,6 +2337,7 @@ function renderStage(){
   if (!cur) { v.srcObject = null; if (document.fullscreenElement === st) document.exitFullscreen().catch(() => {}); return; }
   st.querySelector('.tag').textContent = 'Pantalla de ' + cur.p.name;
   if (v.srcObject !== cur.stream) { v.srcObject = cur.stream; v.play().catch(() => {}); }
+  v.muted = !cur.stream.getAudioTracks().length; setSink(v); // el audio del sistema de quien comparte, si lo manda
   ctlButton();
 }
 $('#screenBtn').onclick = () => S.screen ? stopScreen() : startScreen();
@@ -2422,6 +2490,7 @@ $('#out').onchange = e => {
   document.querySelectorAll('.tile:not(.me) video').forEach(setSink);
   peers.forEach(p => p.dawIn && setSink(p.dawIn.audio));
   players.forEach(setSink);
+  setSink($('#stage video'));
   ctxSink();
 };
 $('#copy').onclick = () => { const url = roomLink(); navigator.clipboard.writeText(url).then(() => toast(S.mode === 'privada' ? 'Enlace copiado. Quien lo tenga entra sin contraseña.' : 'Enlace copiado.', true, 6000), () => toast(url)); };
@@ -2546,9 +2615,10 @@ $('#chatForm').onsubmit = e => {
 
 /* ---------- archivos por el chat ---------- */
 // Van directos de ordenador a ordenador por un canal de datos aparte, como el audio: sin servidor ni
-// coste. Quien recibe lo guarda en memoria hasta que lo descarga; de ahí el límite de 1 GB por archivo.
+// coste. Quien recibe lo guarda en memoria hasta que lo descarga; de ahí el límite por archivo.
 // Solo les llega a quienes estén en la sala en ese momento.
-const FILE_MAX = 1024 ** 3, CHUNK = 64 * 1024;
+// Hasta 100 MB por archivo (antes, 1 GB): lo que llega se guarda en la memoria de quien lo recibe
+const FILE_MAX = 100 * 1024 ** 2, CHUNK = 64 * 1024;
 const fmtSize = n => n < 1048576 ? Math.max(1, Math.round(n / 1024)) + ' KB'
   : n < 1073741824 ? (n / 1048576).toFixed(1).replace('.', ',') + ' MB' : (n / 1073741824).toFixed(2).replace('.', ',') + ' GB';
 // Cada archivo sale como una tarjeta (extensión, nombre, tamaño y estado) que se pulsa para descargarlo.
@@ -2606,7 +2676,7 @@ function sendFiles(files){
   if (!to.length) { toast('No hay nadie más en la sala.'); return; }
   for (const f of files) {
     if (!f.size) continue;
-    if (f.size > FILE_MAX) { toast(`${f.name} pesa ${fmtSize(f.size)}: el límite es 1 GB por archivo.`); continue; }
+    if (f.size > FILE_MAX) { toast(`${f.name} pesa ${fmtSize(f.size)}: el límite es 100 MB por archivo.`); continue; }
     const ui = fileMsg('Tú', f.name, f.size), prog = new Map();
     ui.ready(URL.createObjectURL(f), f.type);
     const show = () => {
@@ -2621,15 +2691,18 @@ function sendFiles(files){
 }
 function sendFile(id, f, progress){
   const c = S.peer.connect(id, { reliable: true, serialization: 'raw', metadata: { kind: 'file', name: f.name, size: f.size, type: f.type } });
-  let off = 0, last = 0;
+  let off = 0;
   c.on('open', async () => {
     const dc = c.dataChannel;
+    // El progreso es lo que ya ha salido (lo puesto en la cola menos lo que aún espera en ella). Antes contaba lo
+    // puesto en la cola, que admitía 8 MB: un archivo pequeño saltaba al 99 % y se quedaba ahí hasta acabar.
+    const tick = setInterval(() => { if (c.open) progress(Math.max(0, off - dc.bufferedAmount) / f.size * 0.99); }, 250);
+    c.on('close', () => clearInterval(tick));
     while (off < f.size && c.open) {
-      if (dc.bufferedAmount > 8 << 20) { await sleep(20); continue; } // no llenar la memoria más rápido de lo que sube
+      if (dc.bufferedAmount > 2 << 20) { await sleep(15); continue; } // no llenar la memoria más rápido de lo que sube
       const buf = await f.slice(off, off + CHUNK).arrayBuffer();
       try { dc.send(buf); } catch { break; }
       off += buf.byteLength;
-      const now = performance.now(); if (now - last > 200) { last = now; progress(off / f.size * 0.99); }
     }
   });
   // Quien recibe cierra al tenerlo entero

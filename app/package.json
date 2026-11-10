@@ -29,7 +29,10 @@
       "picker.html",
       "picker-preload.js",
       "offline.html",
-      "control.html"
+      "control.html",
+      "compartir.js",
+      "compartir-preload.js",
+      "compartir.html"
     ],
     "directories": {
       "output": "dist",

@@ -6,6 +6,7 @@ const path = require('path');
 const updater = require('./updater');
 const control = require('./control');
 const plugins = require('./plugins');
+const compartir = require('./compartir');
 const webSegura = require('./web-segura');
 
 // La web publicada. Cambiarla con CABINA_WEB solo vale en desarrollo (npm start): en la app instalada, una
@@ -89,8 +90,11 @@ function permissions(){
     const id = await pickSource();
     const src = id && (await desktopCapturer.getSources({ types: ['screen', 'window'] })).find(x => x.id === id);
     control.setDisplay(src && src.id.startsWith('screen:') ? src.display_id : null); // para el control remoto
+    // Audio del sistema, si la web lo pide: solo con una pantalla entera y solo en Windows (Electron no lo da en
+    // Mac por esta vía). Incluye lo que suena en Cabina; la web lo avisa.
+    const audio = src && req.audioRequested && process.platform === 'win32' && src.id.startsWith('screen:') ? { audio: 'loopback' } : {};
     // Al cancelar, Electron rechaza la petición (la web recibe un AbortError) y además lanza aquí
-    try { src ? cb({ video: src }) : cb({}); } catch {}
+    try { src ? cb({ video: src, ...audio }) : cb({}); } catch {}
   }, { useSystemPicker: true });
 }
 
@@ -150,6 +154,6 @@ function menu(){
 app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
 ipcMain.on('app:version', e => { e.returnValue = app.getVersion(); });
 ipcMain.on('plugins:check', e => { if (win && e.sender === win.webContents) plugins.check(true); });
-app.whenReady().then(() => { permissions(); menu(); createWindow(); updater.start(() => win); plugins.start(() => win); control.setup(() => win); });
+app.whenReady().then(() => { permissions(); menu(); createWindow(); updater.start(() => win); plugins.start(() => win); control.setup(() => win); compartir.setup(() => win); });
 app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
 app.on('window-all-closed', () => app.quit());

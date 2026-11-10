@@ -63,7 +63,8 @@ function pickDisplay(w, h){
 function showPill(name, d){
   const w = 360, h = 52;
   const pill = new BrowserWindow({
-    width: w, height: h, x: Math.round(d.workArea.x + (d.workArea.width - w) / 2), y: d.workArea.y + 12,
+    // Debajo del aviso de pantalla compartida (compartir.js), que siempre está mientras dura el control
+    width: w, height: h, x: Math.round(d.workArea.x + (d.workArea.width - w) / 2), y: d.workArea.y + 64,
     frame: false, transparent: true, resizable: false, movable: false, minimizable: false, maximizable: false,
     acceptFirstMouse: true, // un solo clic en "Quitar control" aunque Cabina no esté delante
     fullscreenable: false, skipTaskbar: true, hasShadow: false, alwaysOnTop: true, show: false,
